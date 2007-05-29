@@ -32,9 +32,8 @@
 #define MASK_A 0xFF000000
 #endif
 
-using namespace std;								// For STL stuff
-
 #define BACKGROUND_IMG_TEST
+//#define USE_COVERAGE_LISTS
 
 //
 // DraggableWindow class implementation
@@ -142,6 +141,16 @@ void DraggableWindow::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 
 void DraggableWindow::Draw(void)
 {
+#ifdef USE_COVERAGE_LISTS
+	// These are *always* top level and parentless, so no need to traverse up through
+	// the parent chain...
+	for(std::list<SDL_Rect>::iterator i=coverList.begin(); i!=coverList.end(); i++)
+		SDL_FillRect(screen, &(*i), bgColor);
+
+	// Handle the items this window contains...
+	for(uint32 i=0; i<list.size(); i++)
+		list[i]->Draw();
+#else
 	// These are *always* top level and parentless, so no need to traverse up through
 	// the parent chain...
 //Perhaps we can make these parentable, put the parent traversal in the base class?
@@ -167,6 +176,7 @@ void DraggableWindow::Draw(void)
 	// Handle the items this window contains...
 	for(uint32 i=0; i<list.size(); i++)
 		list[i]->Draw();
+#endif
 
 //Prolly don't need this since the close button will do this for us...
 	needToRefreshScreen = true;

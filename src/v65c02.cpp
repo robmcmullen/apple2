@@ -15,7 +15,6 @@
 //However, the Atari version *does* occassionally pick strength while the Apple
 //versions do not--which would seem to indicate a bug either in the RNG algorithm,
 //the 65C02 core, or the Apple hardware. Need to investigate all three!
-//[As it turns out, it was a problem with the Apple RNG written by Origin. Bad Origin!]
 
 #define __DEBUG__
 //#define __DEBUGMON__
@@ -918,10 +917,10 @@ static void OpDE(void)							// DEC ABS, X
 Here's one problem: DEX is setting the N flag!
 
 D3EE: A2 09          LDX   #$09 		[PC=D3F0, SP=01F7, CC=---B-I-C, A=01, X=09, Y=08]
-D3F0: 98             TYA    			[PC=D3F1, SP=01F7, CC=N--B-I-C, A=08, X=09, Y=08]
-D3F1: 48             PHA    			[PC=D3F2, SP=01F6, CC=N--B-I-C, A=08, X=09, Y=08]
+D3F0: 98             TYA    		[PC=D3F1, SP=01F7, CC=N--B-I-C, A=08, X=09, Y=08]
+D3F1: 48             PHA    		[PC=D3F2, SP=01F6, CC=N--B-I-C, A=08, X=09, Y=08]
 D3F2: B5 93          LDA   $93,X 		[PC=D3F4, SP=01F6, CC=---B-IZC, A=00, X=09, Y=08]
-D3F4: CA             DEX    			[PC=D3F5, SP=01F6, CC=N--B-I-C, A=00, X=08, Y=08]
+D3F4: CA             DEX    		[PC=D3F5, SP=01F6, CC=N--B-I-C, A=00, X=08, Y=08]
 D3F5: 10 FA          BPL   $D3F1 		[PC=D3F7, SP=01F6, CC=N--B-I-C, A=00, X=08, Y=08]
 D3F7: 20 84 E4       JSR   $E484 		[PC=E484, SP=01F4, CC=N--B-I-C, A=00, X=08, Y=08]
 
@@ -1131,7 +1130,6 @@ JSR	Absolute	JSR Abs		20	3	6
 //This is not jumping to the correct address... !!! FIX !!! [DONE]
 static void Op20(void)							// JSR
 {
-// The whole ret - 1 probably stems from a fetch/push/fetch/push sequence...
 	uint16 addr = RdMemW(regs.pc);
 	regs.pc++;									// Since it pushes return address - 1...
 	regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);

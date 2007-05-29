@@ -8,7 +8,7 @@
 #define __GUI_H__
 
 #include <SDL.h>
-#include <vector>
+#include <list>
 
 class Menu;										// Now *this* should work, since we've got pointers...
 class MenuItems;
@@ -26,10 +26,12 @@ class GUI
 		void Stop(void);
 
 	private:
-		Menu * mainMenu;
+//		Menu * mainMenu;
 		MenuItems * menuItem;
-		std::vector<Element *> windowList;
+		std::list<Element *> windowList;
 		bool exitGUI;
+		bool showMouse;
+		SDL_Rect mouse, oldMouse;
 };
 
 #endif	// __GUI_H__

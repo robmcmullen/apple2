@@ -18,6 +18,12 @@
 #include "guimisc.h"								// Various support functions
 #include <algorithm>
 
+// Debug support...
+//#define DESTRUCTOR_TESTING
+
+// Rendering experiment...
+#define USE_COVERAGE_LISTS
+
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
 #define MASK_R 0xFF000000
 #define MASK_G 0x00FF0000
@@ -29,8 +35,6 @@
 #define MASK_B 0x00FF0000
 #define MASK_A 0xFF000000
 #endif
-
-using namespace std;								// For STL stuff
 
 //
 // Window class implementation
@@ -59,6 +63,9 @@ Window::Window(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*
 
 Window::~Window()
 {
+#ifdef DESTRUCTOR_TESTING
+printf("Inside ~Window()...\n");
+#endif
 	for(uint32 i=0; i<list.size(); i++)
 		if (list[i])
 			delete list[i];
@@ -100,6 +107,16 @@ void Window::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 
 void Window::Draw(void)
 {
+#ifdef USE_COVERAGE_LISTS
+	// These are *always* top level and parentless, so no need to traverse up through
+	// the parent chain...
+	for(std::list<SDL_Rect>::iterator i=coverList.begin(); i!=coverList.end(); i++)
+		SDL_FillRect(screen, &(*i), bgColor);
+
+	// Handle the items this window contains...
+	for(uint32 i=0; i<list.size(); i++)
+		list[i]->Draw();
+#else
 	// These are *always* top level and parentless, so no need to traverse up through
 	// the parent chain...
 	SDL_FillRect(screen, &extents, bgColor);
@@ -107,6 +124,7 @@ void Window::Draw(void)
 	// Handle the items this window contains...
 	for(uint32 i=0; i<list.size(); i++)
 		list[i]->Draw();
+#endif
 
 //Prolly don't need this since the close button will do this for us...
 	needToRefreshScreen = true;
@@ -117,7 +135,9 @@ void Window::Notify(Element * e)
 	if (e == closeButton)
 	{
 		SDL_Event event;
-		event.type = SDL_USEREVENT, event.user.code = WINDOW_CLOSE;
+		event.type = SDL_USEREVENT;
+		event.user.code = WINDOW_CLOSE;
+		event.user.data1 = (void *)this;
 		SDL_PushEvent(&event);
 	}
 }

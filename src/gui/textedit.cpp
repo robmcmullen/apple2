@@ -27,14 +27,12 @@
 #define MASK_A 0xFF000000
 #endif
 
-using namespace std;								// For STL stuff
-
 //
 // Text edit class implementation
 //
 
 TextEdit::TextEdit(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
-	string s/*= ""*/, Element * parent/*= NULL*/):
+	std::string s/*= ""*/, Element * parent/*= NULL*/):
 	Element(x, y, w, h, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x40, 0x40, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
 	img(NULL), text(s), caretPos(0), scrollPos(0),
@@ -227,7 +225,7 @@ void TextEdit::Notify(Element *)
 {
 }
 
-string TextEdit::GetText(void)
+std::string TextEdit::GetText(void)
 {
 	return text;
 }

@@ -26,8 +26,6 @@
 #define MASK_A 0xFF000000
 #endif
 
-using namespace std;								// For STL stuff
-
 //
 // Button class implementation
 //
@@ -35,7 +33,7 @@ using namespace std;								// For STL stuff
 /*
 Some notes about this class:
 
-- Button colors are hardwired
+- Button colors are hardwired (for plain text buttons)
 */
 
 Button::Button(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
@@ -78,7 +76,7 @@ Button::Button(uint32 x, uint32 y, SDL_Surface * bU, SDL_Surface * bH/*= NULL*/,
 		extents.h = buttonUp->h;
 }
 
-Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, string s, Element * parent/*= NULL*/):
+Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, std::string s, Element * parent/*= NULL*/):
 	Element(x, y, w, h, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
 	buttonUp(NULL), buttonDown(NULL), buttonHover(NULL), surfacesAreLocal(true),
@@ -87,7 +85,7 @@ Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, string s, Element * paren
 	// Create the button surfaces here...
 }
 
-Button::Button(uint32 x, uint32 y, string s, Element * parent/*= NULL*/):
+Button::Button(uint32 x, uint32 y, std::string s, Element * parent/*= NULL*/):
 	Element(x, y, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
 	buttonUp(NULL), buttonDown(NULL), buttonHover(NULL), surfacesAreLocal(true),
@@ -170,8 +168,6 @@ void Button::Draw(void)
 	if (buttonUp == NULL)
 		return;									// Bail out if no surface was created...
 
-	SDL_Rect rect = GetScreenCoords();
-
 	// Now, draw the appropriate button state!
 
 	SDL_Surface * picToShow = buttonUp;
@@ -182,6 +178,10 @@ void Button::Draw(void)
 	if (buttonDown != NULL && inside && clicked)
 		picToShow = buttonDown;
 
+	SDL_Rect rect = GetScreenCoords();
+
+//Need to do coverage list blitting here, to avoid unnecessary drawing when doing mouseovers
+//Also, need to add suport in Gui()...
 	SDL_BlitSurface(picToShow, NULL, screen, &rect);	// This handles alpha blending too! :-D
 
 	needToRefreshScreen = true;

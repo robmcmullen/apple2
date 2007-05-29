@@ -156,6 +156,47 @@ void DrawStringOpaque(SDL_Surface * screen, uint32 x, uint32 y, uint32 fg, uint3
 	SDL_FreeSurface(chr);
 }
 
+bool RectanglesIntersect(SDL_Rect r1, SDL_Rect r2)
+{
+	// The strategy here is to see if any of the sides of the smaller rect
+	// fall within the larger.
+
+/*
+    +-----------------+ r1
+    |                 |
+    |   +------+ r2   |
+    |   |      |      |
+    |   |      |      |
+    |   +------+      |
+    |                 |
+    +-----------------+
+
+*/
+
+//This approach fails if r2 is inside of r1. !!! FIX !!! [DONE]
+	if (RectangleFirstInsideSecond(r2, r1))
+		return true;
+
+	if ((r1.x > r2.x && r1.x < (r2.x + r2.w))
+		|| ((r1.x + r1.w) > r2.x && (r1.x + r1.w) < (r2.x + r2.w))
+		|| (r1.y > r2.y && r1.y < (r2.y + r2.h))
+		|| ((r1.y + r1.h) > r2.y && (r1.y + r1.h) < (r2.y + r2.h)))
+		return true;
+
+	return false;
+}
+
+bool RectangleFirstInsideSecond(SDL_Rect r1, SDL_Rect r2)
+{
+	if ((r1.x > r2.x             && (r1.x + r1.w) > r2.x)
+		&& (r1.x < (r2.x + r2.w) && (r1.x + r1.w) < (r2.x + r2.w))
+		&& (r1.y > r2.y          && (r1.y + r1.h) > r2.y)
+		&& (r1.y < (r2.y + r2.h) && (r1.y + r1.h) < (r2.y + r2.h)))
+		return true;
+
+	return false;
+}
+
 
 //
 // Various GUI bitmaps

@@ -54,9 +54,9 @@ TARGET     = apple2
 #		-ffast-math -fomit-frame-pointer `sdl-config --cflags` -fprofile-arcs -ftest-coverage
 # No optimization for profiling with gprof...
 CFLAGS   = -MMD -Wall -Wno-switch -D$(SYSTYPE) \
-		-ffast-math `sdl-config --cflags` -pg
+		-ffast-math `sdl-config --cflags` -pg -g
 CPPFLAGS = -MMD -Wall -Wno-switch -Wno-non-virtual-dtor -D$(SYSTYPE) \
-		-ffast-math `sdl-config --cflags` -pg
+		-ffast-math `sdl-config --cflags` -pg -g
 #		-fomit-frame-pointer `sdl-config --cflags` -g
 #		-fomit-frame-pointer `sdl-config --cflags` -DLOG_UNMAPPED_MEMORY_ACCESSES
 
@@ -73,6 +73,7 @@ INCS = -I. -I./src -I/usr/local/include -I/usr/include
 OBJS = \
 	obj/button.o          \
 	obj/draggablewindow.o \
+	obj/draggablewindow2.o \
 	obj/element.o         \
 	obj/gui.o             \
 	obj/guimisc.o         \
