@@ -48,9 +48,7 @@ uint32 GetFontHeight(void);
 void DrawStringTrans(SDL_Surface * screen, uint32 x, uint32 y, uint32 color, const char * text, ...);
 void DrawStringOpaque(SDL_Surface * screen, uint32 x, uint32 y, uint32 fg, uint32 bg, const char * text, ...);
 
-//Not sure these belong here, but there you go...
-bool RectanglesIntersect(SDL_Rect r1, SDL_Rect r2);
-bool RectangleFirstInsideSecond(SDL_Rect r1, SDL_Rect r2);
+void DrawStringOpaqueSmall(SDL_Surface * screen, uint32 x, uint32 y, uint32 fg, uint32 bg, const char * text, ...);
 
 // GUI bitmaps (exported)
 

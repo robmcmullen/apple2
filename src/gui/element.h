@@ -13,7 +13,6 @@
 enum { WINDOW_CLOSE, MENU_ITEM_CHOSEN, SCREEN_REFRESH_NEEDED };
 
 #include <SDL.h>
-#include <list>
 #include "types.h"
 
 class Element
@@ -35,17 +34,12 @@ class Element
 //Badly named, though we may code something that does this...
 //		SDL_Rect GetParentCorner(void);
 		SDL_Rect GetScreenCoords(void);
-		SDL_Rect GetExtents(void);
-#if 1
+#if 0
 //May use this in the future...
 		SDL_Rect GetParentRect(void);
 #endif
 		void CreateBackstore(void);
 		void RestoreScreenFromBackstore(void);
-		void SaveScreenToBackstore(void);
-		void ResetCoverageList(void);
-//Need something to prevent this on Elements that don't have mouseover effects...
-		void AdjustCoverageList(SDL_Rect r);
 		// Class methods...
 		static void SetScreen(SDL_Surface *);
 		static bool ScreenNeedsRefreshing(void);
@@ -58,7 +52,6 @@ class Element
 		uint32 fgColor;
 		uint32 bgColor;
 		SDL_Surface * backstore;
-		std::list<SDL_Rect> coverList;
 
 		// Class variables...
 		static SDL_Surface * screen;
