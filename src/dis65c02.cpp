@@ -5,10 +5,10 @@
 // (c) 2005 Underground Software
 //
 
+#include "dis65c02.h"
+
 #include <stdio.h>
 #include <string>
-#include "dis65c02.h"
-//#include "types.h"
 #include "v65c02.h"
 #include "log.h"
 
@@ -16,7 +16,7 @@ using namespace std;
 
 // External shit
 
-extern V65C02REGS mainCPU;//Hm. Shouldn't we pass this shit in?
+extern V65C02REGS mainCPU;//Hm. Shouldn't we pass this shit in? ANSWER: YES. !!! FIX !!!
 
 // Private globals variables
 

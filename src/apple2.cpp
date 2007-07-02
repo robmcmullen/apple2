@@ -54,7 +54,7 @@
 #include "gui/draggablewindow2.h"
 #include "gui/textedit.h"
 
-using namespace std;
+//using namespace std;
 
 // Global variables
 
@@ -316,28 +316,20 @@ if (addr >= 0xC080 && addr <= 0xC08F)
 A-9 (Mockingboard)
 APPENDIX F Assembly Language Program Listings
 
-			1	*PRIMARY ROUTINES
-			2	*FOR SLOT 4
-			3	*
-			4			ORG	$9000
-			5	*				;ADDRESSES
-										FOR FIRST
-										6522
-			6	ORB		EQU	$C400		;PORT B
-			7	ORA		EQU	$C401		;PORT A
-			8	DDRB		EQU	$C402		;DATA DIRECTION
-										REGISTER (A)
-			9	DDRA		EQU	$C403		;DATA DIRECTION
-										REGISTER (B)
-			10	*					;ADDRESSES
-										FOR SECOND
-										6522
-			11	ORB2		EQU	$C480		;PORT B
-			12	ORA2		EQU	$C481		;PORT A
-			13	DDRB2	EQU	$C482		;DATA DIRECTION
-										REGISTER (B)
-			14	DDRA2	EQU	$C483		;DATA DIRECTION
-										REGISTER (A)
+	1	*PRIMARY ROUTINES
+	2	*FOR SLOT 4
+	3	*
+	4			ORG	$9000
+	5	*				;ADDRESSES FOR FIRST 6522
+	6	ORB		EQU	$C400		;PORT B
+	7	ORA		EQU	$C401		;PORT A
+	8	DDRB		EQU	$C402		;DATA DIRECTION REGISTER (A)
+	9	DDRA		EQU	$C403		;DATA DIRECTION REGISTER (B)
+	10	*					;ADDRESSES FOR SECOND 6522
+	11	ORB2		EQU	$C480		;PORT B
+	12	ORA2		EQU	$C481		;PORT A
+	13	DDRB2	EQU	$C482		;DATA DIRECTION REGISTER (B)
+	14	DDRA2	EQU	$C483		;DATA DIRECTION REGISTER (A)
 */
 void WrMem(uint16 addr, uint8 b)
 {
@@ -579,7 +571,7 @@ int main(int /*argc*/, char * /*argv*/[])
 	WriteLog("About to initialize video...\n");
 	if (!InitVideo())
 	{
-		cout << "Aborting!" << endl;
+		std::cout << "Aborting!" << std::endl;
 		return -1;
 	}
 
@@ -803,6 +795,7 @@ else if (event.key.keysym.sym == SDLK_F10)
 	RenderVideoFrame();
 	SetCallbackTime(FrameCallback, 16666.66666667);
 
+//Instead of this, we should yield remaining time to other processes... !!! FIX !!!
 	while (SDL_GetTicks() - startTicks < 16);	// Wait for next frame...
 	startTicks = SDL_GetTicks();
 }

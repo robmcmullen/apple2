@@ -9,8 +9,8 @@ void _AYWriteReg(int n, int r, int v);
 void AY8910_reset(int chip);
 void AY8910Update(int chip, int16 ** buffer, int length);
 
-void AY8910_InitAll(int nClock, int nSampleRate);
-void AY8910_InitClock(int nClock);
-uint8 * AY8910_GetRegsPtr(uint16 nAyNum);
+void AY8910_InitAll(int clock, int sampleRate);
+void AY8910_InitClock(int clock);
+uint8 * AY8910_GetRegsPtr(uint16 chipNum);
 
 #endif

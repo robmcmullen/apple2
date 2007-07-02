@@ -9,9 +9,9 @@
 
 ***************************************************************************/
 
-// 
+//
 // From mame.txt (http://www.mame.net/readme.html)
-// 
+//
 // VI. Reuse of Source Code
 // --------------------------
 //    This chapter might not apply to specific portions of MAME (e.g. CPU
@@ -25,12 +25,12 @@
 //    However, given the amount of time and energy it took to collect this
 //    information, if you find new information we would appreciate if you made it
 //    freely available as well.
-// 
+//
 
 // JLH: Commented out MAME specific crap
 
-#include <string.h>								// for memset()
 #include "ay8910.h"
+#include <string.h>								// for memset()
 
 #define MAX_OUTPUT 0x7FFF
 
@@ -49,13 +49,13 @@ struct AY8910
 	unsigned char Regs[16];
 	int lastEnable;
 	unsigned int UpdateStep;
-	int PeriodA,PeriodB,PeriodC,PeriodN,PeriodE;
-	int CountA,CountB,CountC,CountN,CountE;
-	unsigned int VolA,VolB,VolC,VolE;
-	unsigned char EnvelopeA,EnvelopeB,EnvelopeC;
-	unsigned char OutputA,OutputB,OutputC,OutputN;
+	int PeriodA, PeriodB, PeriodC, PeriodN, PeriodE;
+	int CountA, CountB, CountC, CountN, CountE;
+	unsigned int VolA, VolB, VolC, VolE;
+	unsigned char EnvelopeA, EnvelopeB, EnvelopeC;
+	unsigned char OutputA, OutputB, OutputC, OutputN;
 	signed char CountEnv;
-	unsigned char Hold,Alternate,Attack,Holding;
+	unsigned char Hold, Alternate, Attack, Holding;
 	int RNG;
 	unsigned int VolTable[32];
 };
@@ -108,11 +108,13 @@ void _AYWriteReg(int n, int r, int v)
 		old = PSG->PeriodA;
 		PSG->PeriodA = (PSG->Regs[AY_AFINE] + 256 * PSG->Regs[AY_ACOARSE]) * PSG->UpdateStep;
 
-		if (PSG->PeriodA == 0) PSG->PeriodA = PSG->UpdateStep;
+		if (PSG->PeriodA == 0)
+			PSG->PeriodA = PSG->UpdateStep;
 
 		PSG->CountA += PSG->PeriodA - old;
 
-		if (PSG->CountA <= 0) PSG->CountA = 1;
+		if (PSG->CountA <= 0)
+			PSG->CountA = 1;
 		break;
 	case AY_BFINE:
 	case AY_BCOARSE:
@@ -120,11 +122,13 @@ void _AYWriteReg(int n, int r, int v)
 		old = PSG->PeriodB;
 		PSG->PeriodB = (PSG->Regs[AY_BFINE] + 256 * PSG->Regs[AY_BCOARSE]) * PSG->UpdateStep;
 
-		if (PSG->PeriodB == 0) PSG->PeriodB = PSG->UpdateStep;
+		if (PSG->PeriodB == 0)
+			PSG->PeriodB = PSG->UpdateStep;
 
 		PSG->CountB += PSG->PeriodB - old;
 
-		if (PSG->CountB <= 0) PSG->CountB = 1;
+		if (PSG->CountB <= 0)
+			PSG->CountB = 1;
 		break;
 	case AY_CFINE:
 	case AY_CCOARSE:
@@ -132,22 +136,26 @@ void _AYWriteReg(int n, int r, int v)
 		old = PSG->PeriodC;
 		PSG->PeriodC = (PSG->Regs[AY_CFINE] + 256 * PSG->Regs[AY_CCOARSE]) * PSG->UpdateStep;
 
-		if (PSG->PeriodC == 0) PSG->PeriodC = PSG->UpdateStep;
+		if (PSG->PeriodC == 0)
+			PSG->PeriodC = PSG->UpdateStep;
 
 		PSG->CountC += PSG->PeriodC - old;
 
-		if (PSG->CountC <= 0) PSG->CountC = 1;
+		if (PSG->CountC <= 0)
+			PSG->CountC = 1;
 		break;
 	case AY_NOISEPER:
 		PSG->Regs[AY_NOISEPER] &= 0x1F;
 		old = PSG->PeriodN;
 		PSG->PeriodN = PSG->Regs[AY_NOISEPER] * PSG->UpdateStep;
 
-		if (PSG->PeriodN == 0) PSG->PeriodN = PSG->UpdateStep;
+		if (PSG->PeriodN == 0)
+			PSG->PeriodN = PSG->UpdateStep;
 
 		PSG->CountN += PSG->PeriodN - old;
 
-		if (PSG->CountN <= 0) PSG->CountN = 1;
+		if (PSG->CountN <= 0)
+			PSG->CountN = 1;
 		break;
 	case AY_ENABLE:
 		if ((PSG->lastEnable == -1) ||
@@ -188,11 +196,13 @@ void _AYWriteReg(int n, int r, int v)
 		old = PSG->PeriodE;
 		PSG->PeriodE = ((PSG->Regs[AY_EFINE] + 256 * PSG->Regs[AY_ECOARSE])) * PSG->UpdateStep;
 
-		if (PSG->PeriodE == 0) PSG->PeriodE = PSG->UpdateStep / 2;
+		if (PSG->PeriodE == 0)
+			PSG->PeriodE = PSG->UpdateStep / 2;
 
 		PSG->CountE += PSG->PeriodE - old;
 
-		if (PSG->CountE <= 0) PSG->CountE = 1;
+		if (PSG->CountE <= 0)
+			PSG->CountE = 1;
 		break;
 	case AY_ESHAPE:
 		/* envelope shapes:
@@ -241,9 +251,14 @@ void _AYWriteReg(int n, int r, int v)
 		PSG->Holding = 0;
 		PSG->VolE = PSG->VolTable[PSG->CountEnv ^ PSG->Attack];
 
-		if (PSG->EnvelopeA) PSG->VolA = PSG->VolE;
-		if (PSG->EnvelopeB) PSG->VolB = PSG->VolE;
-		if (PSG->EnvelopeC) PSG->VolC = PSG->VolE;
+		if (PSG->EnvelopeA)
+			PSG->VolA = PSG->VolE;
+
+		if (PSG->EnvelopeB)
+			PSG->VolB = PSG->VolE;
+
+		if (PSG->EnvelopeC)
+			PSG->VolC = PSG->VolE;
 		break;
 	case AY_PORTA:
 		if (PSG->Regs[AY_ENABLE] & 0x40)
@@ -280,7 +295,7 @@ void _AYWriteReg(int n, int r, int v)
 void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 {
 	struct AY8910 * PSG = &AYPSG[chip];
-	INT16 * buf1, * buf2, * buf3;
+	int16 * buf1, * buf2, * buf3;
 	int outn;
 
 	buf1 = buffer[0];
@@ -301,7 +316,9 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 	 * If the volume is 0, increase the counter, but don't touch the output.     */
 	if (PSG->Regs[AY_ENABLE] & 0x01)
 	{
-		if (PSG->CountA <= length * STEP) PSG->CountA += length * STEP;
+		if (PSG->CountA <= length * STEP)
+			PSG->CountA += length * STEP;
+
 		PSG->OutputA = 1;
 	}
 	else if (PSG->Regs[AY_AVOL] == 0)
@@ -309,33 +326,41 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 		/* note that I do count += length, NOT count = length + 1. You might think *
 		 * it's the same since the volume is 0, but doing the latter could cause   *
 		 * interferencies when the program is rapidly modulating the volume.       */
-		if (PSG->CountA <= length * STEP) PSG->CountA += length * STEP;
+		if (PSG->CountA <= length * STEP)
+			PSG->CountA += length * STEP;
 	}
 
 	if (PSG->Regs[AY_ENABLE] & 0x02)
 	{
-		if (PSG->CountB <= length * STEP) PSG->CountB += length * STEP;
+		if (PSG->CountB <= length * STEP)
+			PSG->CountB += length * STEP;
+
 		PSG->OutputB = 1;
 	}
 	else if (PSG->Regs[AY_BVOL] == 0)
 	{
-		if (PSG->CountB <= length * STEP) PSG->CountB += length * STEP;
+		if (PSG->CountB <= length * STEP)
+			PSG->CountB += length * STEP;
 	}
 
 	if (PSG->Regs[AY_ENABLE] & 0x04)
 	{
-		if (PSG->CountC <= length * STEP) PSG->CountC += length * STEP;
+		if (PSG->CountC <= length * STEP)
+			PSG->CountC += length * STEP;
+
 		PSG->OutputC = 1;
 	}
 	else if (PSG->Regs[AY_CVOL] == 0)
 	{
-		if (PSG->CountC <= length * STEP) PSG->CountC += length * STEP;
+		if (PSG->CountC <= length * STEP)
+			PSG->CountC += length * STEP;
 	}
 
 	/* for the noise channel we must not touch OutputN - it's also not necessary *
 	 * since we use outn.                                                        */
 	if ((PSG->Regs[AY_ENABLE] & 0x38) == 0x38)	/* all off */
-		if (PSG->CountN <= length * STEP) PSG->CountN += length * STEP;
+		if (PSG->CountN <= length * STEP)
+			PSG->CountN += length * STEP;
 
 	outn = (PSG->OutputN | PSG->Regs[AY_ENABLE]);
 
@@ -354,12 +379,15 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 		{
 			int nextevent;
 
-			if (PSG->CountN < left) nextevent = PSG->CountN;
-			else nextevent = left;
+			if (PSG->CountN < left)
+				nextevent = PSG->CountN;
+			else
+				nextevent = left;
 
 			if (outn & 0x08)
 			{
-				if (PSG->OutputA) vola += PSG->CountA;
+				if (PSG->OutputA)
+					vola += PSG->CountA;
 
 				PSG->CountA -= nextevent;
 				/* PeriodA is the half period of the square wave. Here, in each    *
@@ -378,7 +406,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 					{
 						PSG->OutputA ^= 1;
 
-						if (PSG->OutputA) vola += PSG->PeriodA;
+						if (PSG->OutputA)
+							vola += PSG->PeriodA;
 						break;
 					}
 
@@ -386,7 +415,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 					vola += PSG->PeriodA;
 				}
 
-				if (PSG->OutputA) vola -= PSG->CountA;
+				if (PSG->OutputA)
+					vola -= PSG->CountA;
 			}
 			else
 			{
@@ -407,7 +437,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 
 			if (outn & 0x10)
 			{
-				if (PSG->OutputB) volb += PSG->CountB;
+				if (PSG->OutputB)
+					volb += PSG->CountB;
 
 				PSG->CountB -= nextevent;
 
@@ -419,7 +450,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 					{
 						PSG->OutputB ^= 1;
 
-						if (PSG->OutputB) volb += PSG->PeriodB;
+						if (PSG->OutputB)
+							volb += PSG->PeriodB;
 						break;
 					}
 
@@ -427,7 +459,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 					volb += PSG->PeriodB;
 				}
 
-				if (PSG->OutputB) volb -= PSG->CountB;
+				if (PSG->OutputB)
+					volb -= PSG->CountB;
 			}
 			else
 			{
@@ -449,7 +482,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 
 			if (outn & 0x20)
 			{
-				if (PSG->OutputC) volc += PSG->CountC;
+				if (PSG->OutputC)
+					volc += PSG->CountC;
 
 				PSG->CountC -= nextevent;
 
@@ -461,7 +495,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 					{
 						PSG->OutputC ^= 1;
 
-						if (PSG->OutputC) volc += PSG->PeriodC;
+						if (PSG->OutputC)
+							volc += PSG->PeriodC;
 						break;
 					}
 
@@ -469,7 +504,8 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 					volc += PSG->PeriodC;
 				}
 
-				if (PSG->OutputC) volc -= PSG->CountC;
+				if (PSG->OutputC)
+					volc -= PSG->CountC;
 			}
 			else
 			{
@@ -559,9 +595,14 @@ void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
 
 				PSG->VolE = PSG->VolTable[PSG->CountEnv ^ PSG->Attack];
 				/* reload volume */
-				if (PSG->EnvelopeA) PSG->VolA = PSG->VolE;
-				if (PSG->EnvelopeB) PSG->VolB = PSG->VolE;
-				if (PSG->EnvelopeC) PSG->VolC = PSG->VolE;
+				if (PSG->EnvelopeA)
+					PSG->VolA = PSG->VolE;
+
+				if (PSG->EnvelopeB)
+					PSG->VolB = PSG->VolE;
+
+				if (PSG->EnvelopeC)
+					PSG->VolC = PSG->VolE;
 			}
 		}
 

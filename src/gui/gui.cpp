@@ -215,7 +215,7 @@ We could do the following:
   than one is clicked on, take the one highest in the Z order (closer to the end
   of the list).
 
-- If item is highest in Z order, pack click through to window and exit.
+- If item is highest in Z order, pass click through to window and exit.
 
 - Otherwise, restore backing store on each window in reverse order.
 
@@ -257,7 +257,7 @@ it overlaps and just do restore/redraw for those that overlap. To wit:
 						// iterator to a regular iterator requires backing the iterator
 						// up a position after grabbing it's base() OR going forward
 						// one position with the reverse iterator before grabbing base().
-						// Ugly, but it get the job done...
+						// Ugly, but it gets the job done...
 						hit = (++ri).base();
 						// Put it back where we found it, so the tests following this
 						// don't fail...
