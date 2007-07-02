@@ -72,7 +72,7 @@ bool alternateCharset;
 // Local variables
 
 // We set up the colors this way so that they'll be endian safe
-// when we cast them to a uint32.
+// when we cast them to a uint32. Note that the format is RGBA.
 
 // "Master Color Values" palette
 
@@ -243,7 +243,10 @@ void SetupBlurTable(void)
 {
 	// NOTE: This table only needs to be 7 bits wide instead of 11, since the
 	//       last four bits are copies of the previous four...
-
+	//       Odd. Doing the bit patterns from 0-$7F doesn't work, but going
+	//       from 0-$7FF stepping by 16 does. Hm.
+	//       Well, it seems that going from 0-$7F doesn't have enough precision to do the job.
+#if 0
 //	for(uint16 bitPat=0; bitPat<0x800; bitPat++)
 	for(uint16 bitPat=0; bitPat<0x80; bitPat++)
 	{
@@ -270,6 +273,26 @@ void SetupBlurTable(void)
 			blurTable[bitPat][7 - i] = color;
 		}
 	}
+#else
+	for(uint16 bitPat=0; bitPat<0x800; bitPat+=0x10)
+	{
+		uint16 w0 = bitPat & 0x111, w1 = bitPat & 0x222, w2 = bitPat & 0x444, w3 = bitPat & 0x888;
+
+		uint16 blurred0 = (w0 | (w0 >> 1) | (w0 >> 2) | (w0 >> 3)) & 0x00FF;
+		uint16 blurred1 = (w1 | (w1 >> 1) | (w1 >> 2) | (w1 >> 3)) & 0x00FF;
+		uint16 blurred2 = (w2 | (w2 >> 1) | (w2 >> 2) | (w2 >> 3)) & 0x00FF;
+		uint16 blurred3 = (w3 | (w3 >> 1) | (w3 >> 2) | (w3 >> 3)) & 0x00FF;
+
+		for(int8 i=7; i>=0; i--)
+		{
+			uint8 color = (((blurred0 >> i) & 0x01) << 3)
+				| (((blurred1 >> i) & 0x01) << 2)
+				| (((blurred2 >> i) & 0x01) << 1)
+				| ((blurred3 >> i) & 0x01);
+			blurTable[bitPat >> 4][7 - i] = color;
+		}
+	}
+#endif
 }
 
 void TogglePalette(void)
@@ -419,6 +442,7 @@ static void Render40ColumnTextLine(uint8 line)
 				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 0 + (cy * VIRTUAL_SCREEN_WIDTH * 2)] = pixel;
 				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 1 + (cy * VIRTUAL_SCREEN_WIDTH * 2)] = pixel;
 
+				// QnD method to get blank alternate lines in text mode
 				if (screenType == ST_GREEN_MONO)
 					pixel = 0xFF000000;
 
@@ -518,7 +542,7 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 			{
 				for(uint8 i=0; i<7; i++)
 				{
-					uint16 bitPat = (pixels & 0x7F000000) >> 20;
+					uint8 bitPat = (pixels & 0x7F000000) >> 24;
 					pixels <<= 4;
 
 					for(uint8 j=0; j<4; j++)
@@ -573,7 +597,7 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 			{
 				for(uint8 i=0; i<7; i++)
 				{
-					uint16 bitPat = (pixels & 0x7F000000) >> 20;
+					uint8 bitPat = (pixels & 0x7F000000) >> 24;
 					pixels <<= 4;
 
 					for(uint8 j=0; j<4; j++)
@@ -610,7 +634,14 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 static void RenderHiRes(uint16 toLine/*= 192*/)
 {
 // NOTE: Not endian safe. !!! FIX !!!
+#if 0
 	uint32 pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
+#else
+// Now it is. Now roll this fix into all the other places... !!! FIX !!!
+	uint8 monoColors[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0x61, 0xFF };
+	uint32 * colorPtr = (uint32 *)monoColors;
+	uint32 pixelOn = (screenType == ST_WHITE_MONO ? colorPtr[0] : colorPtr[1]);
+#endif
 
 	for(uint16 y=0; y<toLine; y++)
 	{
@@ -637,7 +668,7 @@ static void RenderHiRes(uint16 toLine/*= 192*/)
 			{
 				for(uint8 i=0; i<7; i++)
 				{
-					uint16 bitPat = (pixels & 0x7F000000) >> 20;
+					uint8 bitPat = (pixels & 0x7F000000) >> 24;
 					pixels <<= 4;
 
 					for(uint8 j=0; j<4; j++)
