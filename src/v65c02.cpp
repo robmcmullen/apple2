@@ -2214,14 +2214,37 @@ FBEF: 60        602  RTS2B    RTS
 #ifdef __DEBUG__
 bool dumpDis = false;
 #endif
+
+//Note: could enforce regs.clock to zero on starting the CPU with an Init() function...
+//bleh.
+//static uint32 limit = 0;
+
 //
-// Function to execute 6808 for "cycles" cycles
+// Function to execute 65C02 for "cycles" cycles
 //
 void Execute65C02(V65C02REGS * context, uint32 cycles)
 {
 	myMemcpy(&regs, context, sizeof(V65C02REGS));
 
 	// Execute here...
+// NOTE: There *must* be some way of doing this without requiring the caller to subtract out
+//       the previous run's cycles. !!! FIX !!!
+// Could try:
+//	while (regs.clock < regs.clock + cycles) <-- won't work
+/*
+	// This isn't as accurate as subtracting out cycles from regs.clock...
+	// Unless limit is a static variable, adding cycles to it each time through...
+	uint32 limit = regs.clock + cycles;
+	while (regs.clock < limit)
+*/
+// but have wraparound to deal with. :-/
+/*
+Let's see...
+
+	if (regs.clock + cycles > 0xFFFFFFFF)
+		wraparound = true;
+*/
+
 	while (regs.clock < cycles)
 	{
 #if 0
@@ -2359,6 +2382,10 @@ WriteLog("\n*** IRQ ***\n\n");
 			}
 		}
 	}
+
+//This is a lame way of doing it, but in the end the simplest--however, it destroys any
+//record of elasped CPU time. Not sure that it's important to keep track, but there it is.
+	regs.clock -= cycles;
 
 	myMemcpy(context, &regs, sizeof(V65C02REGS));
 }

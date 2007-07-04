@@ -644,7 +644,8 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 		Execute65C02(&mainCPU, USEC_TO_M6502_CYCLES(timeToNextEvent));
 //We MUST remove a frame's worth of time in order for the CPU to function... !!! FIX !!!
 //(Fix so that this is not a requirement!)
-		mainCPU.clock -= USEC_TO_M6502_CYCLES(timeToNextEvent);
+//Fixed, but mainCPU.clock is destroyed in the bargain. Oh well.
+//		mainCPU.clock -= USEC_TO_M6502_CYCLES(timeToNextEvent);
 		HandleNextEvent();
 	}
 
