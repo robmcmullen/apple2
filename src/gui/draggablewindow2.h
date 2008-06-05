@@ -26,7 +26,7 @@ class DraggableWindow2: public Window
 
 	private:
 		SDL_Surface * img;
-		SDL_Surface * label;
+//		SDL_Surface * label;
 };
 
 #endif	// __DRAGGABLEWINDOW2_H__

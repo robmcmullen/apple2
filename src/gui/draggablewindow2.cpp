@@ -53,18 +53,22 @@ DraggableWindow2::DraggableWindow2(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*=
 	uint16 imgHeight = (floppyDiskImg[2] << 8) | floppyDiskImg[3];
 	img = SDL_CreateRGBSurfaceFrom(&floppyDiskImg[4], imgWidth, imgHeight, 32, imgWidth * 4,
 		MASK_R, MASK_G, MASK_B, MASK_A);
-	label = SDL_CreateRGBSurface(SDL_SWSURFACE, 16*7, 32, 32,
-		MASK_R, MASK_G, MASK_B, MASK_A);
+//	label = SDL_CreateRGBSurface(SDL_SWSURFACE, 16*7, 32, 32,
+//		MASK_R, MASK_G, MASK_B, MASK_A);
 
 //Prolly should draw this in the constructor...
 //Now is! :-D
 	extern char textChar2e[];
 	uint8 * fontAddr = (uint8 *)textChar2e + ((128 + 32) * 7 * 8);
 	SetNewFont(Font(fontAddr, 7, 8));
-	DrawStringOpaque(label, 0,  0, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
-	DrawStringOpaque(label, 0,  8, 0xFF000000, 0xFFFFFFFF, "0123456789012345");
-	DrawStringOpaque(label, 0, 16, 0xFF000000, 0xFFFFFFFF, "1234567890123456");
-	DrawStringOpaque(label, 0, 24, 0xFF000000, 0xFFFFFFFF, "2345678901234567");
+//	DrawStringOpaque(label, 0,  0, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
+//	DrawStringOpaque(label, 0,  8, 0xFF000000, 0xFFFFFFFF, "0123456789012345");
+//	DrawStringOpaque(label, 0, 16, 0xFF000000, 0xFFFFFFFF, "1234567890123456");
+//	DrawStringOpaque(label, 0, 24, 0xFF000000, 0xFFFFFFFF, "2345678901234567");
+	DrawStringOpaque(img, 8,  6, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
+	DrawStringOpaque(img, 8, 14, 0xFF000000, 0xFFFFFFFF, "t Disk6789012345");
+	DrawStringOpaque(img, 8, 22, 0xFF000000, 0xFFFFFFFF, "1234567890123456");
+	DrawStringOpaque(img, 6, 30, 0xFF000000, 0xFFFFFFFF, "2345678901234567");
 	RestoreOldFont();
 #endif
 
@@ -84,7 +88,7 @@ printf("Inside ~DraggableWindow2()...\n");
 
 #ifdef BACKGROUND_IMG_TEST
 	SDL_FreeSurface(img);
-	SDL_FreeSurface(label);
+//	SDL_FreeSurface(label);
 #endif
 }
 
@@ -112,6 +116,10 @@ void DraggableWindow2::HandleMouseMove(uint32 x, uint32 y)
 		extents.x = newX;
 		extents.y = newY;
 		SaveScreenToBackstore();
+#ifdef USE_COVERAGE_LISTS
+//If we don't do this, the coverage list doesn't move with the window...!
+		ResetCoverageList();
+#endif
 //		SDL_BlitSurface(screen, &extents, backstore, NULL);
 		Draw();
 
@@ -149,6 +157,7 @@ void DraggableWindow2::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 
 void DraggableWindow2::Draw(void)
 {
+//NOTE: What we need to do here is render into a surface THEN do the blits from the coverage list. !!! FIX !!!
 #ifdef USE_COVERAGE_LISTS
 	// These are *always* top level and parentless, so no need to traverse up through
 	// the parent chain...
@@ -160,11 +169,12 @@ void DraggableWindow2::Draw(void)
 		SDL_BlitSurface(img, &src, screen, &dst);
 	}
 
+// HUH??!?!? The label should have been drawn into img already!!! !!! FIX !!! [DONE]
 //This doesn't get clipped at all... !!! FIX !!!
-	SDL_Rect src, dst;
-	src.x = 0, src.y = 0, src.w = label->w, src.h = label->h;
-	dst.x = extents.x + 8, dst.y = extents.y + 6;
-	SDL_BlitSurface(label, &src, screen, &dst);
+//	SDL_Rect src, dst;
+//	src.x = 0, src.y = 0, src.w = label->w, src.h = label->h;
+//	dst.x = extents.x + 8, dst.y = extents.y + 6;
+//	SDL_BlitSurface(label, &src, screen, &dst);
 
 	// Handle the items this window contains...
 	for(uint32 i=0; i<list.size(); i++)
@@ -180,14 +190,15 @@ void DraggableWindow2::Draw(void)
 	dst.x = extents.x, dst.y = extents.y;
 	SDL_BlitSurface(img, &src, screen, &dst);
 
-	extern char textChar2e[];
-	uint8 * fontAddr = (uint8 *)textChar2e + ((128 + 32) * 7 * 8);
-	SetNewFont(Font(fontAddr, 7, 8));
-	DrawStringOpaque(screen, extents.x + 8, extents.y +  6, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
-	DrawStringOpaque(screen, extents.x + 8, extents.y + 14, 0xFF000000, 0xFFFFFFFF, "0123456789012345");
-	DrawStringOpaque(screen, extents.x + 8, extents.y + 22, 0xFF000000, 0xFFFFFFFF, "1234567890123456");
-	DrawStringOpaque(screen, extents.x + 8, extents.y + 30, 0xFF000000, 0xFFFFFFFF, "2345678901234567");
-	RestoreOldFont();
+//WTF? Unnecessary!
+//	extern char textChar2e[];
+//	uint8 * fontAddr = (uint8 *)textChar2e + ((128 + 32) * 7 * 8);
+//	SetNewFont(Font(fontAddr, 7, 8));
+//	DrawStringOpaque(screen, extents.x + 8, extents.y +  6, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
+//	DrawStringOpaque(screen, extents.x + 8, extents.y + 14, 0xFF000000, 0xFFFFFFFF, "0123456789012345");
+//	DrawStringOpaque(screen, extents.x + 8, extents.y + 22, 0xFF000000, 0xFFFFFFFF, "1234567890123456");
+//	DrawStringOpaque(screen, extents.x + 8, extents.y + 30, 0xFF000000, 0xFFFFFFFF, "2345678901234567");
+//	RestoreOldFont();
 #else
 	SDL_FillRect(screen, &extents, bgColor);
 #endif

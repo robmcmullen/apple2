@@ -638,6 +638,7 @@ static void RenderHiRes(uint16 toLine/*= 192*/)
 	uint32 pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
 #else
 // Now it is. Now roll this fix into all the other places... !!! FIX !!!
+// The colors are set in the 8-bit array as R G B A
 	uint8 monoColors[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0x61, 0xFF };
 	uint32 * colorPtr = (uint32 *)monoColors;
 	uint32 pixelOn = (screenType == ST_WHITE_MONO ? colorPtr[0] : colorPtr[1]);

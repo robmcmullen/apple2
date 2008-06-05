@@ -192,7 +192,7 @@ WriteLog(" -- SDL_MOUSEMOTION\n");
 //Though, it seems to screw other things up. Maybe it IS better to pass it to all windows?
 //Or maybe to just the ones that aren't completely obscured?
 //Probably. Right now, a disk's close button that should be obscured by one sitting on
-//top of it gets redrawn. Not good.
+//top of it gets redrawn. Not good. !!! FIX !!!
 				for(i=windowList.begin(); i!=windowList.end(); i++)
 					(*i)->HandleMouseMove(mouse.x, mouse.y);
 //				windowList.back()->HandleMouseMove(mouse.x, mouse.y);
@@ -347,9 +347,12 @@ Also, when doing a window drag, the coverage lists for all windows have to be re
 //*misses* to everyone else... Otherwise, you can have overlapping draggable windows
 //and be able to drag both by clicking on a point that intersects both...
 //(though that may be an interesting way to handle things!)
+//The thing is that you want to do it on purpose (like with a special grouping widget)
+//instead of by accident. So, !!! FIX !!!
 				// Pass the click on to all windows
-				for(i=windowList.begin(); i!=windowList.end(); i++)
-					(*i)->HandleMouseButton(event.button.x, event.button.y, true);
+//				for(i=windowList.begin(); i!=windowList.end(); i++)
+//					(*i)->HandleMouseButton(event.button.x, event.button.y, true);
+				windowList.back()->HandleMouseButton(event.button.x, event.button.y, true);
 
 //				// & bail if nothing changed...
 				if (movedWindow)
@@ -360,6 +363,8 @@ Also, when doing a window drag, the coverage lists for all windows have to be re
 //the Z order where the previous window was.
 				for(i=windowList.begin(); i!=windowList.end(); i++)
 				{
+//One other little quirk: Probably need to clear the backing store as well!
+//Not sure...
 					(*i)->ResetCoverageList();
 
 					// This looks odd, but it's just a consequence of iterator weirdness.
