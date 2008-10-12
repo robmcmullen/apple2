@@ -1,4 +1,4 @@
-#as;kjf;ass
+#
 # Unified Makefile for Apple 2 SDL
 #
 # by James L. Hammons
