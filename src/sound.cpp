@@ -26,6 +26,10 @@
 #include "log.h"
 
 
+#define SAMPLE_RATE			(44100.0)
+#define SAMPLES_PER_FRAME	(SAMPLE_RATE / 60.0)
+#define CYCLES_PER_SAMPLE	((1024000.0 / 60.0) / (SAMPLES_PER_FRAME))
+#define SOUND_BUFFER_SIZE	8192
 #define AMPLITUDE	(32)						// -32 - +32 seems to be plenty loud!
 
 // Global variables
@@ -36,7 +40,7 @@
 static SDL_AudioSpec desired;
 static bool soundInitialized = false;
 static bool speakerState;
-static uint8 soundBuffer[4096];
+static uint8 soundBuffer[SOUND_BUFFER_SIZE];
 static uint32 soundBufferPos;
 static uint32 sampleBase;
 static SDL_cond * conditional = NULL;
@@ -56,7 +60,7 @@ void SoundInit(void)
 return;
 #endif
 
-	desired.freq = 44100;						// SDL will do conversion on the fly, if it can't get the exact rate. Nice!
+	desired.freq = SAMPLE_RATE;					// SDL will do conversion on the fly, if it can't get the exact rate. Nice!
 	desired.format = AUDIO_S8;					// This uses the native endian (for portability)...
 //	desired.format = AUDIO_S16SYS;				// This uses the native endian (for portability)...
 	desired.channels = 1;
@@ -173,9 +177,9 @@ if (time > 95085)//(time & 0x80000000)
 	// (or do we?)
 
 	SDL_LockAudio();
-	uint32 currentPos = sampleBase + (uint32)((double)time / 23.2199);
+	uint32 currentPos = sampleBase + (uint32)((double)time / CYCLES_PER_SAMPLE);
 
-	if (currentPos > 4095)
+	if (currentPos > SOUND_BUFFER_SIZE - 1)
 	{
 #if 0
 WriteLog("ToggleSpeaker() about to go into spinlock at time: %08X (%u) (sampleBase=%u)!\n", time, time, sampleBase);
@@ -216,6 +220,25 @@ void HandleSoundAtFrameEdge(void)
 		return;
 
 	SDL_LockAudio();
-	sampleBase += 735;
+	sampleBase += SAMPLES_PER_FRAME;
 	SDL_UnlockAudio();
 }
+
+/*
+A better way might be as follows:
+
+Keep timestamp array of speaker toggle times. In the sound routine, unpack as many as will fit
+into the given buffer and keep going. Have the toggle function check to see if the buffer is full,
+and if it is, way for a signal from the interrupt that there's room for more. Can keep a circular
+buffer. Also, would need a timestamp buffer on the order of 2096 samples *in theory* could toggle
+each sample
+
+Instead of a timestamp, just keep a delta. That way, don't need to deal with wrapping and all that
+(though the timestamp could wrap--need to check into that)
+
+Need to consider corner cases where a sound IRQ happens but no speaker toggle happened.
+
+*/
+
+
+
