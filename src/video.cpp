@@ -56,7 +56,7 @@ bool InitVideo(void)
 	}
 
 	//Set icon (mainly for Win32 target--though seems to work under KDE as well...!)
-	SDL_Surface * iconSurf = SDL_CreateRGBSurfaceFrom(icon, 32, 32, 32, 128, 
+	SDL_Surface * iconSurf = SDL_CreateRGBSurfaceFrom(icon, 32, 32, 32, 128,
 		MASK_R, MASK_G, MASK_B, MASK_A);
 	SDL_WM_SetIcon(iconSurf, NULL);
 	SDL_FreeSurface(iconSurf);

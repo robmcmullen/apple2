@@ -16,8 +16,10 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
- 
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <list>
 #include "sdlemu_config.h"
@@ -76,11 +78,11 @@ int sdlemu_init_config(const char *filename)
 {
 	FILE *f = fopen(filename, "r");
 	if(!f) return 0;
-	
+
 	fseek(f, 0, SEEK_END);
 	int len = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	
+
 	char *s = new char[len];
 	fread(s, 1, len, f);
 	string str(s);
@@ -115,7 +117,7 @@ const char *sdlemu_getval_string(const char *key_string, const char *default_str
 {
 	list<token_list>::iterator p;
 	for(p = vec.begin(); p != vec.end(); p++) {
-		
+
 		if(strcmp((*p).Token().c_str(), key_string) == 0)
 			return (*p).Value().c_str();
 	}
@@ -126,7 +128,7 @@ int sdlemu_getval_int(const char *key_string, int default_int)
 {
 	list<token_list>::iterator p;
 	for(p = vec.begin(); p != vec.end(); p++) {
-		
+
 		if(strcmp((*p).Token().c_str(), key_string) == 0) {
 			const char *ret = (*p).Value().c_str();
 			if(ret) return atoi(ret);
@@ -139,7 +141,7 @@ int sdlemu_getval_bool(const char *key_string, int default_int)
 {
 	list<token_list>::iterator p;
 	for(p = vec.begin(); p != vec.end(); p++) {
-		
+
 		if(strcmp((*p).Token().c_str(), key_string) == 0) {
 			const char *ret = (*p).Value().c_str();
 			if(ret) return atoi(ret)>0;

@@ -16,7 +16,7 @@
 #include "floppy.h"
 
 #include <stdio.h>
-#include <string>
+#include <string.h>
 #include "apple2.h"
 #include "log.h"
 #include "applevideo.h"					// For message spawning... Though there's probably a better approach than this!
@@ -135,6 +135,7 @@ bool FloppyDrive::SaveImage(uint8 driveNum/*= 0*/)
 bool FloppyDrive::SaveImageAs(const char * filename, uint8 driveNum/*= 0*/)
 {
 //WARNING: Buffer overflow possibility
+#warning "Buffer overflow possible--!!! FIX !!!"
 	strcpy(imageName[driveNum], filename);
 	return SaveImage(driveNum);
 }
@@ -470,7 +471,7 @@ bit 0 is the "do something" bit.
 SpawnMessage("Stepping to track %u...", track);
 	}
 
-//	return something if read mode...	
+//	return something if read mode...
 }
 
 void FloppyDrive::ControlMotor(uint8 addr)

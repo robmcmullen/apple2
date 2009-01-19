@@ -9,6 +9,7 @@
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------
 // JLH  01/04/2006  Added changelog ;-)
+// JLH  01/18/2009  Fixed EA_ABS_* macros
 //
 
 //OK, the wraparound bug exists in both the Apple and Atari versions of Ultima II.
@@ -46,13 +47,18 @@
 #define SET_ZNC_CMP(a,b,r)	SET_N(r); SET_Z(r); SET_C_CMP(a,b)
 
 //Small problem with the EA_ macros: ABS macros don't increment the PC!!! !!! FIX !!!
+//NB: It's properly handled by everything that uses it, so it works, even if it's klunky
+//Small problem with fixing it is that you can't do it in a single instruction, i.e.,
+//you have to read the value THEN you have to increment the PC. Unless there's another
+//way to do that
+//[DONE]
 #define EA_IMM				regs.pc++
 #define EA_ZP				regs.RdMem(regs.pc++)
 #define EA_ZP_X				(regs.RdMem(regs.pc++) + regs.x) & 0xFF
 #define EA_ZP_Y				(regs.RdMem(regs.pc++) + regs.y) & 0xFF
-#define EA_ABS				RdMemW(regs.pc)
-#define EA_ABS_X			RdMemW(regs.pc) + regs.x
-#define EA_ABS_Y			RdMemW(regs.pc) + regs.y
+#define EA_ABS				FetchMemW(regs.pc)
+#define EA_ABS_X			FetchMemW(regs.pc) + regs.x
+#define EA_ABS_Y			FetchMemW(regs.pc) + regs.y
 #define EA_IND_ZP_X			RdMemW((regs.RdMem(regs.pc++) + regs.x) & 0xFF)
 #define EA_IND_ZP_Y			RdMemW(regs.RdMem(regs.pc++)) + regs.y
 #define EA_IND_ZP			RdMemW(regs.RdMem(regs.pc++))
@@ -61,9 +67,9 @@
 #define READ_ZP				regs.RdMem(EA_ZP)
 #define READ_ZP_X			regs.RdMem(EA_ZP_X)
 #define READ_ZP_Y			regs.RdMem(EA_ZP_Y)
-#define READ_ABS			regs.RdMem(EA_ABS);     regs.pc += 2
-#define READ_ABS_X			regs.RdMem(EA_ABS_X);   regs.pc += 2
-#define READ_ABS_Y			regs.RdMem(EA_ABS_Y);   regs.pc += 2
+#define READ_ABS			regs.RdMem(EA_ABS)
+#define READ_ABS_X			regs.RdMem(EA_ABS_X)
+#define READ_ABS_Y			regs.RdMem(EA_ABS_Y)
 #define READ_IND_ZP_X		regs.RdMem(EA_IND_ZP_X)
 #define READ_IND_ZP_Y		regs.RdMem(EA_IND_ZP_Y)
 #define READ_IND_ZP			regs.RdMem(EA_IND_ZP)
@@ -71,9 +77,9 @@
 #define READ_IMM_WB(v)		uint16 addr = EA_IMM;      v = regs.RdMem(addr)
 #define READ_ZP_WB(v)		uint16 addr = EA_ZP;       v = regs.RdMem(addr)
 #define READ_ZP_X_WB(v)		uint16 addr = EA_ZP_X;     v = regs.RdMem(addr)
-#define READ_ABS_WB(v)		uint16 addr = EA_ABS;      v = regs.RdMem(addr); regs.pc += 2
-#define READ_ABS_X_WB(v)	uint16 addr = EA_ABS_X;    v = regs.RdMem(addr); regs.pc += 2
-#define READ_ABS_Y_WB(v)	uint16 addr = EA_ABS_Y;    v = regs.RdMem(addr); regs.pc += 2
+#define READ_ABS_WB(v)		uint16 addr = EA_ABS;      v = regs.RdMem(addr)
+#define READ_ABS_X_WB(v)	uint16 addr = EA_ABS_X;    v = regs.RdMem(addr)
+#define READ_ABS_Y_WB(v)	uint16 addr = EA_ABS_Y;    v = regs.RdMem(addr)
 #define READ_IND_ZP_X_WB(v)	uint16 addr = EA_IND_ZP_X; v = regs.RdMem(addr)
 #define READ_IND_ZP_Y_WB(v)	uint16 addr = EA_IND_ZP_Y; v = regs.RdMem(addr)
 #define READ_IND_ZP_WB(v)	uint16 addr = EA_IND_ZP;   v = regs.RdMem(addr)
@@ -87,7 +93,7 @@ static V65C02REGS regs;
 //This is probably incorrect, at least WRT to the $x7 and $xF opcodes... !!! FIX !!!
 //Also this doesn't take into account the extra cycle it takes when an indirect fetch
 //(ABS, ABS X/Y, ZP) crosses a page boundary, or extra cycle for BCD add/subtract...
-#warning Cycle counts are not accurate--!!! FIX !!!
+#warning "Cycle counts are not accurate--!!! FIX !!!"
 static uint8 CPUCycles[256] = {
 	7, 6, 1, 1, 5, 3, 5, 1, 3, 2, 2, 1, 6, 4, 6, 1,
 	2, 5, 5, 1, 5, 4, 6, 1, 2, 4, 2, 1, 6, 4, 6, 1,
@@ -109,12 +115,22 @@ static uint8 CPUCycles[256] = {
 // Private function prototypes
 
 static uint16 RdMemW(uint16);
+static uint16 FetchMemW(uint16 addr);
 
 //
 // Read a uint16 out of 65C02 memory (big endian format)
 //
-static uint16 RdMemW(uint16 address)
+static inline uint16 RdMemW(uint16 address)
 {
+	return (uint16)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
+}
+
+//
+// Read a uint16 out of 65C02 memory (big endian format) and increment PC
+//
+static inline uint16 FetchMemW(uint16 address)
+{
+	regs.pc += 2;
 	return (uint16)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
 }
 
@@ -1498,7 +1514,7 @@ static void Op7A(void)							// PLY
 }
 
 /*
-The bit set and clear instructions have the form xyyy0111, where x is 0 to clear a bit or 1 to set it, and yyy is which bit at the memory location to set or clear. 
+The bit set and clear instructions have the form xyyy0111, where x is 0 to clear a bit or 1 to set it, and yyy is which bit at the memory location to set or clear.
    RMB0  RMB1  RMB2  RMB3  RMB4  RMB5  RMB6  RMB7
   zp  07  17  27  37  47  57  67  77
      SMB0  SMB1  SMB2  SMB3  SMB4  SMB5  SMB6  SMB7
@@ -1828,7 +1844,7 @@ static void Op78(void)							// SEI
 }
 
 /*
-The bit set and clear instructions have the form xyyy0111, where x is 0 to clear a bit or 1 to set it, and yyy is which bit at the memory location to set or clear. 
+The bit set and clear instructions have the form xyyy0111, where x is 0 to clear a bit or 1 to set it, and yyy is which bit at the memory location to set or clear.
    RMB0  RMB1  RMB2  RMB3  RMB4  RMB5  RMB6  RMB7
   zp  07  17  27  37  47  57  67  77
      SMB0  SMB1  SMB2  SMB3  SMB4  SMB5  SMB6  SMB7
@@ -1927,19 +1943,16 @@ static void Op95(void)
 static void Op8D(void)
 {
 	regs.WrMem(EA_ABS, regs.a);
-	regs.pc += 2;
 }
 
 static void Op9D(void)
 {
 	regs.WrMem(EA_ABS_X, regs.a);
-	regs.pc += 2;
 }
 
 static void Op99(void)
 {
 	regs.WrMem(EA_ABS_Y, regs.a);
-	regs.pc += 2;
 }
 
 static void Op81(void)
@@ -1978,7 +1991,6 @@ static void Op96(void)
 static void Op8E(void)
 {
 	regs.WrMem(EA_ABS, regs.x);
-	regs.pc += 2;
 }
 
 /*
@@ -2002,7 +2014,6 @@ static void Op94(void)
 static void Op8C(void)
 {
 	regs.WrMem(EA_ABS, regs.y);
-	regs.pc += 2;
 }
 
 /*
@@ -2027,13 +2038,11 @@ static void Op74(void)
 static void Op9C(void)
 {
 	regs.WrMem(EA_ABS, 0x00);
-	regs.pc += 2;
 }
 
 static void Op9E(void)
 {
 	regs.WrMem(EA_ABS_X, 0x00);
-	regs.pc += 2;
 }
 
 /*

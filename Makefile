@@ -98,36 +98,36 @@ OBJS = \
 
 all: checkenv message obj $(TARGET)$(EXESUFFIX)
 	@echo
-	@echo "*** Looks like it compiled OK... Give it a whirl!"
+	@echo -e "\033[01;33m***\033[00;32m Looks like it compiled OK... Give it a whirl!\033[00m"
 
 # Check the compilation environment, barf if not appropriate
 
 checkenv:
 	@echo
-	@echo -n "*** Checking compilation environment... "
+	@echo -en "\033[01;33m***\033[00;32m Checking compilation environment... \033[00m"
 ifeq "" "$(shell which sdl-config)"
 	@echo
 	@echo
-	@echo "It seems that you don't have the SDL development libraries installed. If you"
-	@echo "have installed them, make sure that the sdl-config file is somewhere in your"
-	@echo "path and is executable."
+	@echo -e "\033[01;33mIt seems that you don't have the SDL development libraries installed.
+	@echo -e "have installed them, make sure that the sdl-config file is somewhere in your"
+	@echo -e "path and is executable.\033[00m"
 	@echo
 #Is there a better way to break out of the makefile?
 	@break
 else
-	@echo "OK"
+	@echo -e "\033[01;37mOK\033[00m"
 endif
 
 message:
 	@echo
-	@echo "*** Building Apple 2 SDL for $(MSG)..."
+	@echo -e "\033[01;33m***\033[00;32m Building Apple2 SDL for $(MSG)...\033[00m"
 	@echo
 
 clean:
-	@echo -n "*** Cleaning out the garbage..."
+	@echo -en "\033[01;33m***\033[00;32m Cleaning out the garbage...\033[00m"
 	@rm -rf obj
 	@rm -f ./$(TARGET)$(EXESUFFIX)
-	@echo "done!"
+	@echo -e "\033[01;37mdone!\033[00m"
 
 obj:
 	@mkdir obj
@@ -136,25 +136,25 @@ obj:
 
 ifneq "" "$(ICON)"
 $(ICON): res/$(TARGET).rc res/$(TARGET).ico
-	@echo "*** Processing icon..."
+	@echo -e "\033[01;33m***\033[00;32m Processing icon...\033[00m"
 	@windres -i res/$(TARGET).rc -o $(ICON) --include-dir=./res
 endif
 
 obj/%.o: src/%.c
-	@echo "*** Compiling $<..."
+	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
 	@$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
 obj/%.o: src/%.cpp
-	@echo "*** Compiling $<..."
+	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
 	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
 
 #GUI compilation...
 obj/%.o: src/gui/%.cpp
-	@echo "*** Compiling $<..."
+	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
 	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
 
 $(TARGET)$(EXESUFFIX): $(OBJS)
-	@echo "*** Linking it all together..."
+	@echo -e "\033[01;33m***\033[00;32m Linking it all together...\033[00m"
 	@$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 #	strip --strip-all vj$(EXESUFFIX)
 #	upx -9 vj$(EXESUFFIX)

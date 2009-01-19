@@ -25,7 +25,8 @@
 #include <SDL.h>
 #include "log.h"
 
-using namespace std;
+
+#define AMPLITUDE	(32)						// -32 - +32 seems to be plenty loud!
 
 // Global variables
 
@@ -34,9 +35,6 @@ using namespace std;
 
 static SDL_AudioSpec desired;
 static bool soundInitialized = false;
-static uint8 amplitude = 0x88;					// $78 - $88 seems to be plenty loud!
-//static uint8 lastValue;
-
 static bool speakerState;
 static uint8 soundBuffer[4096];
 static uint32 soundBufferPos;
@@ -59,23 +57,23 @@ return;
 #endif
 
 	desired.freq = 44100;						// SDL will do conversion on the fly, if it can't get the exact rate. Nice!
-	desired.format = AUDIO_U8;					// This uses the native endian (for portability)...
+	desired.format = AUDIO_S8;					// This uses the native endian (for portability)...
+//	desired.format = AUDIO_S16SYS;				// This uses the native endian (for portability)...
 	desired.channels = 1;
 //	desired.samples = 4096;						// Let's try a 4K buffer (can always go lower)
-	desired.samples = 2048;						// Let's try a 2K buffer (can always go lower)
+//	desired.samples = 2048;						// Let's try a 2K buffer (can always go lower)
+	desired.samples = 1024;						// Let's try a 1K buffer (can always go lower)
 	desired.callback = SDLSoundCallback;
 
 	if (SDL_OpenAudio(&desired, NULL) < 0)		// NULL means SDL guarantees what we want
 	{
 		WriteLog("Sound: Failed to initialize SDL sound.\n");
-//		exit(1);
 		return;
 	}
 
 	conditional = SDL_CreateCond();
 	mutex = SDL_CreateMutex();
 	SDL_mutexP(mutex);							// Must lock the mutex for the cond to work properly...
-//	lastValue = (speakerState ? amplitude : 0xFF - amplitude);
 	soundBufferPos = 0;
 	sampleBase = 0;
 
@@ -106,6 +104,9 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length)
 {
 	// The sound buffer should only starve when starting which will cause it to
 	// lag behind the emulation at most by around 1 frame...
+	// (Actually, this should never happen since we fill the buffer beforehand.)
+	// (But, then again, if the sound hasn't been toggled for a while, then this
+	//  makes perfect sense as the buffer won't have been filled at all!)
 
 	if (soundBufferPos < (uint32)length)		// The sound buffer is starved...
 	{
@@ -113,15 +114,13 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length)
 //fflush(stdout);
 		for(uint32 i=0; i<soundBufferPos; i++)
 			buffer[i] = soundBuffer[i];
+
 		// Fill buffer with last value
-		uint8 lastValue = (speakerState ? amplitude : 0xFF - amplitude);
-//		uint8 lastValue = (speakerState ? amplitude : amplitude ^ 0xFF);
-//		memset(buffer, lastValue, length);		// Fill buffer with last value
-		memset(buffer + soundBufferPos, lastValue, length - soundBufferPos);
+		memset(buffer + soundBufferPos, (uint8)(speakerState ? AMPLITUDE : -AMPLITUDE), length - soundBufferPos);
 		soundBufferPos = 0;						// Reset soundBufferPos to start of buffer...
 		sampleBase = 0;							// & sampleBase...
 //Ick. This should never happen!
-SDL_CondSignal(conditional);				// Wake up any threads waiting for the buffer to drain...
+SDL_CondSignal(conditional);			// Wake up any threads waiting for the buffer to drain...
 		return;									// & bail!
 	}
 
@@ -169,12 +168,11 @@ if (time > 95085)//(time & 0x80000000)
 }
 #endif
 
-// 1.024 MHz / 60 = 17066.6... cycles (23.2199 cycles per sample)
-// Need the last frame position in order to calculate correctly...
+	// 1.024 MHz / 60 = 17066.6... cycles (23.2199 cycles per sample)
+	// Need the last frame position in order to calculate correctly...
+	// (or do we?)
 
 	SDL_LockAudio();
-	uint8 sample = (speakerState ? amplitude : 0xFF - amplitude);
-//	uint8 sample = (speakerState ? amplitude : amplitude ^ 0xFF);
 	uint32 currentPos = sampleBase + (uint32)((double)time / 23.2199);
 
 	if (currentPos > 4095)
@@ -196,17 +194,17 @@ Seems like it's OK now that I've fixed the buffer-less-than-length bug...
 */
 		SDL_UnlockAudio();
 		SDL_CondWait(conditional, mutex);
-
-//		while (currentPos > 4095)				// Spin until buffer empties a bit...
-		currentPos = sampleBase + (uint32)((double)time / 23.2199);
 		SDL_LockAudio();
+		currentPos = sampleBase + (uint32)((double)time / 23.2199);
 #if 0
 WriteLog("--> after spinlock (sampleBase=%u)...\n", sampleBase);
 #endif
 	}
 
+	int8 sample = (speakerState ? AMPLITUDE : -AMPLITUDE);
+
 	while (soundBufferPos < currentPos)
-		soundBuffer[soundBufferPos++] = sample;
+		soundBuffer[soundBufferPos++] = (uint8)sample;
 
 	speakerState = !speakerState;
 	SDL_UnlockAudio();
@@ -220,14 +218,4 @@ void HandleSoundAtFrameEdge(void)
 	SDL_LockAudio();
 	sampleBase += 735;
 	SDL_UnlockAudio();
-/*	uint8 sample = (speakerState ? amplitude : 0xFF - amplitude);
-
-//This shouldn't happen (buffer overflow), but it seems like it *is* happening...
-	if (sampleBase >= 4096)
-//		sampleBase = 4095;
-//Kludge, for now... Until I can figure out why it's still stomping on the buffer...
-		sampleBase = 0;
-
-	while (soundBufferPos < sampleBase)
-		soundBuffer[soundBufferPos++] = sample;//*/
 }
