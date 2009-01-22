@@ -2310,7 +2310,7 @@ if (dumpDis)
 		regs.clock += CPUCycles[opcode];
 #ifdef __DEBUG__
 if (dumpDis)
-	WriteLog(" [PC=%04X, SP=%04X, CC=%s%s-%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
+	WriteLog(" [PC=%04X, SP=%04X, CC=%s%s.%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
 		regs.pc, 0x0100 + regs.sp,
 		(regs.cc & FLAG_N ? "N" : "-"), (regs.cc & FLAG_V ? "V" : "-"),
 		(regs.cc & FLAG_B ? "B" : "-"), (regs.cc & FLAG_D ? "D" : "-"),

@@ -28,9 +28,9 @@
 
 #define SAMPLE_RATE			(44100.0)
 #define SAMPLES_PER_FRAME	(SAMPLE_RATE / 60.0)
-#define CYCLES_PER_SAMPLE	((1024000.0 / 60.0) / (SAMPLES_PER_FRAME))
-#define SOUND_BUFFER_SIZE	8192
-#define AMPLITUDE	(32)						// -32 - +32 seems to be plenty loud!
+#define CYCLES_PER_SAMPLE	(1024000.0 / SAMPLE_RATE)
+#define SOUND_BUFFER_SIZE	(8192)
+#define AMPLITUDE			(32)				// -32 - +32 seems to be plenty loud!
 
 // Global variables
 
@@ -39,12 +39,13 @@
 
 static SDL_AudioSpec desired;
 static bool soundInitialized = false;
-static bool speakerState;
+static bool speakerState = false;
 static uint8 soundBuffer[SOUND_BUFFER_SIZE];
 static uint32 soundBufferPos;
 static uint32 sampleBase;
 static SDL_cond * conditional = NULL;
 static SDL_mutex * mutex = NULL;
+static SDL_mutex * mutex2 = NULL;
 
 // Private function prototypes
 
@@ -77,6 +78,7 @@ return;
 
 	conditional = SDL_CreateCond();
 	mutex = SDL_CreateMutex();
+	mutex2 = SDL_CreateMutex();// Let's try real signalling...
 	SDL_mutexP(mutex);							// Must lock the mutex for the cond to work properly...
 	soundBufferPos = 0;
 	sampleBase = 0;
@@ -97,6 +99,7 @@ void SoundDone(void)
 		SDL_CloseAudio();
 		SDL_DestroyCond(conditional);
 		SDL_DestroyMutex(mutex);
+		SDL_DestroyMutex(mutex2);
 		WriteLog("Sound: Done.\n");
 	}
 }
@@ -112,6 +115,9 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length)
 	// (But, then again, if the sound hasn't been toggled for a while, then this
 	//  makes perfect sense as the buffer won't have been filled at all!)
 
+	// Let's try using a mutex for shared resource consumption...
+	SDL_mutexP(mutex2);
+
 	if (soundBufferPos < (uint32)length)		// The sound buffer is starved...
 	{
 //printf("Sound buffer starved!\n");
@@ -124,23 +130,26 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length)
 		soundBufferPos = 0;						// Reset soundBufferPos to start of buffer...
 		sampleBase = 0;							// & sampleBase...
 //Ick. This should never happen!
-SDL_CondSignal(conditional);			// Wake up any threads waiting for the buffer to drain...
-		return;									// & bail!
+//Actually, this probably happens a lot. (?)
+//		SDL_CondSignal(conditional);			// Wake up any threads waiting for the buffer to drain...
+//		return;									// & bail!
+	}
+	else
+	{
+		// Fill sound buffer with frame buffered sound
+		memcpy(buffer, soundBuffer, length);
+		soundBufferPos -= length;
+		sampleBase -= length;
+
+		// Move current buffer down to start
+		for(uint32 i=0; i<soundBufferPos; i++)
+			soundBuffer[i] = soundBuffer[length + i];
 	}
 
-	memcpy(buffer, soundBuffer, length);		// Fill sound buffer with frame buffered sound
-	soundBufferPos -= length;
-	sampleBase -= length;
-
-//	if (soundBufferPos > 0)
-//		memcpy(soundBuffer, soundBuffer + length, soundBufferPos);	// Move current buffer down to start
-//	memcpy(soundBuffer, soundBuffer + length, length);
-	// Move current buffer down to start
-	for(uint32 i=0; i<soundBufferPos; i++)
-		soundBuffer[i] = soundBuffer[length + i];
-
-//	lastValue = buffer[length - 1];
-	SDL_CondSignal(conditional);				// Wake up any threads waiting for the buffer to drain...
+	// Free the mutex...
+	SDL_mutexV(mutex2);
+	// Wake up any threads waiting for the buffer to drain...
+//	SDL_CondSignal(conditional);
 }
 
 // Need some interface functions here to take care of flipping the
@@ -176,7 +185,8 @@ if (time > 95085)//(time & 0x80000000)
 	// Need the last frame position in order to calculate correctly...
 	// (or do we?)
 
-	SDL_LockAudio();
+//	SDL_LockAudio();
+	SDL_mutexP(mutex2);
 	uint32 currentPos = sampleBase + (uint32)((double)time / CYCLES_PER_SAMPLE);
 
 	if (currentPos > SOUND_BUFFER_SIZE - 1)
@@ -196,10 +206,10 @@ And it still thrashed the sound even though it didn't run into a spinlock...
 
 Seems like it's OK now that I've fixed the buffer-less-than-length bug...
 */
-		SDL_UnlockAudio();
-		SDL_CondWait(conditional, mutex);
-		SDL_LockAudio();
-		currentPos = sampleBase + (uint32)((double)time / 23.2199);
+//		SDL_UnlockAudio();
+//		SDL_CondWait(conditional, mutex);
+//		SDL_LockAudio();
+		currentPos = sampleBase + (uint32)((double)time / CYCLES_PER_SAMPLE);
 #if 0
 WriteLog("--> after spinlock (sampleBase=%u)...\n", sampleBase);
 #endif
@@ -210,35 +220,90 @@ WriteLog("--> after spinlock (sampleBase=%u)...\n", sampleBase);
 	while (soundBufferPos < currentPos)
 		soundBuffer[soundBufferPos++] = (uint8)sample;
 
+	// This is done *after* in case the buffer had a long dead spot (I think...)
 	speakerState = !speakerState;
-	SDL_UnlockAudio();
+	SDL_mutexV(mutex2);
+//	SDL_UnlockAudio();
 }
 
-void HandleSoundAtFrameEdge(void)
+void AddToSoundTimeBase(uint32 cycles)
 {
 	if (!soundInitialized)
 		return;
 
-	SDL_LockAudio();
-	sampleBase += SAMPLES_PER_FRAME;
-	SDL_UnlockAudio();
+//	SDL_LockAudio();
+	SDL_mutexP(mutex2);
+	sampleBase += (uint32)((double)cycles / CYCLES_PER_SAMPLE);
+	SDL_mutexV(mutex2);
+//	SDL_UnlockAudio();
 }
 
 /*
+HOW IT WORKS
+
+the main thread adds the amount of cpu time elapsed to samplebase. togglespeaker uses
+samplebase + current cpu time to find appropriate spot in buffer. it then fills the
+buffer up to the current time with the old toggle value before flipping it. the sound
+irq takes what it needs from the sound buffer and then adjusts both the buffer and
+samplebase back the appropriate amount.
+
+
 A better way might be as follows:
 
-Keep timestamp array of speaker toggle times. In the sound routine, unpack as many as will fit
-into the given buffer and keep going. Have the toggle function check to see if the buffer is full,
-and if it is, way for a signal from the interrupt that there's room for more. Can keep a circular
-buffer. Also, would need a timestamp buffer on the order of 2096 samples *in theory* could toggle
-each sample
+Keep timestamp array of speaker toggle times. In the sound routine, unpack as many as will
+fit into the given buffer and keep going. Have the toggle function check to see if the
+buffer is full, and if it is, way for a signal from the interrupt that there's room for
+more. Can keep a circular buffer. Also, would need a timestamp buffer on the order of 2096
+samples *in theory* could toggle each sample
 
-Instead of a timestamp, just keep a delta. That way, don't need to deal with wrapping and all that
-(though the timestamp could wrap--need to check into that)
+Instead of a timestamp, just keep a delta. That way, don't need to deal with wrapping and
+all that (though the timestamp could wrap--need to check into that)
 
 Need to consider corner cases where a sound IRQ happens but no speaker toggle happened.
 
+If (delta > SAMPLES_PER_FRAME) then
+
+Here's the relevant cases:
+
+delta < SAMPLES_PER_FRAME -> Change happened within this time frame, so change buffer
+frame came and went, no change -> fill buffer with last value
+How to detect: Have bool bufferWasTouched = true when ToggleSpeaker() is called.
+Clear bufferWasTouched each frame.
+
+Two major cases here:
+
+ o  Buffer is touched on current frame
+ o  Buffer is untouched on current frame
+
+In the first case, it doesn't matter too much if the previous frame was touched or not,
+we don't really care except in finding the correct spot in the buffer to put our change
+in. In the second case, we need to tell the IRQ that nothing happened and to continue
+to output the same value.
+
+SO: How to synchronize the regular frame buffer with the IRQ buffer?
+
+What happens:
+  Sound IRQ --> Every 1024 sample period (@ 44.1 KHz = 0.0232s)
+  Emulation --> Render a frame --> 1/60 sec --> 735 samples
+    --> sound buffer is filled
+
+Since the emulation is faster than the SIRQ the sound buffer should fill up
+prior to dumping it to the sound card.
+
+Problem is this: If silence happens for a long time then ToggleSpeaker is never
+called and the sound buffer has stale data; at least until soundBufferPos goes to
+zero and stays there...
+
+BUT this should be handled correctly by toggling the speaker value *after* filling
+the sound buffer...
+
+Still getting random clicks when running...
+(This may be due to the lock/unlock sound happening in ToggleSpeaker()...)
 */
+
+
+
+
 
 
 

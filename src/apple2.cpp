@@ -14,7 +14,7 @@
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------
 // JLH  11/12/2005  Initial port to SDL
-// JLH  11/18/2005  Wired up graphic soft switches 
+// JLH  11/18/2005  Wired up graphic soft switches
 // JLH  12/02/2005  Setup timer subsystem for more accurate time keeping
 // JLH  12/12/2005  Added preliminary state saving support
 //
@@ -223,8 +223,45 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 //OK! This switch selects bank 2 of the 4K bank at $D000-$DFFF. One access makes it
 //visible, two makes it R/W.
 
+/*
+301  LDA $E000
+304  PHA
+305  LDA $C081
+308  PLA
+309  PHA
+30A  CMP $E000
+30D  BNE $332
+30F  LDA $C083
+312  LDA $C083
+315  LDA #$A5
+317  STA $D000
+31A  CMP $D000
+31D  BNE $332
+31F  LSR A
+320  STA $D000
+323  CMP $D000
+326  BNE $332
+328  LDA $C081
+32B  LDA $C081
+32E  LDA #$01
+330  BNE $334
+332  LDA #$00
+334  STA $300
+337  PLA
+338  CMP $E000
+33B  BEQ $340
+33D  LDA $C080
+340  RTS
+
+A = PEEK($C082)
+*/
+
+#define DEBUG_LC
 	else if ((addr & 0xFFFB) == 0xC080)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C080 49280 OECG R Read RAM bank 2; no write\n");
+#endif
 //$C080 49280              OECG  R   Read RAM bank 2; no write
 		visibleBank = LC_BANK_2;
 		readRAM = true;
@@ -232,6 +269,9 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	}
 	else if ((addr & 0xFFFB) == 0xC081)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C081 49281 OECG RR Read ROM; write RAM bank 2\n");
+#endif
 //$C081 49281 ROMIN        OECG  RR  Read ROM; write RAM bank 2
 		visibleBank = LC_BANK_2;
 		readRAM = false;
@@ -239,6 +279,9 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	}
 	else if ((addr & 0xFFFB) == 0xC082)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C082 49282 OECG R Read ROM; no write\n");
+#endif
 //$C082 49282              OECG  R   Read ROM; no write
 		visibleBank = LC_BANK_2;
 		readRAM = false;
@@ -246,6 +289,9 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	}
 	else if ((addr & 0xFFFB) == 0xC083)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C083 49283 OECG RR Read/Write RAM bank 2\n");
+#endif
 //$C083 49283 LCBANK2      OECG  RR  Read/write RAM bank 2
 		visibleBank = LC_BANK_2;
 		readRAM = true;
@@ -253,13 +299,21 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	}
 	else if ((addr & 0xFFFB) == 0xC088)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $%04X 49288 OECG R Read RAM bank 1; no write\n", addr);
+#endif
 //$C088 49288              OECG  R   Read RAM bank 1; no write
 		visibleBank = LC_BANK_1;
 		readRAM = true;
 		writeRAM = false;
+//Hm. Some stuff seems to want this.
+//nope, was looking at $C0E8... return 0xFF;
 	}
 	else if ((addr & 0xFFFB) == 0xC089)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C089 49289 OECG RR Read ROM; write RAM bank 1\n");
+#endif
 //$C089 49289              OECG  RR  Read ROM; write RAM bank 1
 		visibleBank = LC_BANK_1;
 		readRAM = false;
@@ -267,6 +321,9 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	}
 	else if ((addr & 0xFFFB) == 0xC08A)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C08A 49290 OECG R Read ROM; no write\n");
+#endif
 //$C08A 49290              OECG  R   Read ROM; no write
 		visibleBank = LC_BANK_1;
 		readRAM = false;
@@ -274,6 +331,9 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	}
 	else if ((addr & 0xFFFB) == 0xC08B)
 	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
+#endif
 //$C08B 49291              OECG  RR  Read/write RAM bank 1
 		visibleBank = LC_BANK_1;
 		readRAM = true;
@@ -294,6 +354,9 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	else if (addr == 0xC0EC)
 	{
 		return floppyDrive.ReadWrite();
+//Hm, some stuff is looking at the return value. Dunno what it *should* be...
+// OK, it's from the ReadWrite routine...
+//return 0xFF;
 	}
 	else if (addr == 0xC0ED)
 	{
@@ -437,7 +500,9 @@ SETALTCH = $C00F ;use alt char set- norm inverse, LC; no Flash (WR-only)
 	}
 	else if ((addr & 0xFFF0) == 0xC010)		// Keyboard strobe
 	{
-		keyDown = false;
+//Actually, according to the A2 ref, this should do nothing since a write
+//is immediately preceded by a read leaving it in the same state it was...
+//		keyDown = false;
 	}
 	else if (addr == 0xC050)
 	{
@@ -471,6 +536,87 @@ SETALTCH = $C00F ;use alt char set- norm inverse, LC; no Flash (WR-only)
 	{
 		hiRes = true;
 	}
+	else if ((addr & 0xFFFB) == 0xC080)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C080 49280 OECG R Read RAM bank 2; no write\n");
+#endif
+//$C080 49280              OECG  R   Read RAM bank 2; no write
+		visibleBank = LC_BANK_2;
+		readRAM = true;
+		writeRAM = false;
+	}
+	else if ((addr & 0xFFFB) == 0xC081)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C081 49281 OECG RR Read ROM; write RAM bank 2\n");
+#endif
+//$C081 49281 ROMIN        OECG  RR  Read ROM; write RAM bank 2
+		visibleBank = LC_BANK_2;
+		readRAM = false;
+		writeRAM = true;
+	}
+	else if ((addr & 0xFFFB) == 0xC082)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C082 49282 OECG R Read ROM; no write\n");
+#endif
+//$C082 49282              OECG  R   Read ROM; no write
+		visibleBank = LC_BANK_2;
+		readRAM = false;
+		writeRAM = false;
+	}
+	else if ((addr & 0xFFFB) == 0xC083)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C083 49283 OECG RR Read/Write RAM bank 2\n");
+#endif
+//$C083 49283 LCBANK2      OECG  RR  Read/write RAM bank 2
+		visibleBank = LC_BANK_2;
+		readRAM = true;
+		writeRAM = true;
+	}
+	else if ((addr & 0xFFFB) == 0xC088)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C088 49288 OECG R Read RAM bank 1; no write\n");
+#endif
+//$C088 49288              OECG  R   Read RAM bank 1; no write
+		visibleBank = LC_BANK_1;
+		readRAM = true;
+		writeRAM = false;
+	}
+	else if ((addr & 0xFFFB) == 0xC089)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C089 49289 OECG RR Read ROM; write RAM bank 1\n");
+#endif
+//$C089 49289              OECG  RR  Read ROM; write RAM bank 1
+		visibleBank = LC_BANK_1;
+		readRAM = false;
+		writeRAM = true;
+	}
+	else if ((addr & 0xFFFB) == 0xC08A)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C08A 49290 OECG R Read ROM; no write\n");
+#endif
+//$C08A 49290              OECG  R   Read ROM; no write
+		visibleBank = LC_BANK_1;
+		readRAM = false;
+		writeRAM = false;
+	}
+	else if ((addr & 0xFFFB) == 0xC08B)
+	{
+#ifdef DEBUG_LC
+WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
+#endif
+//$C08B 49291              OECG  RR  Read/write RAM bank 1
+		visibleBank = LC_BANK_1;
+		readRAM = true;
+		writeRAM = true;
+	}
+//This is determined by which slot it is in--this assumes slot 6. !!! FIX !!!
 	else if ((addr & 0xFFF8) == 0xC0E0)
 	{
 		floppyDrive.ControlStepper(addr & 0x07);
@@ -578,7 +724,7 @@ int main(int /*argc*/, char * /*argv*/[])
 
 //Load up disk image from config file (for now)...
 	floppyDrive.LoadImage(settings.diskImagePath1, 0);
-	floppyDrive.LoadImage(settings.diskImagePath2, 1);
+//	floppyDrive.LoadImage(settings.diskImagePath2, 1);
 //	floppyDrive.LoadImage("./disks/temp.nib", 1);	// Load temp .nib file into second drive...
 
 //Kill the DOS ROM in slot 6 for now...
@@ -663,6 +809,8 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 //(Fix so that this is not a requirement!)
 //Fixed, but mainCPU.clock is destroyed in the bargain. Oh well.
 //		mainCPU.clock -= USEC_TO_M6502_CYCLES(timeToNextEvent);
+		// Handle CPU time delta for sound...
+		AddToSoundTimeBase(USEC_TO_M6502_CYCLES(timeToNextEvent));
 		HandleNextEvent();
 	}
 
@@ -809,7 +957,7 @@ else if (event.key.keysym.sym == SDLK_F10)
 		}
 	}
 
-	HandleSoundAtFrameEdge();					// Sound stuff... (ick)
+//ick.	HandleSoundAtFrameEdge();					// Sound stuff... (ick)
 	RenderVideoFrame();
 	SetCallbackTime(FrameCallback, 16666.66666667);
 

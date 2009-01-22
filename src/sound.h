@@ -18,6 +18,6 @@
 void SoundInit(void);
 void SoundDone(void);
 void ToggleSpeaker(uint32 time);
-void HandleSoundAtFrameEdge(void);
+void AddToSoundTimeBase(uint32 cycles);
 
 #endif	// __SOUND_H__

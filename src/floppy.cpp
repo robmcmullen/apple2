@@ -21,7 +21,7 @@
 #include "log.h"
 #include "applevideo.h"					// For message spawning... Though there's probably a better approach than this!
 
-using namespace std;
+//using namespace std;
 
 // Useful enums
 
@@ -60,6 +60,8 @@ FloppyDrive::~FloppyDrive()
 
 bool FloppyDrive::LoadImage(const char * filename, uint8 driveNum/*= 0*/)
 {
+	WriteLog("FLOPPY: Attempting to load image '%s' in drive #%u.\n", filename, driveNum);
+
 	if (driveNum > 1)
 	{
 		WriteLog("FLOPPY: Attempted to load image to drive #%u!\n", driveNum);
@@ -89,6 +91,20 @@ bool FloppyDrive::LoadImage(const char * filename, uint8 driveNum/*= 0*/)
 //printf("Read disk image: %u bytes.\n", diskSize);
 	DetectImageType(filename, driveNum);
 	strcpy(imageName[driveNum], filename);
+
+#if 0
+	WriteLog("FLOPPY: Opening image for drive #%u.\n", driveNum);
+	FILE * fp2 = fopen("bt-nybblized.nyb", "wb");
+
+	if (fp2 == NULL)
+		WriteLog("FLOPPY: Failed to open image file 'bt-nybblized.nyb' for writing...\n");
+	else
+	{
+		fwrite(nybblizedImage[driveNum], 1, 232960, fp2);
+		fclose(fp2);
+	}
+#endif
+	WriteLog("FLOPPY: Loaded image '%s' for drive #%u.\n", filename, driveNum);
 
 	return true;
 }
@@ -227,8 +243,16 @@ WRT to the disk image itself.
 //*/
 		}
 
+// Actually, it just might matter WRT to nybblyzing/denybblyzing
+// Here, we check for BT3
+//Nope, no change...
+//diskType[driveNum] = DT_PRODOS;
+
 		NybblizeImage(driveNum);
 	}
+
+#warning "Should we attempt to nybblize unknown images here? Definitely SHOULD issue a warning!"
+
 WriteLog("FLOPPY: Detected image type %s...\n", (diskType[driveNum] == DT_NYBBLE ?
 	"Nybble image" : (diskType[driveNum] == DT_DOS33 ?
 	"DOS 3.3 image" : (diskType[driveNum] == DT_PRODOS ? "ProDOS image" : "unknown"))));
@@ -317,8 +341,16 @@ void FloppyDrive::NybblizeImage(uint8 driveNum)
 			// Using a lookup table, convert the 6-bit bytes into disk bytes.
 
 			for(uint16 i=0; i<343; i++)
+//#define TEST_NYBBLIZATION
+#ifdef TEST_NYBBLIZATION
+{
+WriteLog("FL: i = %u, img[i] = %02X, diskbyte = %02X\n", i, img[i], diskbyte[img[i] >> 2]);
+#endif
 				img[i] = diskbyte[img[i] >> 2];
-
+#ifdef TEST_NYBBLIZATION
+//WriteLog("            img[i] = %02X\n", img[i]);
+}
+#endif
 			img += 343;
 
 			// Done with the nybblization, now for the epilogue...
@@ -488,7 +520,8 @@ void FloppyDrive::DriveEnable(uint8 addr)
 
 uint8 FloppyDrive::ReadWrite(void)
 {
-SpawnMessage("%sing %s track %u, sector %u...", (ioMode == IO_MODE_READ ? "Read" : "Write"),
+SpawnMessage("%u:%sing %s track %u, sector %u...", activeDrive,
+	(ioMode == IO_MODE_READ ? "Read" : "Write"),
 	(ioMode == IO_MODE_READ ? "from" : "to"), track, currentPos / 396);
 	// $C0EC
 /*
@@ -506,6 +539,7 @@ Which we now do. :-)
 	uint8 diskByte = nybblizedImage[activeDrive][(track * 6656) + currentPos];
 	currentPos = (currentPos + 1) % 6656;
 
+//WriteLog("FL: diskByte=%02X, currentPos=%u\n", diskByte, currentPos);
 	return diskByte;
 }
 
