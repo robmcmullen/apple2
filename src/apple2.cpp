@@ -256,7 +256,7 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 A = PEEK($C082)
 */
 
-#define DEBUG_LC
+//#define DEBUG_LC
 	else if ((addr & 0xFFFB) == 0xC080)
 	{
 #ifdef DEBUG_LC
@@ -371,23 +371,76 @@ WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
 		floppyDrive.SetWriteMode();
 	}
 
+//#define LC_DEBUGGING
+#ifdef LC_DEBUGGING
+bool showpath = false;
+if (addr >= 0xD000 && addr <= 0xD00F)
+	showpath = true;
+#endif
 //This sux...
 	if (addr >= 0xC100 && addr <= 0xCFFF)	// The $C000-$CFFF block is *never* RAM
+#ifdef LC_DEBUGGING
+	{
+#endif
 		b = rom[addr];
+#ifdef LC_DEBUGGING
+if (showpath)
+	WriteLog("b is from $C100-$CFFF block...\n");
+	}
+#endif
 	else if (addr >= 0xD000)
 	{
 		if (readRAM)
 		{
 			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
+#ifdef LC_DEBUGGING
+	{
+#endif
 				b = ram[addr - 0x1000];
+#ifdef LC_DEBUGGING
+if (showpath)
+	WriteLog("b is from LC bank #1 (ram[addr - 0x1000])...\n");
+	}
+#endif
 			else
+#ifdef LC_DEBUGGING
+	{
+#endif
 				b = ram[addr];
+#ifdef LC_DEBUGGING
+if (showpath)
+	WriteLog("b is from LC bank #2 (ram[addr])...\n");
+	}
+#endif
 		}
 		else
+#ifdef LC_DEBUGGING
+	{
+#endif
 			b = rom[addr];
+#ifdef LC_DEBUGGING
+if (showpath)
+	WriteLog("b is from LC ROM (rom[addr])...\n");
+	}
+#endif
 	}
 	else
+#ifdef LC_DEBUGGING
+	{
+#endif
 		b = ram[addr];
+#ifdef LC_DEBUGGING
+if (showpath)
+	WriteLog("b is from ram[addr]...\n");
+	}
+#endif
+
+#ifdef LC_DEBUGGING
+if (addr >= 0xD000 && addr <= 0xD00F)
+{
+	WriteLog("*** Read from $%04X: $%02X (readRAM=%s, PC=%04X, ram$D000=%02X)\n", addr, b, (readRAM ? "T" : "F"), mainCPU.pc, ram[0xC000]);
+}
+#endif
 
 	return b;
 }
@@ -647,6 +700,16 @@ WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
 		floppyDrive.SetWriteMode();
 	}
 //Still need to add missing I/O switches here...
+
+//DEEE: BD 10 BF       LDA   $BF10,X    [PC=DEF1, SP=01F4, CC=--.B-IZ-, A=00, X=0C, Y=07]
+#if 0
+if (addr >= 0xD000 && addr <= 0xD00F)
+{
+	WriteLog("*** Write to $%04X: $%02X (writeRAM=%s, PC=%04X, ram$D000=%02X)\n", addr, b, (writeRAM ? "T" : "F"), mainCPU.pc, ram[0xC000]);
+}
+#endif
+	if (addr >= 0xC000 && addr <= 0xCFFF)
+		return;	// Protect LC bank #1 from being written to!
 
 	if (addr >= 0xD000)
 	{

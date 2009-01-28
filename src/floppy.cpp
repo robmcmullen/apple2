@@ -566,3 +566,38 @@ void FloppyDrive::SetWriteMode(void)
 	// $C0EF
 	ioMode = IO_MODE_WRITE;
 }
+
+/*
+PRODOS 8 MLI ERROR CODES
+
+$00:    No error
+$01:    Bad system call number
+$04:    Bad system call parameter count
+$25:    Interrupt table full
+$27:    I/O error
+$28:    No device connected
+$2B:    Disk write protected
+$2E:    Disk switched
+$40:    Invalid pathname
+$42:    Maximum number of files open
+$43:    Invalid reference number
+$44:    Directory not found
+$45:    Volume not found
+$46:    File not found
+$47:    Duplicate filename
+$48:    Volume full
+$49:    Volume directory full
+$4A:    Incompatible file format, also a ProDOS directory
+$4B:    Unsupported storage_type
+$4C:    End of file encountered
+$4D:    Position out of range
+$4E:    File access error, also file locked
+$50:    File is open
+$51:    Directory structure damaged
+$52:    Not a ProDOS volume
+$53:    Invalid system call parameter
+$55:    Volume Control Block table full
+$56:    Bad buffer address
+$57:    Duplicate volume
+$5A:    File structure damaged
+*/

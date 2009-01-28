@@ -1700,6 +1700,9 @@ RTI	Implied		RTI			40	1	6
 static void Op40(void)							// RTI
 {
 	regs.cc = regs.RdMem(0x0100 + ++regs.sp);
+//clear I (seems to be the case, either that or clear it in the IRQ setup...)
+//I can't find *any* verification that this is the case.
+//	regs.cc &= ~FLAG_I;
 	regs.pc = regs.RdMem(0x0100 + ++regs.sp);
 	regs.pc |= (uint16)(regs.RdMem(0x0100 + ++regs.sp)) << 8;
 }
@@ -2295,6 +2298,11 @@ if (regs.pc == 0xFDED)
 	WriteLog("\n*** COUT subroutine...\n\n");
 	dumpDis = false;
 }
+#endif
+#if 0
+// ProDOS debugging
+if (regs.pc == 0x2000)
+	dumpDis = true;
 #endif
 
 #ifdef __DEBUG__

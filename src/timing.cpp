@@ -63,7 +63,7 @@ void SetCallbackTime(void (* callback)(void), double time)
         }
     }
 
-    WriteLog("SetCallbackTime() failed to find an empty slot in the list!\n");
+    WriteLog("TIMING: SetCallbackTime() failed to find an empty slot in the list!\n");
 }
 
 void RemoveCallback(void (* callback)(void))
@@ -94,6 +94,10 @@ void AdjustCallbackTime(void (* callback)(void), double time)
 
 double GetTimeToNextEvent(void)
 {
+	// Find the next event. Since the events are not necessarily in order of
+	// increasing time, we have to search through the list for the lowest one.
+
+//ALSO: There's a bug here--nextEvent is getting a bogus value/getting clobbered...
     double time = 0;
     bool firstTime = true;
 
@@ -102,14 +106,24 @@ double GetTimeToNextEvent(void)
         if (eventList[i].valid)
         {
             if (firstTime)
-                time = eventList[i].eventTime, nextEvent = i, firstTime = false;
+			{
+                time = eventList[i].eventTime;
+				nextEvent = i;
+				firstTime = false;
+			}
             else
             {
                 if (eventList[i].eventTime < time)
-                    time = eventList[i].eventTime, nextEvent = i;
+				{
+                    time = eventList[i].eventTime;
+					nextEvent = i;
+				}
             }
         }
     }
+
+	if (time == 0)
+		WriteLog("TIMING: GetTimeToNextEvent() failed to find next event!\n");
 
     return time;
 }
