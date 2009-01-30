@@ -40,7 +40,7 @@
 SDL_Surface * surface, * mainSurface, * someAlphaSurface;
 Uint32 mainSurfaceFlags;
 //uint32 scrBuffer[VIRTUAL_SCREEN_WIDTH * VIRTUAL_SCREEN_HEIGHT];
-uint32 * scrBuffer = NULL;
+uint32 * scrBuffer = NULL, * mainScrBuffer = NULL;
 SDL_Joystick * joystick;
 
 //
@@ -160,6 +160,8 @@ WriteLog("\n");//*/
 	scrBuffer = (uint32 *)surface->pixels;	// Kludge--And shouldn't have to lock since it's a software surface...
 //needed? Dunno. Mebbe an SDL function instead?
 //	memset(scrBuffer, 0x00, VIRTUAL_SCREEN_WIDTH * VIRTUAL_SCREEN_HEIGHT * sizeof(uint32));
+	// Set up the mainScrBuffer
+	mainScrBuffer = (uint32 *)mainSurface->pixels;	// May need to lock...
 
 #ifdef TEST_ALPHA_BLENDING
 //Here's some code to test alpha blending...
@@ -228,6 +230,20 @@ SDL_BlitSurface(someAlphaSurface, NULL, surface, &dstRect);
 		SDL_BlitSurface(surface, NULL, mainSurface, NULL);
 		SDL_Flip(mainSurface);
     }
+}
+
+// Is this even necessary? (Could call SDL_Flip directly...)
+void FlipMainScreen(void)
+{
+#ifdef TEST_ALPHA_BLENDING
+SDL_Rect dstRect = { 100, 100, 30, 30 };
+SDL_BlitSurface(someAlphaSurface, NULL, mainSurface, &dstRect);
+#endif
+
+	if (settings.useOpenGL)
+		sdlemu_draw_texture(mainSurface, surface, 1/*1=GL_QUADS*/);
+	else
+		SDL_Flip(mainSurface);
 }
 
 /*

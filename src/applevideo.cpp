@@ -500,13 +500,13 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 			{
 				uint8 scrByte = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x];
 				uint32 pixel = palette[scrByte & 0x0F];
-	
+
 				for(int cy=0; cy<4; cy++)
 					for(int cx=0; cx<14; cx++)
 						scrBuffer[((x * 14) + cx) + (((y * 8) + cy) * VIRTUAL_SCREEN_WIDTH)] = pixel;
-	
+
 				pixel = palette[scrByte >> 4];
-	
+
 				for(int cy=4; cy<8; cy++)
 					for(int cx=0; cx<14; cx++)
 						scrBuffer[(x * 14) + (y * VIRTUAL_SCREEN_WIDTH * 8) + cx + (cy * VIRTUAL_SCREEN_WIDTH)] = pixel;
@@ -633,7 +633,7 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 
 static void RenderHiRes(uint16 toLine/*= 192*/)
 {
-// NOTE: Not endian safe. !!! FIX !!!
+// NOTE: Not endian safe. !!! FIX !!! [DONE]
 #if 0
 	uint32 pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
 #else

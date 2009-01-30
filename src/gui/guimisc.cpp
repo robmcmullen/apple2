@@ -86,6 +86,12 @@ void DrawStringTrans(SDL_Surface * screen, uint32 x, uint32 y, uint32 color, con
 	SDL_Rect rect;
 	rect.x = x, rect.y = y;
 
+//bleh
+uint8 r1, g1, b1, a1;
+SDL_GetRGBA(color, screen->format, &r1, &g1, &b1, &a1);
+color = SDL_MapRGBA(chr->format, r1, g1, b1, a1);
+//helb
+
 	for(uint32 i=0; i<length; i++)
 	{
 		uint8 c = string[i];
@@ -134,6 +140,14 @@ void DrawStringOpaque(SDL_Surface * screen, uint32 x, uint32 y, uint32 fg, uint3
 		MASK_R, MASK_G, MASK_B, MASK_A);
 	SDL_Rect rect;
 	rect.x = x, rect.y = y;
+
+//bleh (we have to map colors from the HW surface to the SW surface)
+uint8 r1, g1, b1, a1;
+SDL_GetRGBA(fg, screen->format, &r1, &g1, &b1, &a1);
+fg = SDL_MapRGBA(chr->format, r1, g1, b1, a1);
+SDL_GetRGBA(bg, screen->format, &r1, &g1, &b1, &a1);
+bg = SDL_MapRGBA(chr->format, r1, g1, b1, a1);
+//helb
 
 	for(uint32 i=0; i<length; i++)
 	{

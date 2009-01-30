@@ -24,18 +24,26 @@
 #include "video.h"
 
 // Debug support
-
 //#define DEBUG_MAIN_LOOP
+
+// New main screen buffering
+// This works, but the colors are rendered incorrectly. Also, it seems that there's
+// fullscreen blitting still going on--dragging the disk is fast at first but then
+// gets painfully slow. Not sure what's going on there.
+#define USE_NEW_MAINBUFFERING
 
 //#ifdef DEBUG_MAIN_LOOP
 #include "log.h"
 //#endif
 
 
-GUI::GUI(SDL_Surface * mainSurface): menuItem(new MenuItems())
+GUI::GUI(SDL_Surface * surface): menuItem(new MenuItems())
 {
-	windowList.push_back(new Menu());
-	Element::SetScreen(mainSurface);
+	Element::SetScreen(surface);
+//	windowList.push_back(new Menu());
+
+// Create drive windows, and config windows here...
+
 }
 
 GUI::~GUI()
@@ -91,12 +99,17 @@ void GUI::Run(void)
 	for(i=windowList.begin(); i!=windowList.end(); i++)
 		(*i)->Draw();
 
+#ifndef USE_NEW_MAINBUFFERING
 	RenderScreenBuffer();
+#else
+	FlipMainScreen();
+#endif
 
 	// Main loop
 	while (!exitGUI)
 	{
-		if (SDL_PollEvent(&event))
+//		if (SDL_PollEvent(&event))
+		if (SDL_WaitEvent(&event))
 		{
 #ifdef DEBUG_MAIN_LOOP
 WriteLog("An event was found!");
@@ -153,7 +166,11 @@ WriteLog(" -- SDL_USEREVENT\n");
 
 //Dirty rectangle is also possible...
 				else if (event.user.code == SCREEN_REFRESH_NEEDED)
+#ifndef USE_NEW_MAINBUFFERING
 					RenderScreenBuffer();
+#else
+					FlipMainScreen();
+#endif
 			}
 			else if (event.type == SDL_ACTIVEEVENT)
 			{
@@ -161,7 +178,11 @@ WriteLog(" -- SDL_USEREVENT\n");
 				if (event.active.state == SDL_APPMOUSEFOCUS)
 					showMouse = (event.active.gain ? true : false);
 
+#ifndef USE_NEW_MAINBUFFERING
 				RenderScreenBuffer();
+#else
+					FlipMainScreen();
+#endif
 			}
 			else if (event.type == SDL_KEYDOWN)
 			{
@@ -399,13 +420,21 @@ else
 
 			if (Element::ScreenNeedsRefreshing())
 			{
+#ifndef USE_NEW_MAINBUFFERING
 #ifdef DEBUG_MAIN_LOOP
 WriteLog("Screen refresh called!\n");
 #endif
 				RenderScreenBuffer();
 				Element::ScreenWasRefreshed();
+#else
+				FlipMainScreen();
+				Element::ScreenWasRefreshed();
+#endif
 			}
 		}
+//hm. Works, but slows things way down.
+//Now we use WaitEvents() instead. Yay!
+//SDL_Delay(10);
 	}
 
 	SDL_EnableKeyRepeat(0, 0);

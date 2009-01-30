@@ -17,6 +17,7 @@ bool InitVideo(void);
 void VideoDone(void);
 //void RenderBackbuffer(void);
 void RenderScreenBuffer(void);
+void FlipMainScreen(void);
 //void ResizeScreen(uint32 width, uint32 height);
 //uint32 GetSDLScreenPitch(void);
 //void ToggleFullscreen(void);
@@ -25,6 +26,8 @@ void RenderScreenBuffer(void);
 
 //extern uint32 scrBuffer[VIRTUAL_SCREEN_WIDTH * VIRTUAL_SCREEN_HEIGHT];
 extern uint32 * scrBuffer;
+extern uint32 * mainScrBuffer;
 extern SDL_Surface * surface;
+extern SDL_Surface * mainSurface;
 
 #endif	// __VIDEO_H__

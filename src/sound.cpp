@@ -30,7 +30,7 @@
 #define SAMPLES_PER_FRAME	(SAMPLE_RATE / 60.0)
 #define CYCLES_PER_SAMPLE	(1024000.0 / SAMPLE_RATE)
 #define SOUND_BUFFER_SIZE	(8192)
-#define AMPLITUDE			(32)				// -32 - +32 seems to be plenty loud!
+//#define AMPLITUDE			(16)				// -32 - +32 seems to be plenty loud!
 
 // Global variables
 
@@ -46,6 +46,9 @@ static uint32 sampleBase;
 static SDL_cond * conditional = NULL;
 static SDL_mutex * mutex = NULL;
 static SDL_mutex * mutex2 = NULL;
+static uint8 ampPtr = 5;
+static uint16 amplitude[17] = { 0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048,
+	4096, 8192, 16384, 32768 };
 
 // Private function prototypes
 
@@ -56,8 +59,8 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length);
 //
 void SoundInit(void)
 {
-// To weed out problems for now...
 #if 0
+// To weed out problems for now...
 return;
 #endif
 
@@ -126,7 +129,7 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length)
 			buffer[i] = soundBuffer[i];
 
 		// Fill buffer with last value
-		memset(buffer + soundBufferPos, (uint8)(speakerState ? AMPLITUDE : -AMPLITUDE), length - soundBufferPos);
+		memset(buffer + soundBufferPos, (uint8)(speakerState ? amplitude[ampPtr] : -amplitude[ampPtr]), length - soundBufferPos);
 		soundBufferPos = 0;						// Reset soundBufferPos to start of buffer...
 		sampleBase = 0;							// & sampleBase...
 //Ick. This should never happen!
@@ -215,7 +218,7 @@ WriteLog("--> after spinlock (sampleBase=%u)...\n", sampleBase);
 #endif
 	}
 
-	int8 sample = (speakerState ? AMPLITUDE : -AMPLITUDE);
+	int8 sample = (speakerState ? amplitude[ampPtr] : -amplitude[ampPtr]);
 
 	while (soundBufferPos < currentPos)
 		soundBuffer[soundBufferPos++] = (uint8)sample;

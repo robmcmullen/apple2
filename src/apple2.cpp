@@ -555,7 +555,8 @@ SETALTCH = $C00F ;use alt char set- norm inverse, LC; no Flash (WR-only)
 	{
 //Actually, according to the A2 ref, this should do nothing since a write
 //is immediately preceded by a read leaving it in the same state it was...
-//		keyDown = false;
+//But leaving this out seems to fuck up the key handling of some games...
+		keyDown = false;
 	}
 	else if (addr == 0xC050)
 	{
@@ -787,7 +788,7 @@ int main(int /*argc*/, char * /*argv*/[])
 
 //Load up disk image from config file (for now)...
 	floppyDrive.LoadImage(settings.diskImagePath1, 0);
-//	floppyDrive.LoadImage(settings.diskImagePath2, 1);
+	floppyDrive.LoadImage(settings.diskImagePath2, 1);
 //	floppyDrive.LoadImage("./disks/temp.nib", 1);	// Load temp .nib file into second drive...
 
 //Kill the DOS ROM in slot 6 for now...
@@ -848,7 +849,8 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 	SoundInit();
 	SDL_EnableUNICODE(1);						// Needed to do key translation shit
 
-	gui = new GUI(surface);						// Set up the GUI system object...
+//	gui = new GUI(surface);						// Set up the GUI system object...
+	gui = new GUI(mainSurface);					// Set up the GUI system object...
 	gui->AddMenuTitle("Apple2");
 	gui->AddMenuItem("Test!", TestWindow/*, hotkey*/);
 	gui->AddMenuItem("");

@@ -61,11 +61,16 @@ Element::Element(uint32 x, uint32 y, uint32 w, uint32 h,
 	extents.h = h;
 	coverList.push_back(extents);
 
+#if 0
 	// This *should* allow us to store our colors in an endian safe way... :-/
 	uint8 * c = (uint8 *)&fgColor;
 	c[0] = fgR, c[1] = fgG, c[2] = fgB, c[3] = fgA;
 	c = (uint8 *)&bgColor;
 	c[0] = bgR, c[1] = bgG, c[2] = bgB, c[3] = bgA;
+#else
+	fgColor = SDL_MapRGBA(screen->format, fgR, fgG, fgB, fgA);
+	bgColor = SDL_MapRGBA(screen->format, bgR, bgG, bgB, bgA);
+#endif
 }
 
 Element::~Element()

@@ -62,11 +62,17 @@ Menu::Menu(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
 	activatedSave(false), clickedSave(false),
 	insideSave(0), insidePopupSave(0), menuChosenSave(-1), menuItemChosenSave(-1)
 {
+#if 0
 	// This *should* allow us to store our colors in an endian safe way... :-/
+	// Nope. Only on SW surfaces. With HW, all bets are off. :-(
 	uint8 * c = (uint8 *)&fgColorHL;
 	c[0] = fgchR, c[1] = fgchG, c[2] = fgchB, c[3] = fgchA;
 	c = (uint8 *)&bgColorHL;
 	c[0] = bgchR, c[1] = bgchG, c[2] = bgchB, c[3] = bgchA;
+#else
+	fgColorHL = SDL_MapRGBA(screen->format, fgchR, fgchG, fgchB, fgchA);
+	bgColorHL = SDL_MapRGBA(screen->format, bgchR, bgchG, bgchB, bgchA);
+#endif
 }
 
 Menu::~Menu()

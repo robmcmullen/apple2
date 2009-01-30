@@ -38,6 +38,7 @@ struct Event
     void (* timerCallback)(void);
 };
 
+//let's try +1... nope.
 static Event eventList[EVENT_LIST_SIZE];
 static uint32 nextEvent;
 
@@ -98,6 +99,7 @@ double GetTimeToNextEvent(void)
 	// increasing time, we have to search through the list for the lowest one.
 
 //ALSO: There's a bug here--nextEvent is getting a bogus value/getting clobbered...
+//      Seems like it's getting clobbered somewhere other than here...
     double time = 0;
     bool firstTime = true;
 
@@ -124,6 +126,9 @@ double GetTimeToNextEvent(void)
 
 	if (time == 0)
 		WriteLog("TIMING: GetTimeToNextEvent() failed to find next event!\n");
+
+	if (nextEvent >= EVENT_LIST_SIZE)
+		WriteLog("TIMING: GetTimeToNextEvent() has bad nextEvent (=%u)!\n", nextEvent);
 
     return time;
 }
