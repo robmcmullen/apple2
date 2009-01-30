@@ -21,6 +21,7 @@
 #include "gui.h"
 #include "menu.h"								// Element class methods are pulled in here...
 #include "window.h"
+#include "button.h"
 #include "video.h"
 
 // Debug support
@@ -43,7 +44,9 @@ GUI::GUI(SDL_Surface * surface): menuItem(new MenuItems())
 //	windowList.push_back(new Menu());
 
 // Create drive windows, and config windows here...
-
+	windowList.push_back(new Window(30, 30, 200, 100));
+	windowList.push_back(new Window(30, 140, 200, 100));
+	windowList.push_back(new Button(30, 250, "Click!"));
 }
 
 GUI::~GUI()
@@ -96,6 +99,7 @@ void GUI::Run(void)
 	SDL_EnableKeyRepeat(150, 75);
 
 	// Initial update... [Now handled correctly in the constructor]
+	// Uh, still needed here, though... Only makes sense that it should
 	for(i=windowList.begin(); i!=windowList.end(); i++)
 		(*i)->Draw();
 

@@ -35,6 +35,8 @@ class Button: public Element
 	protected:
 		bool activated, clicked, inside;
 		SDL_Surface * buttonUp, * buttonDown, * buttonHover;
+		uint32 fgColorHL;
+		uint32 bgColorHL;
 
 	private:
 		bool surfacesAreLocal;

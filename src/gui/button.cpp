@@ -26,6 +26,12 @@
 #define MASK_A 0xFF000000
 #endif
 
+// Debugging...
+//#define DEBUG_GUI_BUTTON
+#ifdef DEBUG_GUI_BUTTON
+#include "log.h"
+#endif
+
 //
 // Button class implementation
 //
@@ -86,7 +92,7 @@ Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, std::string s, Element * 
 }
 
 Button::Button(uint32 x, uint32 y, std::string s, Element * parent/*= NULL*/):
-	Element(x, y, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, parent),
+	Element(x, y, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xCF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
 	buttonUp(NULL), buttonDown(NULL), buttonHover(NULL), surfacesAreLocal(true),
 	activatedSave(false), clickedSave(false), insideSave(false)
@@ -103,14 +109,31 @@ Button::Button(uint32 x, uint32 y, std::string s, Element * parent/*= NULL*/):
 	buttonHover = SDL_CreateRGBSurface(SDL_SWSURFACE, extents.w, extents.h, 32,
 		MASK_R, MASK_G, MASK_B, MASK_A);
 
+//bleh
+uint8 r1, g1, b1, a1;
+SDL_GetRGBA(fgColor, screen->format, &r1, &g1, &b1, &a1);
+fgColor = SDL_MapRGBA(buttonUp->format, r1, g1, b1, a1);
+SDL_GetRGBA(bgColor, screen->format, &r1, &g1, &b1, &a1);
+bgColor = SDL_MapRGBA(buttonUp->format, r1, g1, b1, a1);
+fgColorHL = SDL_MapRGBA(buttonUp->format, 0xFF, 0xFF, 0xFF, 0xFF);
+bgColorHL = SDL_MapRGBA(buttonUp->format, 0x4F, 0xFF, 0x4F, 0xFF);
+//helb
+
 	// Need to create backgrounds before we do this stuff...
 	SDL_FillRect(buttonUp, NULL, bgColor);
 	SDL_FillRect(buttonDown, NULL, fgColor);
-	SDL_FillRect(buttonHover, NULL, bgColor);
+	SDL_FillRect(buttonHover, NULL, bgColorHL);
 
 	DrawStringTrans(buttonUp, GetFontWidth(), 0, fgColor, s.c_str());
 	DrawStringTrans(buttonDown, GetFontWidth(), 0, fgColor, s.c_str());
-	DrawStringTrans(buttonHover, GetFontWidth(), 0, fgColor, s.c_str());
+	DrawStringTrans(buttonHover, GetFontWidth(), 0, fgColorHL, s.c_str());
+
+#ifdef DEBUG_GUI_BUTTON
+	WriteLog("Button::Button()...\n");
+	WriteLog("\tbuttonUp w/h    = %u/%u\n", buttonUp->w, buttonUp->h);
+	WriteLog("\tbuttonDown w/h  = %u/%u\n", buttonDown->w, buttonDown->h);
+	WriteLog("\tbuttonHover w/h = %u/%u\n", buttonHover->w, buttonHover->h);
+#endif
 }
 
 Button::~Button()
@@ -165,6 +188,9 @@ void Button::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 
 void Button::Draw(void)
 {
+#ifdef DEBUG_GUI_BUTTON
+	WriteLog("Button::Draw()...\n");
+#endif
 	if (buttonUp == NULL)
 		return;									// Bail out if no surface was created...
 
@@ -179,12 +205,23 @@ void Button::Draw(void)
 		picToShow = buttonDown;
 
 	SDL_Rect rect = GetScreenCoords();
+#ifdef DEBUG_GUI_BUTTON
+	WriteLog("        coords: x=%u, y=%u\n", rect.x, rect.y);
+	WriteLog("        picToShow=%08X\n", picToShow);
+#endif
 
 //Need to do coverage list blitting here, to avoid unnecessary drawing when doing mouseovers
 //Also, need to add suport in Gui()...
 	SDL_BlitSurface(picToShow, NULL, screen, &rect);	// This handles alpha blending too! :-D
+#ifdef DEBUG_GUI_BUTTON
+	WriteLog("        width: w=%u, h=%u\n", rect.w, rect.h);
+#endif
 
 	needToRefreshScreen = true;
+
+#ifdef DEBUG_GUI_BUTTON
+//	SDL_FillRect(screen, &extents, fgColor);
+#endif
 }
 
 void Button::Notify(Element *)

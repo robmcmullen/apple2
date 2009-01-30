@@ -22,7 +22,8 @@
 //#define DESTRUCTOR_TESTING
 
 // Rendering experiment...
-#define USE_COVERAGE_LISTS
+//BAH
+//#define USE_COVERAGE_LISTS
 
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
 #define MASK_R 0xFF000000
@@ -54,8 +55,8 @@ Window::Window(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*
 		MASK_R, MASK_G, MASK_B, MASK_A))
 {
 //Could probably move this into the initializer list as well...
-	closeButton = new Button(w - (cbWidth + 1), 1, cbUp, cbHover, cbDown, this);
-	list.push_back(closeButton);
+//	closeButton = new Button(w - (cbWidth + 1), 1, cbUp, cbHover, cbDown, this);
+//	list.push_back(closeButton);
 
 	CreateBackstore();
 	Draw();	// Can we do this in the constructor??? Mebbe.
@@ -99,10 +100,22 @@ void Window::HandleMouseMove(uint32 x, uint32 y)
 
 void Window::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 {
+#if 1
 	// Handle the items this window contains...
 	for(uint32 i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
+#else //? This works in draggablewindow2...
+	// Handle the items this window contains...
+	for(uint32 i=0; i<list.size(); i++)
+	{
+		// Make coords relative to upper right corner of this window...
+		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
+
+		if (list[i]->Inside(x - extents.x, y - extents.y))
+			clicked = false;
+	}
+#endif
 }
 
 void Window::Draw(void)
@@ -127,9 +140,11 @@ void Window::Draw(void)
 #endif
 
 //Prolly don't need this since the close button will do this for us...
+//Close button isn't mandatory anymore...
 	needToRefreshScreen = true;
 }
 
+// This is only called if a close button has been added
 void Window::Notify(Element * e)
 {
 	if (e == closeButton)
@@ -145,4 +160,14 @@ void Window::Notify(Element * e)
 void Window::AddElement(Element * e)
 {
 	list.push_back(e);
+}
+
+void Window::AddCloseButton(void)
+{
+	// Only allow this to happen once!
+	if (closeButton == NULL)
+	{
+		closeButton = new Button(extents.w - (cbWidth + 1), 1, cbUp, cbHover, cbDown, this);
+		list.push_back(closeButton);
+	}
 }

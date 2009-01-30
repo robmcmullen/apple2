@@ -24,6 +24,7 @@ class Window: public Element
 		virtual void Draw(void);
 		virtual void Notify(Element *);
 		void AddElement(Element * e);
+		void AddCloseButton(void);
 
 	protected:
 		void (* handler)(Element *);

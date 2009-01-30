@@ -851,11 +851,13 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 
 //	gui = new GUI(surface);						// Set up the GUI system object...
 	gui = new GUI(mainSurface);					// Set up the GUI system object...
+#if 0
 	gui->AddMenuTitle("Apple2");
 	gui->AddMenuItem("Test!", TestWindow/*, hotkey*/);
 	gui->AddMenuItem("");
 	gui->AddMenuItem("Quit", QuitEmulator, SDLK_q);
 	gui->CommitItemsToMenu();
+#endif
 
 	SetupBlurTable();							// Set up the color TV emulation blur table
 	running = true;								// Set running status...
