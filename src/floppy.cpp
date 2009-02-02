@@ -37,6 +37,7 @@ uint8 FloppyDrive::doSector[16] = {
 	0x0, 0x7, 0xE, 0x6, 0xD, 0x5, 0xC, 0x4, 0xB, 0x3, 0xA, 0x2, 0x9, 0x1, 0x8, 0xF };
 uint8 FloppyDrive::poSector[16] = {
 	0x0, 0x8, 0x1, 0x9, 0x2, 0xA, 0x3, 0xB, 0x4, 0xC, 0x5, 0xD, 0x6, 0xE, 0x7, 0xF };
+char FloppyDrive::nameBuf[MAX_PATH];
 
 // FloppyDrive class implementation...
 
@@ -461,6 +462,43 @@ void FloppyDrive::DenybblizeImage(uint8 driveNum)
 		}
 	}
 }
+
+const char * FloppyDrive::GetImageName(uint8 driveNum/*= 0*/)
+{
+	// Set up a zero-length string for return value
+	nameBuf[0] = 0;
+
+	if (driveNum > 1)
+	{
+		WriteLog("FLOPPY: Attempted to get image name for drive #%u!\n", driveNum);
+		return nameBuf;
+	}
+
+	// Now we attempt to strip out extraneous paths/extensions to get just the filename
+	const char * startOfFile = strrchr(imageName[driveNum], '/');
+	const char * startOfExt = strrchr(imageName[driveNum], '.');
+
+	// If there isn't a path, assume we're starting at the beginning
+	if (startOfFile == NULL)
+		startOfFile = &imageName[driveNum][0];
+	else
+		startOfFile++;
+
+	// If there isn't an extension, assume it's at the terminating NULL
+	if (startOfExt == NULL)
+		startOfExt = &imageName[driveNum][0] + strlen(imageName[driveNum]);
+
+	// Now copy the filename (may copy nothing!)
+	int j = 0;
+
+	for(const char * i=startOfFile; i<startOfExt; i++)
+		nameBuf[j++] = *i;
+
+	nameBuf[j] = 0;
+
+	return nameBuf;
+}
+
 
 // Memory mapped I/O functions
 

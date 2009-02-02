@@ -3,6 +3,7 @@
 //
 
 #include "types.h"
+#include "floppy.h"
 
 enum { APPLE_TYPE_II, APPLE_TYPE_IIE, APPLE_TYPE_IIC };
 
@@ -10,3 +11,4 @@ enum { APPLE_TYPE_II, APPLE_TYPE_IIE, APPLE_TYPE_IIC };
 
 extern uint8 ram[0x10000], rom[0x10000];		// RAM & ROM pointers
 extern uint8 appleType;
+extern FloppyDrive floppyDrive;

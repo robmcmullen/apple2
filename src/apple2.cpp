@@ -62,13 +62,14 @@ uint8 ram[0x10000], rom[0x10000];				// RAM & ROM spaces
 uint8 diskRom[0x100];							// Disk ROM space
 V65C02REGS mainCPU;
 uint8 appleType = APPLE_TYPE_II;
+FloppyDrive floppyDrive;
 
 // Local variables
 
 static uint8 lastKeyPressed = 0;
 static bool keyDown = false;
 
-static FloppyDrive floppyDrive;
+//static FloppyDrive floppyDrive;
 
 enum { LC_BANK_1, LC_BANK_2 };
 

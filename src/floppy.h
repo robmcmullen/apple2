@@ -27,6 +27,7 @@ class FloppyDrive
 		bool SaveImageAs(const char * filename, uint8 driveNum = 0);
 		void CreateBlankImage(uint8 driveNum = 0);
 		void SwapImages(void);
+		const char * GetImageName(uint8 driveNum = 0);
 
 		// I/O functions ($C0Ex accesses)
 
@@ -64,6 +65,7 @@ class FloppyDrive
 		static uint8 header[21];
 		static uint8 doSector[16];
 		static uint8 poSector[16];
+		static char nameBuf[MAX_PATH];
 };
 
 #endif	// __FLOPPY_H__

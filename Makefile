@@ -78,6 +78,7 @@ OBJS = \
 	obj/gui.o             \
 	obj/guimisc.o         \
 	obj/menu.o            \
+	obj/text.o            \
 	obj/textedit.o        \
 	obj/window.o          \
                           \

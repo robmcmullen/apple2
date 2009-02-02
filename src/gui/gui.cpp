@@ -22,7 +22,9 @@
 #include "menu.h"								// Element class methods are pulled in here...
 #include "window.h"
 #include "button.h"
+#include "text.h"
 #include "video.h"
+#include "apple2.h"
 
 // Debug support
 //#define DEBUG_MAIN_LOOP
@@ -37,6 +39,15 @@
 #include "log.h"
 //#endif
 
+/*
+Work flow: Draw floppy drive.
+If disk in drive, MO shows eject graphic, otherwise show load graphic.
+If hit 'new blank image':
+	If disk in drive, ask if want to save if modified
+	else, load it
+
+*/
+
 
 GUI::GUI(SDL_Surface * surface): menuItem(new MenuItems())
 {
@@ -47,6 +58,8 @@ GUI::GUI(SDL_Surface * surface): menuItem(new MenuItems())
 	windowList.push_back(new Window(30, 30, 200, 100));
 	windowList.push_back(new Window(30, 140, 200, 100));
 	windowList.push_back(new Button(30, 250, "Click!"));
+	windowList.push_back(new Text(30, 20, floppyDrive.GetImageName(0)));
+	windowList.push_back(new Text(30, 130, floppyDrive.GetImageName(1)));
 }
 
 GUI::~GUI()
