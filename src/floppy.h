@@ -28,6 +28,8 @@ class FloppyDrive
 		void CreateBlankImage(uint8 driveNum = 0);
 		void SwapImages(void);
 		const char * GetImageName(uint8 driveNum = 0);
+		void EjectImage(uint8 driveNum = 0);
+		bool DriveIsEmpty(uint8 driveNum = 0);
 
 		// I/O functions ($C0Ex accesses)
 

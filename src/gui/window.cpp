@@ -52,7 +52,7 @@ Window::Window(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*
 	cbDown(SDL_CreateRGBSurfaceFrom(&closeBoxDown[4], cbWidth, cbHeight, 32, cbWidth * 4,
 		MASK_R, MASK_G, MASK_B, MASK_A)),
 	cbHover(SDL_CreateRGBSurfaceFrom(&closeBoxHover[4], cbWidth, cbHeight, 32, cbWidth * 4,
-		MASK_R, MASK_G, MASK_B, MASK_A))
+		MASK_R, MASK_G, MASK_B, MASK_A)), drawBackground(true)
 {
 //Could probably move this into the initializer list as well...
 //	closeButton = new Button(w - (cbWidth + 1), 1, cbUp, cbHover, cbDown, this);
@@ -130,9 +130,14 @@ void Window::Draw(void)
 	for(uint32 i=0; i<list.size(); i++)
 		list[i]->Draw();
 #else
-	// These are *always* top level and parentless, so no need to traverse up through
-	// the parent chain...
-	SDL_FillRect(screen, &extents, bgColor);
+	if (drawBackground)
+	{
+		// These are *always* top level and parentless, so no need to traverse up through
+		// the parent chain...
+		SDL_FillRect(screen, &extents, bgColor);
+	}
+	else
+		RestoreScreenFromBackstore();
 
 	// Handle the items this window contains...
 	for(uint32 i=0; i<list.size(); i++)
@@ -170,4 +175,9 @@ void Window::AddCloseButton(void)
 		closeButton = new Button(extents.w - (cbWidth + 1), 1, cbUp, cbHover, cbDown, this);
 		list.push_back(closeButton);
 	}
+}
+
+void Window::SetBackgroundDraw(bool state)
+{
+	drawBackground = state;
 }

@@ -29,3 +29,8 @@ void Text::Draw(void)
 		DrawStringOpaque(screen, r.x, r.y, fgColor, bgColor, "%s", text.c_str());
 	}
 }
+
+void Text::SetText(std::string s)
+{
+	text = s;
+}

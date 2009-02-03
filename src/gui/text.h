@@ -20,6 +20,7 @@ class Text: public Element
 		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown) {}
 		virtual void Draw(void);
 		virtual void Notify(Element *) {}
+		void SetText(std::string s);
 
 	protected:
 //		uint32 fgColor, bgColor;

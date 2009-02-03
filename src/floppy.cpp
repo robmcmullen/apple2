@@ -146,6 +146,8 @@ bool FloppyDrive::SaveImage(uint8 driveNum/*= 0*/)
 	fwrite(disk[driveNum], 1, diskSize[driveNum], fp);
 	fclose(fp);
 
+	WriteLog("FLOPPY: Successfully wrote image file '%s'...\n", imageName[driveNum]);
+
 	return true;
 }
 
@@ -497,6 +499,31 @@ const char * FloppyDrive::GetImageName(uint8 driveNum/*= 0*/)
 	nameBuf[j] = 0;
 
 	return nameBuf;
+}
+
+void FloppyDrive::EjectImage(uint8 driveNum/*= 0*/)
+{
+	// Probably want to save a dirty image... ;-)
+	SaveImage(driveNum);
+
+	WriteLog("FLOPPY: Ejected image file '%s' from drive %u...\n", imageName[driveNum], driveNum);
+
+	if (disk[driveNum])
+		delete[] disk[driveNum];
+
+	disk[driveNum] = NULL;
+	diskSize[driveNum] = 0;
+	diskType[driveNum] = DT_UNKNOWN;
+	imageDirty[driveNum] = false;
+	imageName[driveNum][0] = 0;			// Zero out filenames
+	memset(nybblizedImage[driveNum], 0xFF, 232960);	// Doesn't matter if 00s or FFs...
+
+}
+
+bool FloppyDrive::DriveIsEmpty(uint8 driveNum/*= 0*/)
+{
+	// This is kinda gay, but it works
+	return (imageName[driveNum][0] == 0 ? true : false);
 }
 
 

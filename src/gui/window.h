@@ -25,6 +25,7 @@ class Window: public Element
 		virtual void Notify(Element *);
 		void AddElement(Element * e);
 		void AddCloseButton(void);
+		void SetBackgroundDraw(bool);
 
 	protected:
 		void (* handler)(Element *);
@@ -34,6 +35,7 @@ class Window: public Element
 	private:
 		uint16 cbWidth, cbHeight;
 		SDL_Surface * cbUp, * cbDown, * cbHover;
+		bool drawBackground;
 };
 
 #endif	// __WINDOW_H__
