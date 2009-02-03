@@ -46,6 +46,7 @@ class Element
 		void ResetCoverageList(void);
 //Need something to prevent this on Elements that don't have mouseover effects...
 		void AdjustCoverageList(SDL_Rect r);
+		void SetVisible(bool);
 		// Class methods...
 		static void SetScreen(SDL_Surface *);
 		static bool ScreenNeedsRefreshing(void);
@@ -59,6 +60,7 @@ class Element
 		uint32 bgColor;
 		SDL_Surface * backstore;
 		std::list<SDL_Rect> coverList;
+		bool visible;
 
 		// Class variables...
 		static SDL_Surface * screen;

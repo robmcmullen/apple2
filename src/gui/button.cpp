@@ -157,6 +157,9 @@ void Button::HandleKey(SDLKey key)
 
 void Button::HandleMouseMove(uint32 x, uint32 y)
 {
+	if (!visible)
+		return;
+
 	SaveStateVariables();
 	inside = Inside(x, y);
 	CheckStateAndRedrawIfNeeded();
@@ -164,6 +167,9 @@ void Button::HandleMouseMove(uint32 x, uint32 y)
 
 void Button::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 {
+	if (!visible)
+		return;
+
 	SaveStateVariables();
 
 	if (inside)
@@ -191,6 +197,9 @@ void Button::Draw(void)
 #ifdef DEBUG_GUI_BUTTON
 	WriteLog("Button::Draw()...\n");
 #endif
+	if (!visible)
+		return;
+
 	if (buttonUp == NULL)
 		return;									// Bail out if no surface was created...
 

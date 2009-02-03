@@ -23,6 +23,7 @@
 #include "window.h"
 #include "button.h"
 #include "text.h"
+#include "diskwindow.h"
 #include "video.h"
 #include "apple2.h"
 
@@ -45,7 +46,7 @@ If disk in drive, MO shows eject graphic, otherwise show load graphic.
 If hit 'new blank image':
 	If disk in drive, ask if want to save if modified
 	else, load it
-
+If hit 'swap disks', swap disks.
 */
 
 
@@ -60,6 +61,7 @@ GUI::GUI(SDL_Surface * surface): menuItem(new MenuItems())
 	windowList.push_back(new Button(30, 250, "Click!"));
 	windowList.push_back(new Text(30, 20, floppyDrive.GetImageName(0)));
 	windowList.push_back(new Text(30, 130, floppyDrive.GetImageName(1)));
+	windowList.push_back(new DiskWindow(&floppyDrive, 240, 20));
 }
 
 GUI::~GUI()

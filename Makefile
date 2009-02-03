@@ -72,6 +72,7 @@ INCS = -I. -I./src -I/usr/local/include -I/usr/include
 
 OBJS = \
 	obj/button.o          \
+	obj/diskwindow.o      \
 	obj/draggablewindow.o \
 	obj/draggablewindow2.o \
 	obj/element.o         \

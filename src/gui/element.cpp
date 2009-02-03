@@ -41,7 +41,7 @@ SDL_Surface * Element::screen = NULL;
 bool Element::needToRefreshScreen = false;
 
 Element::Element(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
-	Element * parentElement/*= NULL*/):	parent(parentElement), backstore(NULL)
+	Element * parentElement/*= NULL*/):	parent(parentElement), backstore(NULL), visible(true)
 {
 	extents.x = x,
 	extents.y = y,
@@ -53,7 +53,7 @@ Element::Element(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 
 Element::Element(uint32 x, uint32 y, uint32 w, uint32 h,
 	uint8 fgR/*= 0xFF*/, uint8 fgG/*= 0xFF*/, uint8 fgB/*= 0xFF*/, uint8 fgA/*= 0xFF*/,
 	uint8 bgR/*= 0x00*/, uint8 bgG/*= 0x00*/, uint8 bgB/*= 0x00*/, uint8 bgA/*= 0xFF*/,
-	Element * parentElement/*= NULL*/): parent(parentElement), backstore(NULL)
+	Element * parentElement/*= NULL*/): parent(parentElement), backstore(NULL), visible(true)
 {
 	extents.x = x,
 	extents.y = y,
@@ -290,6 +290,11 @@ Steps:
 		else
 			i++;
 	}
+}
+
+void Element::SetVisible(bool visibility)
+{
+	visible = visibility;
 }
 
 //

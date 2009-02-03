@@ -23,6 +23,9 @@ Text::Text(uint32 x, uint32 y, std::string s, uint32 fg/*= 0xFF8484FF*/, uint32 
 void Text::Draw(void)
 {
 	if (text.length() > 0)
+	{
 //		DrawString(screenBuffer, extents.x + offsetX, extents.y + offsetY, false, "%s", text.c_str());
-		DrawStringOpaque(screen, extents.x, extents.y, fgColor, bgColor, "%s", text.c_str());
+		SDL_Rect r = GetScreenCoords();
+		DrawStringOpaque(screen, r.x, r.y, fgColor, bgColor, "%s", text.c_str());
+	}
 }
