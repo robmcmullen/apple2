@@ -75,12 +75,25 @@ DiskWindow::DiskWindow(FloppyDrive * fdp, uint32 x/*= 0*/, uint32 y/*= 0*/): Win
 
 	newDisk1 = new Button(4, 132, "NewDisk1", this);
 	newDisk2 = new Button(4, 152, "NewDisk2", this);
-	swap = new Button(4, 176, "Swap Disks", this);
+	writeProtect1 = new Button(4, 176, "WriteProt1", this);
+	writeProtect2 = new Button(4, 196, "WriteProt2", this);
+	swap = new Button(4, 220, "Swap Disks", this);
+//Weird... It's showing an initial state of write-protected even though
+//the constructor of FloppyDrive sets it to false!
+#warning "Write protection state is wrong. !!! FIX !!!"
+	writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "write" : "no write"));
+	writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "write" : "no write"));
 
 	AddElement(newDisk1);
 	AddElement(newDisk2);
+	AddElement(writeProtect1);
+	AddElement(writeProtect2);
 	AddElement(swap);
 
+	// In spite of this, it's still blanking out the background...
+	// Actually, come to think of it, it's got a stale backbuffer when
+	// the GUI comes in again... !!! FIX !!!
+#warning !!! FIX !!!
 	SetBackgroundDraw(false);
 //	CreateBackstore();
 	Draw();	// Can we do this in the constructor??? Mebbe.
@@ -206,6 +219,17 @@ void DiskWindow::Notify(Element * e)
 		{
 			// Put up a warning and give user a chance to exit this potentially
 			// disastrous action
+// Now, how to do this? Notify() isn't asynchronous...
+// And until we return from here, there is no GUI main loop to show any dialogs!
+/*
+what you could do is like this way:
+
+-- have a callback function for after the intermediate window gets dismissed
+-- have a separate GUI thread
+-- have a 2nd GUI object and run that loop to completion
+
+
+*/
 		}
 
 		floppyDrive->SaveImage(0);
@@ -232,6 +256,25 @@ void DiskWindow::Notify(Element * e)
 		eject2->SetVisible(true);
 		load2->SetVisible(false);
 		name2->SetText(floppyDrive->GetImageName(1));
+		Draw();
+	}
+	else if (e == writeProtect1)
+	{
+		floppyDrive->SetWriteProtect((floppyDrive->DiskIsWriteProtected(0) ? false : true), 0);
+//			floppyDrive->SetWriteProtect(false, 0);
+//		else
+//			floppyDrive->SetWriteProtect(true, 0);
+
+		// Housekeeping
+		writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "write" : "no write"));
+		Draw();
+	}
+	else if (e == writeProtect2)
+	{
+		floppyDrive->SetWriteProtect((floppyDrive->DiskIsWriteProtected(1) ? false : true), 1);
+
+		// Housekeeping
+		writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "write" : "no write"));
 		Draw();
 	}
 	else if (e == swap)

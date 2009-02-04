@@ -47,6 +47,7 @@ FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ), ph
 	diskSize[0] = diskSize[1] = 0;
 	diskType[0] = diskType[1] = DT_UNKNOWN;
 	imageDirty[0] = imageDirty[1] = false;
+	writeProtected[0] = writeProtected[1] = false;
 	imageName[0][0] = imageName[1][0] = 0;			// Zero out filenames
 }
 
@@ -170,6 +171,7 @@ void FloppyDrive::CreateBlankImage(uint8 driveNum/*= 0*/)
 	memset(nybblizedImage[driveNum], 0x00, 232960);	// Set it to 0 instead of $FF for proper formatting...
 	diskType[driveNum] = DT_DOS33;
 	strcpy(imageName[driveNum], "newblank.dsk");
+	writeProtected[driveNum] = false;
 SpawnMessage("New blank image inserted in drive %u...", driveNum);
 }
 
@@ -201,6 +203,10 @@ void FloppyDrive::SwapImages(void)
 	uint8 imageDirtyTmp = imageDirty[0];
 	imageDirty[0] = imageDirty[1];
 	imageDirty[1] = imageDirtyTmp;
+
+	uint8 writeProtectedTmp = writeProtected[0];
+	writeProtected[0] = writeProtected[1];
+	writeProtected[1] = writeProtectedTmp;
 SpawnMessage("Drive 0: %s...", imageName[0]);
 }
 
@@ -515,15 +521,43 @@ void FloppyDrive::EjectImage(uint8 driveNum/*= 0*/)
 	diskSize[driveNum] = 0;
 	diskType[driveNum] = DT_UNKNOWN;
 	imageDirty[driveNum] = false;
+	writeProtected[driveNum] = false;
 	imageName[driveNum][0] = 0;			// Zero out filenames
 	memset(nybblizedImage[driveNum], 0xFF, 232960);	// Doesn't matter if 00s or FFs...
-
 }
 
 bool FloppyDrive::DriveIsEmpty(uint8 driveNum/*= 0*/)
 {
+	if (driveNum > 1)
+	{
+		WriteLog("FLOPPY: Attempted DriveIsEmtpy() for drive #%u!\n", driveNum);
+		return true;
+	}
+
 	// This is kinda gay, but it works
 	return (imageName[driveNum][0] == 0 ? true : false);
+}
+
+bool FloppyDrive::DiskIsWriteProtected(uint8 driveNum/*= 0*/)
+{
+	if (driveNum > 1)
+	{
+		WriteLog("FLOPPY: Attempted DiskIsWriteProtected() for drive #%u!\n", driveNum);
+		return true;
+	}
+
+	return writeProtected[driveNum];
+}
+
+void FloppyDrive::SetWriteProtect(bool state, uint8 driveNum/*= 0*/)
+{
+	if (driveNum > 1)
+	{
+		WriteLog("FLOPPY: Attempted set write protect for drive #%u!\n", driveNum);
+		return;
+	}
+
+	writeProtected[driveNum] = state;
 }
 
 
@@ -597,8 +631,13 @@ Which we now do. :-)
 */
 	if (ioMode == IO_MODE_WRITE && (latchValue & 0x80))
 	{
-		nybblizedImage[activeDrive][(track * 6656) + currentPos] = latchValue;
-		imageDirty[activeDrive] = true;
+		// Does it behave like this?
+#warning "Write protection kludged in--investigate real behavior!"
+		if (!writeProtected[activeDrive])
+		{
+			nybblizedImage[activeDrive][(track * 6656) + currentPos] = latchValue;
+			imageDirty[activeDrive] = true;
+		}
 	}
 
 	uint8 diskByte = nybblizedImage[activeDrive][(track * 6656) + currentPos];

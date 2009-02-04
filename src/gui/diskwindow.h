@@ -35,7 +35,8 @@ class DiskWindow: public Window
 //		uint16 cbWidth, cbHeight;
 //		SDL_Surface * cbUp, * cbDown, * cbHover;
 		Text * name1, * name2;
-		Button * load1, * load2, * eject1, * eject2, * newDisk1, * newDisk2, * swap;
+		Button * load1, * load2, * eject1, * eject2,
+			* newDisk1, * newDisk2, * swap, * writeProtect1, * writeProtect2;
 };
 
 #endif	// __DISKWINDOW_H__

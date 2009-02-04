@@ -30,6 +30,8 @@ class FloppyDrive
 		const char * GetImageName(uint8 driveNum = 0);
 		void EjectImage(uint8 driveNum = 0);
 		bool DriveIsEmpty(uint8 driveNum = 0);
+		bool DiskIsWriteProtected(uint8 driveNum = 0);
+		void SetWriteProtect(bool, uint8 driveNum = 0);
 
 		// I/O functions ($C0Ex accesses)
 
@@ -53,6 +55,7 @@ class FloppyDrive
 		uint32 diskSize[2];
 		uint8 diskType[2];
 		bool imageDirty[2];
+		bool writeProtected[2];
 		uint8 motorOn;
 		uint8 activeDrive;
 		uint8 ioMode;

@@ -255,3 +255,15 @@ void Button::CheckStateAndRedrawIfNeeded(void)
 	if (activated != activatedSave || clicked != clickedSave || inside != insideSave)
 		Draw();
 }
+
+void Button::SetText(std::string s)
+{
+	// Need to create backgrounds before we do this stuff...
+	SDL_FillRect(buttonUp, NULL, bgColor);
+	SDL_FillRect(buttonDown, NULL, fgColor);
+	SDL_FillRect(buttonHover, NULL, bgColorHL);
+
+	DrawStringTrans(buttonUp, GetFontWidth(), 0, fgColor, s.c_str());
+	DrawStringTrans(buttonDown, GetFontWidth(), 0, fgColor, s.c_str());
+	DrawStringTrans(buttonHover, GetFontWidth(), 0, fgColorHL, s.c_str());
+}

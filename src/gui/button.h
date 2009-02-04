@@ -31,6 +31,7 @@ class Button: public Element
 		bool ButtonClicked(void);
 		void SaveStateVariables(void);
 		void CheckStateAndRedrawIfNeeded(void);
+		void SetText(std::string s);
 
 	protected:
 		bool activated, clicked, inside;
