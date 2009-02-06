@@ -26,7 +26,8 @@
 #include "log.h"
 
 
-#define SAMPLE_RATE			(44100.0)
+//#define SAMPLE_RATE			(44100.0)
+#define SAMPLE_RATE			(48000.0)
 #define SAMPLES_PER_FRAME	(SAMPLE_RATE / 60.0)
 #define CYCLES_PER_SAMPLE	(1024000.0 / SAMPLE_RATE)
 #define SOUND_BUFFER_SIZE	(8192)
@@ -43,6 +44,8 @@ static bool speakerState = false;
 static uint8 soundBuffer[SOUND_BUFFER_SIZE];
 static uint32 soundBufferPos;
 static uint32 sampleBase;
+static uint64 lastToggleCycles;
+static uint64 samplePosition;
 static SDL_cond * conditional = NULL;
 static SDL_mutex * mutex = NULL;
 static SDL_mutex * mutex2 = NULL;
@@ -85,6 +88,8 @@ return;
 	SDL_mutexP(mutex);							// Must lock the mutex for the cond to work properly...
 	soundBufferPos = 0;
 	sampleBase = 0;
+	lastToggleCycles = 0;
+	samplePosition = 0;
 
 	SDL_PauseAudio(false);						// Start playback!
 	soundInitialized = true;
@@ -149,10 +154,12 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length)
 			soundBuffer[i] = soundBuffer[length + i];
 	}
 
+	// Update our sample position
+	samplePosition += length;
 	// Free the mutex...
 	SDL_mutexV(mutex2);
 	// Wake up any threads waiting for the buffer to drain...
-//	SDL_CondSignal(conditional);
+	SDL_CondSignal(conditional);
 }
 
 // Need some interface functions here to take care of flipping the
@@ -171,10 +178,12 @@ So... I guess what we could do is this:
    the time position back (or copies data down from what it took out)
 */
 
-void ToggleSpeaker(uint32 time)
+void ToggleSpeaker(uint64 elapsedCycles)
 {
 	if (!soundInitialized)
 		return;
+
+	uint64 deltaCycles = elapsedCycles - lastToggleCycles;
 
 #if 0
 if (time > 95085)//(time & 0x80000000)
@@ -190,7 +199,26 @@ if (time > 95085)//(time & 0x80000000)
 
 //	SDL_LockAudio();
 	SDL_mutexP(mutex2);
-	uint32 currentPos = sampleBase + (uint32)((double)time / CYCLES_PER_SAMPLE);
+//	uint32 currentPos = sampleBase + (uint32)((double)elapsedCycles / CYCLES_PER_SAMPLE);
+	uint32 currentPos = (uint32)((double)deltaCycles / CYCLES_PER_SAMPLE);
+
+/*
+The problem:
+
+     ______ | ______________ | ______
+____|       |                |      |_______
+
+Speaker is toggled, then not toggled for a while. How to find buffer position in the
+last frame?
+
+IRQ buffer len is 1024.
+
+Could check current CPU clock, take delta. If delta > 1024, then ...
+
+Could add # of cycles in IRQ to lastToggleCycles, then currentPos will be guaranteed
+to fall within acceptable limits.
+*/
+
 
 	if (currentPos > SOUND_BUFFER_SIZE - 1)
 	{
@@ -212,7 +240,12 @@ Seems like it's OK now that I've fixed the buffer-less-than-length bug...
 //		SDL_UnlockAudio();
 //		SDL_CondWait(conditional, mutex);
 //		SDL_LockAudio();
-		currentPos = sampleBase + (uint32)((double)time / CYCLES_PER_SAMPLE);
+// Hm.
+SDL_mutexV(mutex2);//Release it so sound thread can get it,
+SDL_CondWait(conditional, mutex);//Sleep/wait for the sound thread
+SDL_mutexP(mutex2);//Re-lock it until we're done with it...
+
+		currentPos = sampleBase + (uint32)((double)elapsedCycles / CYCLES_PER_SAMPLE);
 #if 0
 WriteLog("--> after spinlock (sampleBase=%u)...\n", sampleBase);
 #endif
@@ -239,6 +272,24 @@ void AddToSoundTimeBase(uint32 cycles)
 	sampleBase += (uint32)((double)cycles / CYCLES_PER_SAMPLE);
 	SDL_mutexV(mutex2);
 //	SDL_UnlockAudio();
+}
+
+void VolumeUp(void)
+{
+	// Currently set for 8-bit samples
+	if (ampPtr < 8)
+		ampPtr++;
+}
+
+void VolumeDown(void)
+{
+	if (ampPtr > 0)
+		ampPtr--;
+}
+
+uint8 GetVolume(void)
+{
+	return ampPtr;
 }
 
 /*

@@ -78,11 +78,9 @@ DiskWindow::DiskWindow(FloppyDrive * fdp, uint32 x/*= 0*/, uint32 y/*= 0*/): Win
 	writeProtect1 = new Button(4, 176, "WriteProt1", this);
 	writeProtect2 = new Button(4, 196, "WriteProt2", this);
 	swap = new Button(4, 220, "Swap Disks", this);
-//Weird... It's showing an initial state of write-protected even though
-//the constructor of FloppyDrive sets it to false!
-#warning "Write protection state is wrong. !!! FIX !!!"
-	writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "write" : "no write"));
-	writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "write" : "no write"));
+
+	writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "no write" : "write"));
+	writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "no write" : "write"));
 
 	AddElement(newDisk1);
 	AddElement(newDisk2);
@@ -266,7 +264,7 @@ what you could do is like this way:
 //			floppyDrive->SetWriteProtect(true, 0);
 
 		// Housekeeping
-		writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "write" : "no write"));
+		writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "no write" : "write"));
 		Draw();
 	}
 	else if (e == writeProtect2)
@@ -274,7 +272,7 @@ what you could do is like this way:
 		floppyDrive->SetWriteProtect((floppyDrive->DiskIsWriteProtected(1) ? false : true), 1);
 
 		// Housekeeping
-		writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "write" : "no write"));
+		writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "no write" : "write"));
 		Draw();
 	}
 	else if (e == swap)

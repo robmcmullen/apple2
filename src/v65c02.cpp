@@ -2256,8 +2256,9 @@ Let's see...
 	if (regs.clock + cycles > 0xFFFFFFFF)
 		wraparound = true;
 */
+	uint64 endCycles = regs.clock + (uint64)cycles;
 
-	while (regs.clock < cycles)
+	while (regs.clock < endCycles)
 	{
 #if 0
 /*if (regs.pc == 0x4007)
@@ -2402,7 +2403,8 @@ WriteLog("\n*** IRQ ***\n\n");
 
 //This is a lame way of doing it, but in the end the simplest--however, it destroys any
 //record of elasped CPU time. Not sure that it's important to keep track, but there it is.
-	regs.clock -= cycles;
+// Now we use a 64-bit integer, so it won't wrap for about 500 millenia. ;-)
+//	regs.clock -= cycles;
 
 	myMemcpy(context, &regs, sizeof(V65C02REGS));
 }
@@ -2410,7 +2412,7 @@ WriteLog("\n*** IRQ ***\n\n");
 //
 // Get the clock of the currently executing CPU
 //
-uint32 GetCurrentV65C02Clock(void)
+uint64 GetCurrentV65C02Clock(void)
 {
 	return regs.clock;
 }

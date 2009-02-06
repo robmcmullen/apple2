@@ -754,6 +754,11 @@ static bool LoadApple2State(const char * filename)
 	return false;
 }
 
+//#define CPU_CLOCK_CHECKING
+#ifdef CPU_CLOCK_CHECKING
+uint8 counter = 0;
+uint32 totalCPU = 0;
+#endif
 //
 // Main loop
 //
@@ -877,8 +882,12 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 //(Fix so that this is not a requirement!)
 //Fixed, but mainCPU.clock is destroyed in the bargain. Oh well.
 //		mainCPU.clock -= USEC_TO_M6502_CYCLES(timeToNextEvent);
+#ifdef CPU_CLOCK_CHECKING
+totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
+#endif
 		// Handle CPU time delta for sound...
-		AddToSoundTimeBase(USEC_TO_M6502_CYCLES(timeToNextEvent));
+//Don't need this anymore now that we use absolute time...
+//		AddToSoundTimeBase(USEC_TO_M6502_CYCLES(timeToNextEvent));
 		HandleNextEvent();
 	}
 
@@ -995,8 +1004,8 @@ static void FrameCallback(void)
 
 			if (event.key.keysym.sym == SDLK_F12)
 				dumpDis = !dumpDis;				// Toggle the disassembly process
-			else if (event.key.keysym.sym == SDLK_F11)
-				floppyDrive.LoadImage("./disks/bt1_char.dsk");//Kludge to load char disk...
+//			else if (event.key.keysym.sym == SDLK_F11)
+//				floppyDrive.LoadImage("./disks/bt1_char.dsk");//Kludge to load char disk...
 else if (event.key.keysym.sym == SDLK_F9)
 {
 	floppyDrive.CreateBlankImage();
@@ -1019,16 +1028,39 @@ else if (event.key.keysym.sym == SDLK_F10)
 //      to quit completely... !!! FIX !!!
 				gui->Run();
 
+			if (event.key.keysym.sym == SDLK_F5)
+			{
+				VolumeDown();
+				char volStr[10] = "*********";
+				volStr[GetVolume()] = 0;
+				SpawnMessage("Volume: %s", volStr);
+			}
+			else if (event.key.keysym.sym == SDLK_F6)
+			{
+				VolumeUp();
+				char volStr[10] = "*********";
+				volStr[GetVolume()] = 0;
+				SpawnMessage("Volume: %s", volStr);
+			}
+
 			break;
 		case SDL_QUIT:
 			running = false;
 		}
 	}
 
-//ick.	HandleSoundAtFrameEdge();					// Sound stuff... (ick)
 	RenderVideoFrame();
 	SetCallbackTime(FrameCallback, 16666.66666667);
 
+#ifdef CPU_CLOCK_CHECKING
+counter++;
+if (counter == 60)
+{
+	printf("Executed %u cycles...\n", totalCPU);
+	totalCPU = 0;
+	counter = 0;
+}
+#endif
 //Instead of this, we should yield remaining time to other processes... !!! FIX !!!
 //lessee...
 //nope. SDL_Delay(10);

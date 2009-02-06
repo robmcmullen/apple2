@@ -113,6 +113,9 @@ void GUI::Run(void)
 
 	SDL_EnableKeyRepeat(150, 75);
 
+	// Also: Need to pick up backbuffer (for those windows that have them)
+	//       BEFORE drawing...
+
 	// Initial update... [Now handled correctly in the constructor]
 	// Uh, still needed here, though... Only makes sense that it should
 	for(i=windowList.begin(); i!=windowList.end(); i++)

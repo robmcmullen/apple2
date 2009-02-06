@@ -19,7 +19,7 @@
 
 //#define USEC_TO_RISC_CYCLES(u) (uint32)(((u) / RISC_CYCLE_IN_USEC) + 0.5)
 //#define USEC_TO_M68K_CYCLES(u) (uint32)(((u) / M68K_CYCLE_IN_USEC) + 0.5)
-#define USEC_TO_M6502_CYCLES(u)  (uint32)(((u) / M6502_CYCLE_IN_USEC) + 0.5)
+#define USEC_TO_M6502_CYCLES(u)  ((uint32)(((u) / M6502_CYCLE_IN_USEC) + 0.5))
 
 void InitializeEventList(void);
 void SetCallbackTime(void (* callback)(void), double time);

@@ -137,11 +137,26 @@ SDL_Rect Element::GetExtents(void)
 	return extents;
 }
 
+//kludge
+#include "settings.h"
 void Element::CreateBackstore(void)
 {
 	backstore = SDL_CreateRGBSurface(SDL_SWSURFACE, extents.w, extents.h, 32,
 		MASK_R, MASK_G, MASK_B, 0x00);
+//#define TEST_GL
+#ifdef TEST_GL
+printf("Element: About to do SDL_BlitSurface...\n");
+#endif
+//kludge
+if (settings.useOpenGL)
+	return;
+
+//Since screen is the main screen surface, OpenGL doesn't like it being touched.
+//How to fix? Dunno.
 	SDL_BlitSurface(screen, &extents, backstore, NULL);
+#ifdef TEST_GL
+printf("Element: SDL_BlitSurface...Done.\n");
+#endif
 }
 
 void Element::RestoreScreenFromBackstore(void)

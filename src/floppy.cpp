@@ -106,6 +106,7 @@ bool FloppyDrive::LoadImage(const char * filename, uint8 driveNum/*= 0*/)
 		fclose(fp2);
 	}
 #endif
+//writeProtected[driveNum] = true;
 	WriteLog("FLOPPY: Loaded image '%s' for drive #%u.\n", filename, driveNum);
 
 	return true;
@@ -638,6 +639,9 @@ Which we now do. :-)
 			nybblizedImage[activeDrive][(track * 6656) + currentPos] = latchValue;
 			imageDirty[activeDrive] = true;
 		}
+		else
+//doesn't seem to do anything
+			return 0;//is this more like it?
 	}
 
 	uint8 diskByte = nybblizedImage[activeDrive][(track * 6656) + currentPos];

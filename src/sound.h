@@ -17,7 +17,10 @@
 
 void SoundInit(void);
 void SoundDone(void);
-void ToggleSpeaker(uint32 time);
-void AddToSoundTimeBase(uint32 cycles);
+void ToggleSpeaker(uint64 elapsedCycles);
+void AddToSoundTimeBase(uint64 cycles);
+void VolumeUp(void);
+void VolumeDown(void);
+uint8 GetVolume(void);
 
 #endif	// __SOUND_H__
