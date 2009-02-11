@@ -95,6 +95,46 @@ static bool LoadApple2State(const char * filename);
 static void FrameCallback(void);
 static void BlinkTimer(void);
 
+#define THREADED_65C02
+#ifdef THREADED_65C02
+// Test of threaded execution of 6502
+static SDL_Thread * cpuThread = NULL;
+//static SDL_mutex * cpuMutex = NULL;
+static SDL_cond * cpuCond = NULL;
+static bool cpuFinished = false;
+static bool cpuSleep = false;
+
+// Let's try a thread...
+/*
+Here's how it works: Execute 1 frame's worth, then sleep.
+Other stuff wakes it up
+*/
+int CPUThreadFunc(void * data)
+{
+	// Mutex must be locked for conditional to work...
+	// Also, must be created in the thread that uses it...
+	SDL_mutex * cpuMutex = SDL_CreateMutex();
+
+	do
+	{
+		if (cpuSleep)
+			SDL_CondWait(cpuCond, cpuMutex);
+
+		Execute65C02(&mainCPU, 17066); // how much? 1 frame (after 1 s, off by 40 cycles)
+		SDL_mutexP(cpuMutex);
+		if (SDL_CondWait(cpuCond, cpuMutex) != 0)
+		{
+			printf("SDL_CondWait != 0! (Error: '%s')\n", SDL_GetError());
+			exit(-1);
+		}
+		SDL_mutexV(cpuMutex);
+	}
+	while (!cpuFinished);
+
+	return 0;
+}
+#endif
+
 // Test GUI function
 
 Element * TestWindow(void)
@@ -873,11 +913,29 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 	SetCallbackTime(BlinkTimer, 250000);		// Set up blinking at 1/4 s intervals
 	startTicks = SDL_GetTicks();
 
+#ifdef THREADED_65C02
+//cpuMutex = SDL_CreateMutex();
+//mutex must be locked for conditional to work...
+//if (SDL_mutexP(cpuMutex) == -1)
+//{
+//	printf("Couldn't lock CPU mutex!\n");
+//	exit(-1);
+//}
+cpuCond = SDL_CreateCond();
+//printf("mutex=$%08X, cond=$%08X\n", cpuMutex, cpuCond);
+//cpuSleep = true;
+cpuThread = SDL_CreateThread(CPUThreadFunc, NULL);
+//cpuSleep = false;
+//SDL_CondSignal(cpuCond);
+#endif
+
 	WriteLog("Entering main loop...\n");
 	while (running)
 	{
 		double timeToNextEvent = GetTimeToNextEvent();
+#ifndef THREADED_65C02
 		Execute65C02(&mainCPU, USEC_TO_M6502_CYCLES(timeToNextEvent));
+#endif
 //We MUST remove a frame's worth of time in order for the CPU to function... !!! FIX !!!
 //(Fix so that this is not a requirement!)
 //Fixed, but mainCPU.clock is destroyed in the bargain. Oh well.
@@ -890,6 +948,14 @@ totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
 //		AddToSoundTimeBase(USEC_TO_M6502_CYCLES(timeToNextEvent));
 		HandleNextEvent();
 	}
+
+#ifdef THREADED_65C02
+cpuFinished = true;
+SDL_CondSignal(cpuCond);//thread is asleep, wake it up
+SDL_WaitThread(cpuThread, NULL);
+SDL_DestroyCond(cpuCond);
+//SDL_DestroyMutex(cpuMutex);
+#endif
 
 	if (settings.autoStateSaving)
 	{
@@ -1061,9 +1127,14 @@ if (counter == 60)
 	counter = 0;
 }
 #endif
+#ifdef THREADED_65C02
+	SDL_CondSignal(cpuCond);//OK, let the CPU go another frame...
+#endif
 //Instead of this, we should yield remaining time to other processes... !!! FIX !!!
 //lessee...
-//nope. SDL_Delay(10);
+//nope.
+//Actually, slows things down too much...
+//SDL_Delay(10);
 	while (SDL_GetTicks() - startTicks < 16);	// Wait for next frame...
 	startTicks = SDL_GetTicks();
 }
@@ -1073,3 +1144,12 @@ static void BlinkTimer(void)
 	flash = !flash;
 	SetCallbackTime(BlinkTimer, 250000);		// Set up blinking at 1/4 sec intervals
 }
+
+/*
+Next problem is this: How to have events occur and synchronize with the rest
+of the threads?
+
+  o Have the CPU thread manage the timer mechanism? (need to have a method of carrying
+    remainder CPU cycles over...)
+
+*/

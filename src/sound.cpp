@@ -17,6 +17,7 @@
 // STILL TO DO:
 //
 // - Figure out why it's losing samples (Bard's Tale) [DONE]
+// - Figure out why it's playing too fast
 //
 
 #include "sound.h"
@@ -62,7 +63,7 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length);
 //
 void SoundInit(void)
 {
-#if 0
+#if 1
 // To weed out problems for now...
 return;
 #endif
