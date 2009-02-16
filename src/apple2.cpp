@@ -54,13 +54,19 @@
 #include "gui/draggablewindow2.h"
 #include "gui/textedit.h"
 
-//using namespace std;
+// Debug and misc. defines
+
+#define THREADED_65C02
+//#define CPU_THREAD_OVERFLOW_COMPENSATION
+//#define DEBUG_LC
+#define CPU_CLOCK_CHECKING
 
 // Global variables
 
 uint8 ram[0x10000], rom[0x10000];				// RAM & ROM spaces
+uint8 ram2[0x10000];
 uint8 diskRom[0x100];							// Disk ROM space
-V65C02REGS mainCPU;
+V65C02REGS mainCPU;								// v65C02 execution context
 uint8 appleType = APPLE_TYPE_II;
 FloppyDrive floppyDrive;
 
@@ -95,7 +101,6 @@ static bool LoadApple2State(const char * filename);
 static void FrameCallback(void);
 static void BlinkTimer(void);
 
-#define THREADED_65C02
 #ifdef THREADED_65C02
 // Test of threaded execution of 6502
 static SDL_Thread * cpuThread = NULL;
@@ -115,18 +120,41 @@ int CPUThreadFunc(void * data)
 	// Also, must be created in the thread that uses it...
 	SDL_mutex * cpuMutex = SDL_CreateMutex();
 
+#ifdef CPU_THREAD_OVERFLOW_COMPENSATION
+	float overflow = 0.0;
+#endif
+
 	do
 	{
 		if (cpuSleep)
 			SDL_CondWait(cpuCond, cpuMutex);
 
-		Execute65C02(&mainCPU, 17066); // how much? 1 frame (after 1 s, off by 40 cycles)
+		uint32 cycles = 17066;
+#ifdef CPU_THREAD_OVERFLOW_COMPENSATION
+// ODD! It's closer *without* this overflow compensation. ??? WHY ???
+		overflow += 0.666666667;
+
+		if (overflow > 1.0)
+		{
+			overflow -= 1.0;
+			cycles++;
+		}
+#endif
+
+		Execute65C02(&mainCPU, cycles); // how much? 1 frame (after 1 s, off by 40 cycles) not any more--it's off by as much as 240 now!
 		SDL_mutexP(cpuMutex);
+		// Adjust the sound routine's last cycle toggled time base
+		// Also, since we're finished executing, .clock is now valid
+		AdjustLastToggleCycles(mainCPU.clock);
+#if 0
 		if (SDL_CondWait(cpuCond, cpuMutex) != 0)
 		{
 			printf("SDL_CondWait != 0! (Error: '%s')\n", SDL_GetError());
 			exit(-1);
 		}
+#else
+		SDL_CondWait(cpuCond, cpuMutex);
+#endif
 		SDL_mutexV(cpuMutex);
 	}
 	while (!cpuFinished);
@@ -189,11 +217,11 @@ if (addr >= 0xC080 && addr <= 0xC08F)
 	WriteLog("\n*** Read at I/O address %04X\n", addr);
 #endif
 
-	if ((addr & 0xFFF0) == 0xC000)
+	if ((addr & 0xFFF0) == 0xC000)			// Read $C000-$C00F
 	{
 		return lastKeyPressed | (keyDown ? 0x80 : 0x00);
 	}
-	else if ((addr & 0xFFF0) == 0xC010)
+	else if ((addr & 0xFFF0) == 0xC010)		// Read $C010-$C01F
 	{
 //This is bogus: keyDown is set to false, so return val NEVER is set...
 //Fixed...
@@ -202,7 +230,7 @@ if (addr >= 0xC080 && addr <= 0xC08F)
 		keyDown = false;
 		return retVal;
 	}
-	else if ((addr & 0xFFF0) == 0xC030)
+	else if ((addr & 0xFFF0) == 0xC030)		// Read $C030-$C03F
 	{
 /*
 This is problematic, mainly because the v65C02 removes actual cycles run after each call.
@@ -225,35 +253,35 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 //should it return something else here???
 		return 0x00;
 	}
-	else if (addr == 0xC050)
+	else if (addr == 0xC050)				// Read $C050
 	{
 		textMode = false;
 	}
-	else if (addr == 0xC051)
+	else if (addr == 0xC051)				// Read $C051
 	{
 		textMode = true;
 	}
-	else if (addr == 0xC052)
+	else if (addr == 0xC052)				// Read $C052
 	{
 		mixedMode = false;
 	}
-	else if (addr == 0xC053)
+	else if (addr == 0xC053)				// Read $C053
 	{
 		mixedMode = true;
 	}
-	else if (addr == 0xC054)
+	else if (addr == 0xC054)				// Read $C054
 	{
 		displayPage2 = false;
 	}
-	else if (addr == 0xC055)
+	else if (addr == 0xC055)				// Read $C055
 	{
 		displayPage2 = true;
 	}
-	else if (addr == 0xC056)
+	else if (addr == 0xC056)				// Read $C056
 	{
 		hiRes = false;
 	}
-	else if (addr == 0xC057)
+	else if (addr == 0xC057)				// Read $C057
 	{
 		hiRes = true;
 	}
@@ -297,7 +325,6 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 A = PEEK($C082)
 */
 
-//#define DEBUG_LC
 	else if ((addr & 0xFFFB) == 0xC080)
 	{
 #ifdef DEBUG_LC
@@ -560,6 +587,8 @@ if (addr == 0x7F47)
 	WriteLog("\n*** Byte %02X written at address %04X\n", b, addr);
 #endif
 /*
+I think this is IIc/IIe only...
+
 CLR80STORE=$C000 ;80STORE Off- disable 80-column memory mapping (Write)
 SET80STORE=$C001 ;80STORE On- enable 80-column memory mapping (WR-only)
 
@@ -727,6 +756,7 @@ WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
 	else if (addr == 0xC0EC)
 	{
 //change this to Write()? (and the other to Read()?) Dunno. Seems to work OK, but still...
+//or DoIO
 		floppyDrive.ReadWrite();
 	}
 	else if (addr == 0xC0ED)
@@ -794,10 +824,10 @@ static bool LoadApple2State(const char * filename)
 	return false;
 }
 
-//#define CPU_CLOCK_CHECKING
 #ifdef CPU_CLOCK_CHECKING
 uint8 counter = 0;
 uint32 totalCPU = 0;
+uint64 lastClock = 0;
 #endif
 //
 // Main loop
@@ -812,6 +842,7 @@ int main(int /*argc*/, char * /*argv*/[])
 //Need to bankify this stuff for the IIe emulation...
 	memset(ram, 0, 0x10000);
 	memset(rom, 0, 0x10000);
+	memset(ram2, 0, 0x10000);
 
 	// Set up V65C02 execution context
 	memset(&mainCPU, 0, sizeof(V65C02REGS));
@@ -914,19 +945,8 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 	startTicks = SDL_GetTicks();
 
 #ifdef THREADED_65C02
-//cpuMutex = SDL_CreateMutex();
-//mutex must be locked for conditional to work...
-//if (SDL_mutexP(cpuMutex) == -1)
-//{
-//	printf("Couldn't lock CPU mutex!\n");
-//	exit(-1);
-//}
 cpuCond = SDL_CreateCond();
-//printf("mutex=$%08X, cond=$%08X\n", cpuMutex, cpuCond);
-//cpuSleep = true;
 cpuThread = SDL_CreateThread(CPUThreadFunc, NULL);
-//cpuSleep = false;
-//SDL_CondSignal(cpuCond);
 #endif
 
 	WriteLog("Entering main loop...\n");
@@ -941,7 +961,9 @@ cpuThread = SDL_CreateThread(CPUThreadFunc, NULL);
 //Fixed, but mainCPU.clock is destroyed in the bargain. Oh well.
 //		mainCPU.clock -= USEC_TO_M6502_CYCLES(timeToNextEvent);
 #ifdef CPU_CLOCK_CHECKING
+#ifndef THREADED_65C02
 totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
+#endif
 #endif
 		// Handle CPU time delta for sound...
 //Don't need this anymore now that we use absolute time...
@@ -951,10 +973,10 @@ totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
 
 #ifdef THREADED_65C02
 cpuFinished = true;
-SDL_CondSignal(cpuCond);//thread is asleep, wake it up
+SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up
 SDL_WaitThread(cpuThread, NULL);
+//nowok:SDL_WaitThread(CPUThreadFunc, NULL);
 SDL_DestroyCond(cpuCond);
-//SDL_DestroyMutex(cpuMutex);
 #endif
 
 	if (settings.autoStateSaving)
@@ -1119,6 +1141,10 @@ else if (event.key.keysym.sym == SDLK_F10)
 	SetCallbackTime(FrameCallback, 16666.66666667);
 
 #ifdef CPU_CLOCK_CHECKING
+//We know it's stopped, so we can get away with this...
+uint64 clock = GetCurrentV65C02Clock();
+totalCPU += (uint32)(clock - lastClock);
+lastClock = clock;
 counter++;
 if (counter == 60)
 {
@@ -1152,4 +1178,21 @@ of the threads?
   o Have the CPU thread manage the timer mechanism? (need to have a method of carrying
     remainder CPU cycles over...)
 
+One way would be to use a fractional accumulator, then subtract 1 every
+time it overflows. Like so:
+
+double overflow = 0;
+uint32 time = 20;
+while (!done)
+{
+	Execute6808(&soundCPU, time);
+	overflow += 0.289115646;
+	if (overflow > 1.0)
+	{
+		overflow -= 1.0;
+		time = 21;
+	}
+	else
+		time = 20;
+}
 */
