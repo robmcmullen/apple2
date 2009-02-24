@@ -57,9 +57,10 @@
 // Debug and misc. defines
 
 #define THREADED_65C02
-//#define CPU_THREAD_OVERFLOW_COMPENSATION
+#define CPU_THREAD_OVERFLOW_COMPENSATION
 //#define DEBUG_LC
 #define CPU_CLOCK_CHECKING
+#define THREAD_DEBUGGING
 
 // Global variables
 
@@ -106,6 +107,7 @@ static void BlinkTimer(void);
 static SDL_Thread * cpuThread = NULL;
 //static SDL_mutex * cpuMutex = NULL;
 static SDL_cond * cpuCond = NULL;
+static SDL_sem * mainSem = NULL;
 static bool cpuFinished = false;
 static bool cpuSleep = false;
 
@@ -120,6 +122,8 @@ int CPUThreadFunc(void * data)
 	// Also, must be created in the thread that uses it...
 	SDL_mutex * cpuMutex = SDL_CreateMutex();
 
+// decrement mainSem...
+//SDL_SemWait(mainSem);
 #ifdef CPU_THREAD_OVERFLOW_COMPENSATION
 	float overflow = 0.0;
 #endif
@@ -128,6 +132,12 @@ int CPUThreadFunc(void * data)
 	{
 		if (cpuSleep)
 			SDL_CondWait(cpuCond, cpuMutex);
+
+// decrement mainSem...
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: SDL_SemWait(mainSem);\n");
+#endif
+SDL_SemWait(mainSem);
 
 		uint32 cycles = 17066;
 #ifdef CPU_THREAD_OVERFLOW_COMPENSATION
@@ -141,11 +151,22 @@ int CPUThreadFunc(void * data)
 		}
 #endif
 
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
+#endif
 		Execute65C02(&mainCPU, cycles); // how much? 1 frame (after 1 s, off by 40 cycles) not any more--it's off by as much as 240 now!
-		SDL_mutexP(cpuMutex);
+
 		// Adjust the sound routine's last cycle toggled time base
 		// Also, since we're finished executing, .clock is now valid
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: AdjustLastToggleCycles(mainCPU.clock);\n");
+#endif
 		AdjustLastToggleCycles(mainCPU.clock);
+
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
+#endif
+		SDL_mutexP(cpuMutex);
 #if 0
 		if (SDL_CondWait(cpuCond, cpuMutex) != 0)
 		{
@@ -153,11 +174,27 @@ int CPUThreadFunc(void * data)
 			exit(-1);
 		}
 #else
+// increment mainSem...
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: SDL_SemPost(mainSem);\n");
+#endif
+SDL_SemPost(mainSem);
+//		SDL_CondSignal(mainCond);	// In case something is waiting on us...
+
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: SDL_CondWait(cpuCond, cpuMutex);\n");
+#endif
 		SDL_CondWait(cpuCond, cpuMutex);
+
+#endif
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: SDL_mutexV(cpuMutex);\n");
 #endif
 		SDL_mutexV(cpuMutex);
 	}
 	while (!cpuFinished);
+
+	SDL_DestroyMutex(cpuMutex);
 
 	return 0;
 }
@@ -945,8 +982,11 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 	startTicks = SDL_GetTicks();
 
 #ifdef THREADED_65C02
-cpuCond = SDL_CreateCond();
-cpuThread = SDL_CreateThread(CPUThreadFunc, NULL);
+	cpuCond = SDL_CreateCond();
+	cpuThread = SDL_CreateThread(CPUThreadFunc, NULL);
+//Hmm... CPU does POST (+1), wait, then WAIT (-1)
+	mainSem = SDL_CreateSemaphore(1);
+//	SDL_sem * mainMutex = SDL_CreateMutex();
 #endif
 
 	WriteLog("Entering main loop...\n");
@@ -972,11 +1012,31 @@ totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
 	}
 
 #ifdef THREADED_65C02
+WriteLog("Main: cpuFinished = true;\n");
 cpuFinished = true;
+//#warning "If sound thread is behind, CPU thread will never wake up... !!! FIX !!!" [DONE]
+//What to do? How do you know when the CPU is sleeping???
+//USE A CONDITIONAL!!! OF COURSE!!!!!!11!11!11!!!1!
+#if 0
+SDL_mutexP(mainMutex);
+SDL_CondWait(mainCond, mainMutex);	// Wait for CPU thread to get to signal point...
+SDL_mutexV(mainMutex);
+#else
+//Nope, use a semaphore...
+WriteLog("Main: SDL_SemWait(mainSem);\n");
+SDL_SemWait(mainSem);//should lock until CPU thread is waiting...
+#endif
+
+WriteLog("Main: SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up\n");
 SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up
+WriteLog("Main: SDL_WaitThread(cpuThread, NULL);\n");
 SDL_WaitThread(cpuThread, NULL);
 //nowok:SDL_WaitThread(CPUThreadFunc, NULL);
+WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
 SDL_DestroyCond(cpuCond);
+
+//SDL_DestroyMutex(mainMutex);
+SDL_DestroySemaphore(mainSem);
 #endif
 
 	if (settings.autoStateSaving)
@@ -1119,15 +1179,19 @@ else if (event.key.keysym.sym == SDLK_F10)
 			if (event.key.keysym.sym == SDLK_F5)
 			{
 				VolumeDown();
-				char volStr[10] = "*********";
-				volStr[GetVolume()] = 0;
+				char volStr[19] = "[****************]";
+//				volStr[GetVolume()] = 0;
+				for(int i=GetVolume(); i<16; i++)
+					volStr[1 + i] = '-';
 				SpawnMessage("Volume: %s", volStr);
 			}
 			else if (event.key.keysym.sym == SDLK_F6)
 			{
 				VolumeUp();
-				char volStr[10] = "*********";
-				volStr[GetVolume()] = 0;
+				char volStr[19] = "[****************]";
+//				volStr[GetVolume()] = 0;
+				for(int i=GetVolume(); i<16; i++)
+					volStr[1 + i] = '-';
 				SpawnMessage("Volume: %s", volStr);
 			}
 
@@ -1142,14 +1206,15 @@ else if (event.key.keysym.sym == SDLK_F10)
 
 #ifdef CPU_CLOCK_CHECKING
 //We know it's stopped, so we can get away with this...
-uint64 clock = GetCurrentV65C02Clock();
-totalCPU += (uint32)(clock - lastClock);
-lastClock = clock;
 counter++;
 if (counter == 60)
 {
-	printf("Executed %u cycles...\n", totalCPU);
-	totalCPU = 0;
+	uint64 clock = GetCurrentV65C02Clock();
+//totalCPU += (uint32)(clock - lastClock);
+
+	printf("Executed %u cycles...\n", (uint32)(clock - lastClock));
+	lastClock = clock;
+//	totalCPU = 0;
 	counter = 0;
 }
 #endif
