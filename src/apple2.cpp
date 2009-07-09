@@ -59,7 +59,7 @@
 #define THREADED_65C02
 #define CPU_THREAD_OVERFLOW_COMPENSATION
 //#define DEBUG_LC
-#define CPU_CLOCK_CHECKING
+//#define CPU_CLOCK_CHECKING
 #define THREAD_DEBUGGING
 
 // Global variables
@@ -1000,6 +1000,7 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 //(Fix so that this is not a requirement!)
 //Fixed, but mainCPU.clock is destroyed in the bargain. Oh well.
 //		mainCPU.clock -= USEC_TO_M6502_CYCLES(timeToNextEvent);
+
 #ifdef CPU_CLOCK_CHECKING
 #ifndef THREADED_65C02
 totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
@@ -1218,9 +1219,6 @@ if (counter == 60)
 	counter = 0;
 }
 #endif
-#ifdef THREADED_65C02
-	SDL_CondSignal(cpuCond);//OK, let the CPU go another frame...
-#endif
 //Instead of this, we should yield remaining time to other processes... !!! FIX !!!
 //lessee...
 //nope.
@@ -1228,6 +1226,11 @@ if (counter == 60)
 //SDL_Delay(10);
 	while (SDL_GetTicks() - startTicks < 16);	// Wait for next frame...
 	startTicks = SDL_GetTicks();
+//let's wait, then signal...
+//works longer, but then still falls behind...
+#ifdef THREADED_65C02
+	SDL_CondSignal(cpuCond);//OK, let the CPU go another frame...
+#endif
 }
 
 static void BlinkTimer(void)

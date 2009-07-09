@@ -190,13 +190,21 @@ WriteLog("\n");//*/
 //
 void VideoDone(void)
 {
+	WriteLog("Video: Shutting down OpenGL...\n");
 	if (settings.useOpenGL)
 		sdlemu_close_opengl();
 
+	WriteLog("Video: Shutting down joystick....\n");
 	SDL_JoystickClose(joystick);
+	WriteLog("Video: Freeing 'surface'...\n");
 	SDL_FreeSurface(surface);
+#warning "The problem is here: Doing either of the SDL_Quitxxx functions causes a double free. !!! FIX !!!"
+#warning "Some googling suggests that it may be the thread component causing the trouble."
+	WriteLog("Video: Shutting down SDL subsystems...\n");
 	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO | SDL_INIT_TIMER);
+	WriteLog("Video: Shutting down SDL...\n");
 	SDL_Quit();
+	WriteLog("Video: Done.\n");
 }
 
 //

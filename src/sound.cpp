@@ -31,19 +31,27 @@
 //#define DEBUG
 //#define WRITE_OUT_WAVE
 
-#define SAMPLE_RATE			(44100.0)
-//#define SAMPLE_RATE			(48000.0)
+// This is odd--seems to be working properly now! Maybe a bug in the SDL sound code?
+// Actually, it still doesn't sound right... Sounds too slow now. :-/
+// But then again, it's difficult to tell. Sometimes it slows waaaaaay down, but generally
+// seems to be OK other than that
+// Also, it could be that the discrepancy in pitch is due to the V65C02 and it's lack of
+// cycle accuracy...
+
+//#define SAMPLE_RATE			(44100.0)
+#define SAMPLE_RATE			(48000.0)
 #define SAMPLES_PER_FRAME	(SAMPLE_RATE / 60.0)
 // This works for AppleWin but not here... ??? WHY ???
 // ~ 21
-// #define CYCLES_PER_SAMPLE	(1024000.0 / SAMPLE_RATE)
+#define CYCLES_PER_SAMPLE	(1024000.0 / SAMPLE_RATE)
 // ~ 17 (lower pitched than above...!)
 // Makes sense, as this is the divisor for # of cycles passed
 //#define CYCLES_PER_SAMPLE	(800000.0 / SAMPLE_RATE)
 // This seems about right, compared to AppleWin--but AW runs @ 1.024 MHz
 // 23 (1.024) vs. 20 (0.900)
-#define CYCLES_PER_SAMPLE	(900000.0 / SAMPLE_RATE)
+//#define CYCLES_PER_SAMPLE	(900000.0 / SAMPLE_RATE)
 //nope, too high #define CYCLES_PER_SAMPLE	(960000.0 / SAMPLE_RATE)
+//#define CYCLES_PER_SAMPLE 21
 //#define SOUND_BUFFER_SIZE	(8192)
 #define SOUND_BUFFER_SIZE	(32768)
 
@@ -52,7 +60,7 @@
 
 // Local variables
 
-static SDL_AudioSpec desired;
+static SDL_AudioSpec desired, obtained;
 static bool soundInitialized = false;
 static bool speakerState = false;
 static int16 soundBuffer[SOUND_BUFFER_SIZE];
@@ -92,7 +100,9 @@ return;
 	desired.samples = 1024;						// Let's try a 1K buffer (can always go lower)
 	desired.callback = SDLSoundCallback;
 
-	if (SDL_OpenAudio(&desired, NULL) < 0)		// NULL means SDL guarantees what we want
+//	if (SDL_OpenAudio(&desired, NULL) < 0)		// NULL means SDL guarantees what we want
+//When doing it this way, we need to check to see if we got what we asked for...
+	if (SDL_OpenAudio(&desired, &obtained) < 0)
 	{
 		WriteLog("Sound: Failed to initialize SDL sound.\n");
 		return;
