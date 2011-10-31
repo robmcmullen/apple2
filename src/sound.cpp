@@ -97,7 +97,8 @@ return;
 	desired.channels = 1;
 //	desired.samples = 4096;						// Let's try a 4K buffer (can always go lower)
 //	desired.samples = 2048;						// Let's try a 2K buffer (can always go lower)
-	desired.samples = 1024;						// Let's try a 1K buffer (can always go lower)
+//	desired.samples = 1024;						// Let's try a 1K buffer (can always go lower)
+	desired.samples = 512;						// Let's try a 1/2K buffer (can always go lower)
 	desired.callback = SDLSoundCallback;
 
 //	if (SDL_OpenAudio(&desired, NULL) < 0)		// NULL means SDL guarantees what we want

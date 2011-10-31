@@ -1202,6 +1202,7 @@ else if (event.key.keysym.sym == SDLK_F10)
 		}
 	}
 
+#warning "!!! Taking MAJOR time hit with the video frame rendering !!!"
 	RenderVideoFrame();
 	SetCallbackTime(FrameCallback, 16666.66666667);
 
@@ -1219,12 +1220,15 @@ if (counter == 60)
 	counter = 0;
 }
 #endif
-//Instead of this, we should yield remaining time to other processes... !!! FIX !!!
+//Instead of this, we should yield remaining time to other processes... !!! FIX !!! [DONE]
 //lessee...
 //nope.
 //Actually, slows things down too much...
 //SDL_Delay(10);
-	while (SDL_GetTicks() - startTicks < 16);	// Wait for next frame...
+//	while (SDL_GetTicks() - startTicks < 16);	// Wait for next frame...
+	while (SDL_GetTicks() - startTicks < 16)
+		SDL_Delay(1);							// Wait for next frame...
+
 	startTicks = SDL_GetTicks();
 //let's wait, then signal...
 //works longer, but then still falls behind...

@@ -49,7 +49,7 @@ SDL_Joystick * joystick;
 bool InitVideo(void)
 {
 	// Set up SDL library
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE) < 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE | SDL_INIT_EVENTTHREAD) < 0)
 	{
 		WriteLog("Video: Could not initialize the SDL library: %s\n", SDL_GetError());
 		return false;
@@ -114,7 +114,8 @@ bool InitVideo(void)
 	// Create the secondary SDL display (32 BPP) that we use directly
 	surface = SDL_CreateRGBSurface(SDL_SWSURFACE, VIRTUAL_SCREEN_WIDTH, VIRTUAL_SCREEN_HEIGHT, 32,
 		MASK_R, MASK_G, MASK_B, MASK_A);
-/*WriteLog("Video: Created secondary surface with attributes:\n\n");
+#if 0
+WriteLog("Video: Created secondary surface with attributes:\n\n");
 WriteLog("\tWidth, height: %u x %u\n", surface->w, surface->h);
 WriteLog("\t        Pitch: %u\n", surface->pitch);
 WriteLog("\t      Palette: %08X\n", surface->format->palette);
@@ -124,7 +125,8 @@ WriteLog("\t        RMask: %08X\n", surface->format->Rmask);
 WriteLog("\t        GMask: %08X\n", surface->format->Gmask);
 WriteLog("\t        BMask: %08X\n", surface->format->Bmask);
 WriteLog("\t        AMask: %08X\n", surface->format->Amask);
-WriteLog("\n");//*/
+WriteLog("\n");
+#endif
 
 	if (surface == NULL)
 	{
@@ -194,14 +196,44 @@ void VideoDone(void)
 	if (settings.useOpenGL)
 		sdlemu_close_opengl();
 
-	WriteLog("Video: Shutting down joystick....\n");
-	SDL_JoystickClose(joystick);
+//	WriteLog("Video: Shutting down joystick....\n");
+//	SDL_JoystickClose(joystick);
 	WriteLog("Video: Freeing 'surface'...\n");
 	SDL_FreeSurface(surface);
-#warning "The problem is here: Doing either of the SDL_Quitxxx functions causes a double free. !!! FIX !!!"
+#warning "The problem is here: Doing the SDL_Quit function causes a double free. !!! FIX !!!"
 #warning "Some googling suggests that it may be the thread component causing the trouble."
-	WriteLog("Video: Shutting down SDL subsystems...\n");
-	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO | SDL_INIT_TIMER);
+#if 0
+*** glibc detected *** ./apple2: double free or corruption (!prev): 0x08239480 ***
+======= Backtrace: =========
+/lib/libc.so.6[0xb7c96572]
+/lib/libc.so.6[0xb7c97cc3]
+/lib/libc.so.6(cfree+0x6d)[0xb7c9afed]
+/usr/lib/dri/radeon_dri.so(_mesa_free+0x1d)[0xb6edefbd]
+/usr/lib/dri/radeon_dri.so(_mesa_delete_texture_image+0x41)[0xb6efc6b1]
+/usr/lib/dri/radeon_dri.so(_mesa_delete_texture_object+0x75)[0xb6f032d5]
+/usr/lib/dri/radeon_dri.so[0xb6e898fd]
+/usr/lib/dri/radeon_dri.so[0xb6eab379]
+/usr/lib/dri/radeon_dri.so(_mesa_HashDeleteAll+0x66)[0xb6ecb236]
+/usr/lib/dri/radeon_dri.so[0xb6eabb76]
+/usr/lib/dri/radeon_dri.so(_mesa_free_context_data+0x1d1)[0xb6eac8e1]
+/usr/lib/dri/radeon_dri.so(_mesa_destroy_context+0x26)[0xb6eac976]
+/usr/lib/dri/radeon_dri.so(radeonDestroyContext+0x13b)[0xb6e7b97b]
+/usr/lib/dri/radeon_dri.so[0xb6e779c7]
+//usr//lib/opengl/xorg-x11/lib/libGL.so.1[0xb7dc3e0c]
+//usr//lib/opengl/xorg-x11/lib/libGL.so.1[0xb7d9ec75]
+/usr/lib/libSDL-1.2.so.0[0xb7f488d2]
+/usr/lib/libSDL-1.2.so.0[0xb7f4cb67]
+/usr/lib/libSDL-1.2.so.0[0xb7f4cda7]
+/usr/lib/libSDL-1.2.so.0(SDL_VideoQuit+0x4e)[0xb7f3af6e]
+/usr/lib/libSDL-1.2.so.0(SDL_QuitSubSystem+0x5b)[0xb7f0e5cb]
+/usr/lib/libSDL-1.2.so.0(SDL_Quit+0x1e)[0xb7f0e66e]
+./apple2[0x806b3e5]
+./apple2[0x806be81]
+/lib/libc.so.6(__libc_start_main+0xe1)[0xb7c3da51]
+./apple2[0x804a541]
+#endif
+//	WriteLog("Video: Shutting down SDL subsystems...\n");
+//	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTTHREAD);
 	WriteLog("Video: Shutting down SDL...\n");
 	SDL_Quit();
 	WriteLog("Video: Done.\n");
