@@ -908,8 +908,10 @@ int main(int /*argc*/, char * /*argv*/[])
 //Kill the DOS ROM in slot 6 for now...
 //not
 	memcpy(rom + 0xC600, diskROM, 0x100);
+//	memcpy(rom + 0xC700, diskROM, 0x100);	// Slot 7???
 
 	WriteLog("About to initialize video...\n");
+
 	if (!InitVideo())
 	{
 		std::cout << "Aborting!" << std::endl;
@@ -1121,21 +1123,20 @@ static void FrameCallback(void)
 		switch (event.type)
 		{
 		case SDL_TEXTINPUT:
-//			if (event.key.keysym.unicode != 0)
-//			{
 //Need to do some key translation here, and screen out non-apple keys as well...
+//(really, could do it all in SDL_KEYDOWN, would just have to get symbols &
+// everything else done separately. this is slightly easier. :-P)
 //			if (event.key.keysym.sym == SDLK_TAB)	// Prelim key screening...
 			if (event.edit.text[0] == '\t')	// Prelim key screening...
 				break;
 
-//				lastKeyPressed = event.key.keysym.unicode;
 			lastKeyPressed = event.edit.text[0];
 			keyDown = true;
+
 			//kludge: should have a caps lock thingy here...
 			//or all uppercase for ][+...
 			if (lastKeyPressed >= 'a' && lastKeyPressed <='z')
 				lastKeyPressed &= 0xDF;		// Convert to upper case...
-//			}
 
 			break;
 		case SDL_KEYDOWN:
@@ -1154,6 +1155,16 @@ static void FrameCallback(void)
 				lastKeyPressed = 0x08, keyDown = true;
 			else if (event.key.keysym.sym == SDLK_RETURN)
 				lastKeyPressed = 0x0D, keyDown = true;
+
+			// Fix CTRL+key combo...
+			if (event.key.keysym.mod & KMOD_CTRL)
+			{
+				if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
+//				{
+					lastKeyPressed = (event.key.keysym.sym - SDLK_a) + 1;
+//printf("Key combo pressed: CTRL+%c\n", lastKeyPressed + 0x40);
+//				}
+			}
 
 			// Use ALT+Q to exit, as well as the usual window decoration method
 			if (event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_ALT))

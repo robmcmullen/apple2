@@ -18,10 +18,13 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-#define MAX_LOG_SIZE		10000000				// Maximum size of log file (10 MB)
+// Maximum size of log file (10 MB ought to be enough for anybody)
+#define MAX_LOG_SIZE		10000000
 
 static FILE * log_stream = NULL;
 static uint32_t logSize = 0;
+static bool logDone = false;
+
 
 bool InitLog(const char * path)
 {
@@ -33,11 +36,13 @@ bool InitLog(const char * path)
 	return true;
 }
 
+
 void LogDone(void)
 {
 	if (log_stream)
 		fclose(log_stream);
 }
+
 
 //
 // This logger is used mainly to ensure that text gets written to the log file
@@ -45,7 +50,7 @@ void LogDone(void)
 //
 void WriteLog(const char * text, ...)
 {
-	if (!log_stream)
+	if (!log_stream || logDone)
 		return;
 
 	va_list arg;
@@ -57,9 +62,10 @@ void WriteLog(const char * text, ...)
 	{
 		fflush(log_stream);
 		fclose(log_stream);
-		exit(1);
-	}//*/
+		logDone = true;
+	}
 
 	va_end(arg);
 	fflush(log_stream);					// Make sure that text is written!
 }
+
