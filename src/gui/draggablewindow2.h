@@ -13,11 +13,11 @@
 class DraggableWindow2: public Window
 {
 	public:
-		DraggableWindow2(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0,
+		DraggableWindow2(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0,
 			void (* f)(Element *) = NULL);
 		~DraggableWindow2(); // Does this destructor need to be virtual? No, it doesn't!
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
 		virtual void Draw(void);
 
 	protected:

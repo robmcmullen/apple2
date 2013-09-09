@@ -8,7 +8,7 @@
 #ifndef __TIMING_H__
 #define __TIMING_H__
 
-#include "types.h"
+#include <stdint.h>
 
 // Note that these are NTSC timings:
 
@@ -17,9 +17,9 @@
 //#define HORIZ_PERIOD_IN_USEC   63.5555
 #define M6502_CYCLE_IN_USEC      0.9765625
 
-//#define USEC_TO_RISC_CYCLES(u) (uint32)(((u) / RISC_CYCLE_IN_USEC) + 0.5)
-//#define USEC_TO_M68K_CYCLES(u) (uint32)(((u) / M68K_CYCLE_IN_USEC) + 0.5)
-#define USEC_TO_M6502_CYCLES(u)  ((uint32)(((u) / M6502_CYCLE_IN_USEC) + 0.5))
+//#define USEC_TO_RISC_CYCLES(u) (uint32_t)(((u) / RISC_CYCLE_IN_USEC) + 0.5)
+//#define USEC_TO_M68K_CYCLES(u) (uint32_t)(((u) / M68K_CYCLE_IN_USEC) + 0.5)
+#define USEC_TO_M6502_CYCLES(u)  ((uint32_t)(((u) / M6502_CYCLE_IN_USEC) + 0.5))
 
 void InitializeEventList(void);
 void SetCallbackTime(void (* callback)(void), double time);

@@ -23,7 +23,7 @@
 #include "sound.h"
 
 #include <string.h>								// For memset, memcpy
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include "log.h"
 
 // Useful defines
@@ -63,15 +63,15 @@
 static SDL_AudioSpec desired, obtained;
 static bool soundInitialized = false;
 static bool speakerState = false;
-static int16 soundBuffer[SOUND_BUFFER_SIZE];
-static uint32 soundBufferPos;
-static uint64 lastToggleCycles;
+static int16_t soundBuffer[SOUND_BUFFER_SIZE];
+static uint32_t soundBufferPos;
+static uint64_t lastToggleCycles;
 static SDL_cond * conditional = NULL;
 static SDL_mutex * mutex = NULL;
 static SDL_mutex * mutex2 = NULL;
-static int16 sample;
-static uint8 ampPtr = 14;						// Start with -16 - +16
-static int16 amplitude[17] = { 0, 1, 2, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047,
+static int16_t sample;
+static uint8_t ampPtr = 14;						// Start with -16 - +16
+static int16_t amplitude[17] = { 0, 1, 2, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047,
 	4095, 8191, 16383, 32767 };
 #ifdef WRITE_OUT_WAVE
 static FILE * fp = NULL;
@@ -162,30 +162,30 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer8, int length8)
 	SDL_mutexP(mutex2);
 
 	// Recast this as a 16-bit type...
-	int16 * buffer = (int16 *)buffer8;
-	uint32 length = (uint32)length8 / 2;
+	int16_t * buffer = (int16_t *)buffer8;
+	uint32_t length = (uint32_t)length8 / 2;
 
 	if (soundBufferPos < length)				// The sound buffer is starved...
 	{
-		for(uint32 i=0; i<soundBufferPos; i++)
+		for(uint32_t i=0; i<soundBufferPos; i++)
 			buffer[i] = soundBuffer[i];
 
 		// Fill buffer with last value
-//		memset(buffer + soundBufferPos, (uint8)sample, length - soundBufferPos);
-		for(uint32 i=soundBufferPos; i<length; i++)
-			buffer[i] = (uint16)sample;
+//		memset(buffer + soundBufferPos, (uint8_t)sample, length - soundBufferPos);
+		for(uint32_t i=soundBufferPos; i<length; i++)
+			buffer[i] = (uint16_t)sample;
 		soundBufferPos = 0;						// Reset soundBufferPos to start of buffer...
 	}
 	else
 	{
 		// Fill sound buffer with frame buffered sound
 //		memcpy(buffer, soundBuffer, length);
-		for(uint32 i=0; i<length; i++)
+		for(uint32_t i=0; i<length; i++)
 			buffer[i] = soundBuffer[i];
 		soundBufferPos -= length;
 
 		// Move current buffer down to start
-		for(uint32 i=0; i<soundBufferPos; i++)
+		for(uint32_t i=0; i<soundBufferPos; i++)
 			soundBuffer[i] = soundBuffer[length + i];
 	}
 
@@ -211,13 +211,13 @@ So... I guess what we could do is this:
    the time position back (or copies data down from what it took out)
 */
 
-void HandleBuffer(uint64 elapsedCycles)
+void HandleBuffer(uint64_t elapsedCycles)
 {
 	// Step 1: Calculate delta time
-	uint64 deltaCycles = elapsedCycles - lastToggleCycles;
+	uint64_t deltaCycles = elapsedCycles - lastToggleCycles;
 
 	// Step 2: Calculate new buffer position
-	uint32 currentPos = (uint32)((double)deltaCycles / CYCLES_PER_SAMPLE);
+	uint32_t currentPos = (uint32_t)((double)deltaCycles / CYCLES_PER_SAMPLE);
 
 	// Step 3: Make sure there's room for it
 	// We need to lock since we touch both soundBuffer and soundBufferPos
@@ -236,21 +236,21 @@ void HandleBuffer(uint64 elapsedCycles)
 	currentPos += soundBufferPos;
 
 #ifdef WRITE_OUT_WAVE
-	uint32 sbpSave = soundBufferPos;
+	uint32_t sbpSave = soundBufferPos;
 #endif
 	// Backfill with current toggle state
 	while (soundBufferPos < currentPos)
-		soundBuffer[soundBufferPos++] = (uint16)sample;
+		soundBuffer[soundBufferPos++] = (uint16_t)sample;
 
 #ifdef WRITE_OUT_WAVE
-	fwrite(&soundBuffer[sbpSave], sizeof(int16), currentPos - sbpSave, fp);
+	fwrite(&soundBuffer[sbpSave], sizeof(int16_t), currentPos - sbpSave, fp);
 #endif
 
 	SDL_mutexV(mutex2);
 	lastToggleCycles = elapsedCycles;
 }
 
-void ToggleSpeaker(uint64 elapsedCycles)
+void ToggleSpeaker(uint64_t elapsedCycles)
 {
 	if (!soundInitialized)
 		return;
@@ -260,7 +260,7 @@ void ToggleSpeaker(uint64 elapsedCycles)
 	sample = (speakerState ? amplitude[ampPtr] : -amplitude[ampPtr]);
 }
 
-void AdjustLastToggleCycles(uint64 elapsedCycles)
+void AdjustLastToggleCycles(uint64_t elapsedCycles)
 {
 	if (!soundInitialized)
 		return;
@@ -306,7 +306,7 @@ void VolumeDown(void)
 		ampPtr--;
 }
 
-uint8 GetVolume(void)
+uint8_t GetVolume(void)
 {
 	return ampPtr;
 }

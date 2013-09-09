@@ -40,18 +40,18 @@ struct Event
 
 //let's try +1... nope.
 static Event eventList[EVENT_LIST_SIZE];
-static uint32 nextEvent;
+static uint32_t nextEvent;
 
 void InitializeEventList(void)
 {
-    for(uint32 i=0; i<EVENT_LIST_SIZE; i++)
+    for(uint32_t i=0; i<EVENT_LIST_SIZE; i++)
         eventList[i].valid = false;
 }
 
 //We just slap the next event into the list, no checking, no nada...
 void SetCallbackTime(void (* callback)(void), double time)
 {
-    for(uint32 i=0; i<EVENT_LIST_SIZE; i++)
+    for(uint32_t i=0; i<EVENT_LIST_SIZE; i++)
     {
         if (!eventList[i].valid)
         {
@@ -69,7 +69,7 @@ void SetCallbackTime(void (* callback)(void), double time)
 
 void RemoveCallback(void (* callback)(void))
 {
-    for(uint32 i=0; i<EVENT_LIST_SIZE; i++)
+    for(uint32_t i=0; i<EVENT_LIST_SIZE; i++)
     {
         if (eventList[i].valid && eventList[i].timerCallback == callback)
         {
@@ -82,7 +82,7 @@ void RemoveCallback(void (* callback)(void))
 
 void AdjustCallbackTime(void (* callback)(void), double time)
 {
-    for(uint32 i=0; i<EVENT_LIST_SIZE; i++)
+    for(uint32_t i=0; i<EVENT_LIST_SIZE; i++)
     {
         if (eventList[i].valid && eventList[i].timerCallback == callback)
         {
@@ -103,7 +103,7 @@ double GetTimeToNextEvent(void)
     double time = 0;
     bool firstTime = true;
 
-    for(uint32 i=0; i<EVENT_LIST_SIZE; i++)
+    for(uint32_t i=0; i<EVENT_LIST_SIZE; i++)
     {
         if (eventList[i].valid)
         {
@@ -138,7 +138,7 @@ void HandleNextEvent(void)
     double elapsedTime = eventList[nextEvent].eventTime;
     void (* event)(void) = eventList[nextEvent].timerCallback;
 
-    for(uint32 i=0; i<EVENT_LIST_SIZE; i++)
+    for(uint32_t i=0; i<EVENT_LIST_SIZE; i++)
         if (eventList[i].valid)
             eventList[i].eventTime -= elapsedTime;
 

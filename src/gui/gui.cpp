@@ -34,7 +34,7 @@
 // This works, but the colors are rendered incorrectly. Also, it seems that there's
 // fullscreen blitting still going on--dragging the disk is fast at first but then
 // gets painfully slow. Not sure what's going on there.
-#define USE_NEW_MAINBUFFERING
+//#define USE_NEW_MAINBUFFERING
 
 //#ifdef DEBUG_MAIN_LOOP
 #include "log.h"
@@ -64,6 +64,7 @@ GUI::GUI(SDL_Surface * surface): menuItem(new MenuItems())
 	windowList.push_back(new DiskWindow(&floppyDrive, 240, 20));
 }
 
+
 GUI::~GUI()
 {
 	// Clean up menuItem, if any
@@ -78,16 +79,19 @@ GUI::~GUI()
 			delete *i;
 }
 
+
 void GUI::AddMenuTitle(const char * title)
 {
 	menuItem->title = title;
 	menuItem->item.clear();
 }
 
-void GUI::AddMenuItem(const char * item, Element * (* a)(void)/*= NULL*/, SDLKey k/*= SDLK_UNKNOWN*/)
+
+void GUI::AddMenuItem(const char * item, Element * (* a)(void)/*= NULL*/, SDL_Scancode k/*= SDLK_UNKNOWN*/)
 {
 	menuItem->item.push_back(NameAction(item, a, k));
 }
+
 
 void GUI::CommitItemsToMenu(void)
 {
@@ -104,6 +108,7 @@ void GUI::CommitItemsToMenu(void)
 	((Menu *)(*windowList.begin()))->Add(*menuItem);
 }
 
+
 void GUI::Run(void)
 {
 	exitGUI = false;
@@ -111,7 +116,8 @@ void GUI::Run(void)
 	SDL_Event event;
 	std::list<Element *>::iterator i;
 
-	SDL_EnableKeyRepeat(150, 75);
+// Not sure what replaces this in SDL2...
+//	SDL_EnableKeyRepeat(150, 75);
 
 	// Also: Need to pick up backbuffer (for those windows that have them)
 	//       BEFORE drawing...
@@ -194,6 +200,8 @@ WriteLog(" -- SDL_USEREVENT\n");
 					FlipMainScreen();
 #endif
 			}
+//Not sure what to do here for SDL2...
+#if 0
 			else if (event.type == SDL_ACTIVEEVENT)
 			{
 //Need to do a screen refresh here...
@@ -203,9 +211,10 @@ WriteLog(" -- SDL_USEREVENT\n");
 #ifndef USE_NEW_MAINBUFFERING
 				RenderScreenBuffer();
 #else
-					FlipMainScreen();
+				FlipMainScreen();
 #endif
 			}
+#endif
 			else if (event.type == SDL_KEYDOWN)
 			{
 #ifdef DEBUG_MAIN_LOOP
@@ -218,7 +227,7 @@ WriteLog(" -- SDL_KEYDOWN\n");
 //Probably should only give this to the top level window...
 //				for(i=windowList.begin(); i!=windowList.end(); i++)
 //					(*i)->HandleKey(event.key.keysym.sym);
-				windowList.back()->HandleKey(event.key.keysym.sym);
+				windowList.back()->HandleKey(event.key.keysym.scancode);
 			}
 			else if (event.type == SDL_MOUSEMOTION)
 			{
@@ -459,11 +468,14 @@ WriteLog("Screen refresh called!\n");
 //SDL_Delay(10);
 	}
 
-	SDL_EnableKeyRepeat(0, 0);
+// Not sure what to do for this in SDL 2...
+//	SDL_EnableKeyRepeat(0, 0);
 //	return false;
 }
+
 
 void GUI::Stop(void)
 {
 	exitGUI = true;
 }
+

@@ -41,7 +41,7 @@
 // NOTE: FG/BG colors are hard-wired
 //
 
-DraggableWindow::DraggableWindow(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
+DraggableWindow::DraggableWindow(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/,
 	void (* f)(Element *)/*= NULL*/):
 	Element(x, y, w, h, 0x4D, 0xFF, 0x84, 0xFF, 0x1F, 0x84, 0x84, 0xFF), handler(f),
 	clicked(false),
@@ -58,8 +58,8 @@ DraggableWindow::DraggableWindow(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0
 	list.push_back(closeButton);
 
 #ifdef BACKGROUND_IMG_TEST
-uint16 imgWidth = (floppyDiskImg[0] << 8) | floppyDiskImg[1];
-uint16 imgHeight = (floppyDiskImg[2] << 8) | floppyDiskImg[3];
+uint16_t imgWidth = (floppyDiskImg[0] << 8) | floppyDiskImg[1];
+uint16_t imgHeight = (floppyDiskImg[2] << 8) | floppyDiskImg[3];
 img = SDL_CreateRGBSurfaceFrom(&floppyDiskImg[4], imgWidth, imgHeight, 32, imgWidth * 4,
 	MASK_R, MASK_G, MASK_B, MASK_A);
 #endif
@@ -70,7 +70,7 @@ img = SDL_CreateRGBSurfaceFrom(&floppyDiskImg[4], imgWidth, imgHeight, 32, imgWi
 
 DraggableWindow::~DraggableWindow()
 {
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		if (list[i])
 			delete list[i];
 
@@ -83,9 +83,9 @@ SDL_FreeSurface(img);
 	SDL_FreeSurface(cbHover);
 }
 
-void DraggableWindow::HandleKey(SDLKey key)
+void DraggableWindow::HandleKey(SDL_Scancode key)
 {
-	if (key == SDLK_ESCAPE)
+	if (key == SDL_SCANCODE_ESCAPE)
 	{
 		SDL_Event event;
 		event.type = SDL_USEREVENT, event.user.code = WINDOW_CLOSE;
@@ -93,11 +93,11 @@ void DraggableWindow::HandleKey(SDLKey key)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->HandleKey(key);
 }
 
-void DraggableWindow::HandleMouseMove(uint32 x, uint32 y)
+void DraggableWindow::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	if (clicked)
 	{
@@ -112,12 +112,12 @@ void DraggableWindow::HandleMouseMove(uint32 x, uint32 y)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseMove(x - extents.x, y - extents.y);
 }
 
-void DraggableWindow::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void DraggableWindow::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	clicked = false;
 
@@ -129,7 +129,7 @@ void DraggableWindow::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 	{
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
@@ -148,7 +148,7 @@ void DraggableWindow::Draw(void)
 		SDL_FillRect(screen, &(*i), bgColor);
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw();
 #else
 	// These are *always* top level and parentless, so no need to traverse up through
@@ -162,7 +162,7 @@ void DraggableWindow::Draw(void)
 	SDL_BlitSurface(img, &src, screen, &dst);
 
 	extern char textChar2e[];
-	uint8 * fontAddr = (uint8 *)textChar2e + ((128 + 32) * 7 * 8);
+	uint8_t * fontAddr = (uint8_t *)textChar2e + ((128 + 32) * 7 * 8);
 	SetNewFont(Font(fontAddr, 7, 8));
 	DrawStringOpaque(screen, extents.x + 8, extents.y +  6, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
 	DrawStringOpaque(screen, extents.x + 8, extents.y + 14, 0xFF000000, 0xFFFFFFFF, "0123456789012345");
@@ -174,7 +174,7 @@ void DraggableWindow::Draw(void)
 #endif
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw();
 #endif
 

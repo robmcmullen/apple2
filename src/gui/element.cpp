@@ -40,7 +40,7 @@
 SDL_Surface * Element::screen = NULL;
 bool Element::needToRefreshScreen = false;
 
-Element::Element(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
+Element::Element(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/,
 	Element * parentElement/*= NULL*/):	parent(parentElement), backstore(NULL), visible(true)
 {
 	extents.x = x,
@@ -50,9 +50,9 @@ Element::Element(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 
 	coverList.push_back(extents);
 }
 
-Element::Element(uint32 x, uint32 y, uint32 w, uint32 h,
-	uint8 fgR/*= 0xFF*/, uint8 fgG/*= 0xFF*/, uint8 fgB/*= 0xFF*/, uint8 fgA/*= 0xFF*/,
-	uint8 bgR/*= 0x00*/, uint8 bgG/*= 0x00*/, uint8 bgB/*= 0x00*/, uint8 bgA/*= 0xFF*/,
+Element::Element(uint32_t x, uint32_t y, uint32_t w, uint32_t h,
+	uint8_t fgR/*= 0xFF*/, uint8_t fgG/*= 0xFF*/, uint8_t fgB/*= 0xFF*/, uint8_t fgA/*= 0xFF*/,
+	uint8_t bgR/*= 0x00*/, uint8_t bgG/*= 0x00*/, uint8_t bgB/*= 0x00*/, uint8_t bgA/*= 0xFF*/,
 	Element * parentElement/*= NULL*/): parent(parentElement), backstore(NULL), visible(true)
 {
 	extents.x = x,
@@ -63,9 +63,9 @@ Element::Element(uint32 x, uint32 y, uint32 w, uint32 h,
 
 #if 0
 	// This *should* allow us to store our colors in an endian safe way... :-/
-	uint8 * c = (uint8 *)&fgColor;
+	uint8_t * c = (uint8_t *)&fgColor;
 	c[0] = fgR, c[1] = fgG, c[2] = fgB, c[3] = fgA;
-	c = (uint8 *)&bgColor;
+	c = (uint8_t *)&bgColor;
 	c[0] = bgR, c[1] = bgG, c[2] = bgB, c[3] = bgA;
 #else
 	fgColor = SDL_MapRGBA(screen->format, fgR, fgG, fgB, fgA);
@@ -83,10 +83,10 @@ Element::~Element()
 	}
 }
 
-bool Element::Inside(uint32 x, uint32 y)
+bool Element::Inside(uint32_t x, uint32_t y)
 {
-	return (x >= (uint32)extents.x && x < (uint32)(extents.x + extents.w)
-		&& y >= (uint32)extents.y && y < (uint32)(extents.y + extents.h) ? true : false);
+	return (x >= (uint32_t)extents.x && x < (uint32_t)(extents.x + extents.w)
+		&& y >= (uint32_t)extents.y && y < (uint32_t)(extents.y + extents.h) ? true : false);
 }
 
 //Badly named--!!! FIX !!! [DONE]
@@ -255,10 +255,10 @@ Steps:
 //This approach won't work--if no rect1 then we're screwed! [FIXED]
 //Now *that* will work...
 			SDL_Rect current = *i;
-			uint32 bottomOfRect1 = current.y;
-//			uint32 rightOfRect2 = current.x;
-//			uint32 leftOfRect3 = current.x + current.w;
-			uint32 topOfRect4 = current.y + current.h;
+			uint32_t bottomOfRect1 = current.y;
+//			uint32_t rightOfRect2 = current.x;
+//			uint32_t leftOfRect3 = current.x + current.w;
+			uint32_t topOfRect4 = current.y + current.h;
 
 			// Rectangle #1 (top)
 			if (r.y > current.y)				// Simple rectangle degeneracy test...

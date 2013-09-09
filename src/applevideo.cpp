@@ -28,8 +28,9 @@
 #include "applevideo.h"
 
 #include <string.h>								// for memset()
+#include <stdio.h>
 #include <stdarg.h>								// for va_* stuff
-#include <string>								// for vsprintf()
+//#include <string>								// for vsprintf()
 #include "apple2.h"
 #include "video.h"
 #include "charset.h"
@@ -72,11 +73,11 @@ bool alternateCharset;
 // Local variables
 
 // We set up the colors this way so that they'll be endian safe
-// when we cast them to a uint32. Note that the format is RGBA.
+// when we cast them to a uint32_t. Note that the format is RGBA.
 
 // "Master Color Values" palette
 
-static uint8 colors[16 * 4] = {
+static uint8_t colors[16 * 4] = {
 	0x00, 0x00, 0x00, 0xFF, 			// Black
 	0xDD, 0x00, 0x33, 0xFF,				// Deep Red (Magenta)
 	0x00, 0x00, 0x99, 0xFF,				// Dark Blue
@@ -97,7 +98,7 @@ static uint8 colors[16 * 4] = {
 
 // This palette comes from ApplePC's colors (more realistic to my eye ;-)
 
-static uint8 altColors[16 * 4] = {
+static uint8_t altColors[16 * 4] = {
 	0x00, 0x00, 0x00, 0xFF,
 	0x7D, 0x20, 0x41, 0xFF,
 	0x41, 0x30, 0x7D, 0xFF,
@@ -117,14 +118,14 @@ static uint8 altColors[16 * 4] = {
 
 // Lo-res starting line addresses
 
-static uint16 lineAddrLoRes[24] = {
+static uint16_t lineAddrLoRes[24] = {
 	0x0400, 0x0480, 0x0500, 0x0580, 0x0600, 0x0680, 0x0700, 0x0780,
 	0x0428, 0x04A8, 0x0528, 0x05A8, 0x0628, 0x06A8, 0x0728, 0x07A8,
 	0x0450, 0x04D0, 0x0550, 0x05D0, 0x0650, 0x06D0, 0x0750, 0x07D0 };
 
 // Hi-res starting line addresses
 
-static uint16 lineAddrHiRes[192] = {
+static uint16_t lineAddrHiRes[192] = {
 	0x2000, 0x2400, 0x2800, 0x2C00, 0x3000, 0x3400, 0x3800, 0x3C00,
 	0x2080, 0x2480, 0x2880, 0x2C80, 0x3080, 0x3480, 0x3880, 0x3C80,
 	0x2100, 0x2500, 0x2900, 0x2D00, 0x3100, 0x3500, 0x3900, 0x3D00,
@@ -155,7 +156,7 @@ static uint16 lineAddrHiRes[192] = {
 	0x2350, 0x2750, 0x2B50, 0x2F50, 0x3350, 0x3750, 0x3B50, 0x3F50,
 	0x23D0, 0x27D0, 0x2BD0, 0x2FD0, 0x33D0, 0x37D0, 0x3BD0, 0x3FD0 };
 
-uint16 appleHiresToMono[0x200] = {
+uint16_t appleHiresToMono[0x200] = {
 	0x0000, 0x3000, 0x0C00, 0x3C00, 0x0300, 0x3300, 0x0F00, 0x3F00,
 	0x00C0, 0x30C0, 0x0CC0, 0x3CC0, 0x03C0, 0x33C0, 0x0FC0, 0x3FC0,	// $0x
 	0x0030, 0x3030, 0x0C30, 0x3C30, 0x0330, 0x3330, 0x0F30, 0x3F30,
@@ -225,18 +226,18 @@ uint16 appleHiresToMono[0x200] = {
 	0x207F, 0x387F, 0x267F, 0x3E7F, 0x21FF, 0x39FF, 0x27FF, 0x3FFF	// $Fx
 };
 
-//static uint8 blurTable[0x800][8];				// Color TV blur table
-static uint8 blurTable[0x80][8];				// Color TV blur table
-static uint32 * palette = (uint32 *)altColors;
+//static uint8_t blurTable[0x800][8];				// Color TV blur table
+static uint8_t blurTable[0x80][8];				// Color TV blur table
+static uint32_t * palette = (uint32_t *)altColors;
 enum { ST_FIRST_ENTRY = 0, ST_COLOR_TV = 0, ST_WHITE_MONO, ST_GREEN_MONO, ST_LAST_ENTRY };
-static uint8 screenType = ST_COLOR_TV;
+static uint8_t screenType = ST_COLOR_TV;
 
 // Local functions
 
-static void Render40ColumnTextLine(uint8 line);
+static void Render40ColumnTextLine(uint8_t line);
 static void Render40ColumnText(void);
-static void RenderLoRes(uint16 toLine = 24);
-static void RenderHiRes(uint16 toLine = 192);
+static void RenderLoRes(uint16_t toLine = 24);
+static void RenderHiRes(uint16_t toLine = 192);
 
 
 void SetupBlurTable(void)
@@ -247,26 +248,26 @@ void SetupBlurTable(void)
 	//       from 0-$7FF stepping by 16 does. Hm.
 	//       Well, it seems that going from 0-$7F doesn't have enough precision to do the job.
 #if 0
-//	for(uint16 bitPat=0; bitPat<0x800; bitPat++)
-	for(uint16 bitPat=0; bitPat<0x80; bitPat++)
+//	for(uint16_t bitPat=0; bitPat<0x800; bitPat++)
+	for(uint16_t bitPat=0; bitPat<0x80; bitPat++)
 	{
-/*		uint16 w3 = bitPat & 0x888;
-		uint16 w2 = bitPat & 0x444;
-		uint16 w1 = bitPat & 0x222;
-		uint16 w0 = bitPat & 0x111;*/
-		uint16 w3 = bitPat & 0x88;
-		uint16 w2 = bitPat & 0x44;
-		uint16 w1 = bitPat & 0x22;
-		uint16 w0 = bitPat & 0x11;
+/*		uint16_t w3 = bitPat & 0x888;
+		uint16_t w2 = bitPat & 0x444;
+		uint16_t w1 = bitPat & 0x222;
+		uint16_t w0 = bitPat & 0x111;*/
+		uint16_t w3 = bitPat & 0x88;
+		uint16_t w2 = bitPat & 0x44;
+		uint16_t w1 = bitPat & 0x22;
+		uint16_t w0 = bitPat & 0x11;
 
-		uint16 blurred3 = (w3 | (w3 >> 1) | (w3 >> 2) | (w3 >> 3)) & 0x00FF;
-		uint16 blurred2 = (w2 | (w2 >> 1) | (w2 >> 2) | (w2 >> 3)) & 0x00FF;
-		uint16 blurred1 = (w1 | (w1 >> 1) | (w1 >> 2) | (w1 >> 3)) & 0x00FF;
-		uint16 blurred0 = (w0 | (w0 >> 1) | (w0 >> 2) | (w0 >> 3)) & 0x00FF;
+		uint16_t blurred3 = (w3 | (w3 >> 1) | (w3 >> 2) | (w3 >> 3)) & 0x00FF;
+		uint16_t blurred2 = (w2 | (w2 >> 1) | (w2 >> 2) | (w2 >> 3)) & 0x00FF;
+		uint16_t blurred1 = (w1 | (w1 >> 1) | (w1 >> 2) | (w1 >> 3)) & 0x00FF;
+		uint16_t blurred0 = (w0 | (w0 >> 1) | (w0 >> 2) | (w0 >> 3)) & 0x00FF;
 
-		for(int8 i=7; i>=0; i--)
+		for(int8_t i=7; i>=0; i--)
 		{
-			uint8 color = (((blurred0 >> i) & 0x01) << 3)
+			uint8_t color = (((blurred0 >> i) & 0x01) << 3)
 				| (((blurred1 >> i) & 0x01) << 2)
 				| (((blurred2 >> i) & 0x01) << 1)
 				| ((blurred3 >> i) & 0x01);
@@ -274,18 +275,18 @@ void SetupBlurTable(void)
 		}
 	}
 #else
-	for(uint16 bitPat=0; bitPat<0x800; bitPat+=0x10)
+	for(uint16_t bitPat=0; bitPat<0x800; bitPat+=0x10)
 	{
-		uint16 w0 = bitPat & 0x111, w1 = bitPat & 0x222, w2 = bitPat & 0x444, w3 = bitPat & 0x888;
+		uint16_t w0 = bitPat & 0x111, w1 = bitPat & 0x222, w2 = bitPat & 0x444, w3 = bitPat & 0x888;
 
-		uint16 blurred0 = (w0 | (w0 >> 1) | (w0 >> 2) | (w0 >> 3)) & 0x00FF;
-		uint16 blurred1 = (w1 | (w1 >> 1) | (w1 >> 2) | (w1 >> 3)) & 0x00FF;
-		uint16 blurred2 = (w2 | (w2 >> 1) | (w2 >> 2) | (w2 >> 3)) & 0x00FF;
-		uint16 blurred3 = (w3 | (w3 >> 1) | (w3 >> 2) | (w3 >> 3)) & 0x00FF;
+		uint16_t blurred0 = (w0 | (w0 >> 1) | (w0 >> 2) | (w0 >> 3)) & 0x00FF;
+		uint16_t blurred1 = (w1 | (w1 >> 1) | (w1 >> 2) | (w1 >> 3)) & 0x00FF;
+		uint16_t blurred2 = (w2 | (w2 >> 1) | (w2 >> 2) | (w2 >> 3)) & 0x00FF;
+		uint16_t blurred3 = (w3 | (w3 >> 1) | (w3 >> 2) | (w3 >> 3)) & 0x00FF;
 
-		for(int8 i=7; i>=0; i--)
+		for(int8_t i=7; i>=0; i--)
 		{
-			uint8 color = (((blurred0 >> i) & 0x01) << 3)
+			uint8_t color = (((blurred0 >> i) & 0x01) << 3)
 				| (((blurred1 >> i) & 0x01) << 2)
 				| (((blurred2 >> i) & 0x01) << 1)
 				| ((blurred3 >> i) & 0x01);
@@ -295,19 +296,21 @@ void SetupBlurTable(void)
 #endif
 }
 
+
 void TogglePalette(void)
 {
-	if (palette == (uint32 *)colors)
+	if (palette == (uint32_t *)colors)
 	{
-		palette = (uint32 *)altColors;
+		palette = (uint32_t *)altColors;
 		SpawnMessage("Color TV palette");
 	}
 	else
 	{
-		palette = (uint32 *)colors;
+		palette = (uint32_t *)colors;
 		SpawnMessage("\"Master Color Values\" palette");
 	}
 }
+
 
 void CycleScreenTypes(void)
 {
@@ -321,7 +324,8 @@ void CycleScreenTypes(void)
 	SpawnMessage("%s", scrTypeStr[screenType]);
 }
 
-static uint32 msgTicks = 0;
+
+static uint32_t msgTicks = 0;
 static char message[4096];
 
 void SpawnMessage(const char * text, ...)
@@ -335,62 +339,64 @@ void SpawnMessage(const char * text, ...)
 	msgTicks = 120;
 }
 
-static void DrawString2(uint32 x, uint32 y, uint32 color);
+
+static void DrawString2(uint32_t x, uint32_t y, uint32_t color);
 static void DrawString(void)
 {
 //This approach works, and seems to be fast enough... Though it probably would
 //be better to make the oversized font to match this one...
-	for(uint32 x=7; x<=9; x++)
-		for(uint32 y=7; y<=9; y++)
+	for(uint32_t x=7; x<=9; x++)
+		for(uint32_t y=7; y<=9; y++)
 			DrawString2(x, y, 0x00000000);
 
 	DrawString2(8, 8, 0x0020FF20);
 }
 
-static void DrawString2(uint32 x, uint32 y, uint32 color)
+
+static void DrawString2(uint32_t x, uint32_t y, uint32_t color)
 {
-//uint32 x = 8, y = 8;
-	uint32 length = strlen(message), address = x + (y * VIRTUAL_SCREEN_WIDTH);
-//	uint32 color = 0x0020FF20;
+//uint32_t x = 8, y = 8;
+	uint32_t length = strlen(message), address = x + (y * VIRTUAL_SCREEN_WIDTH);
+//	uint32_t color = 0x0020FF20;
 //This could be done ahead of time, instead of on each pixel...
 //(Now it is!)
-	uint8 nBlue = (color >> 16) & 0xFF, nGreen = (color >> 8) & 0xFF, nRed = color & 0xFF;
+	uint8_t nBlue = (color >> 16) & 0xFF, nGreen = (color >> 8) & 0xFF, nRed = color & 0xFF;
 
-	for(uint32 i=0; i<length; i++)
+	for(uint32_t i=0; i<length; i++)
 	{
-		uint8 c = message[i];
+		uint8_t c = message[i];
 		c = (c < 32 ? 0 : c - 32);
-		uint32 fontAddr = (uint32)c * FONT_WIDTH * FONT_HEIGHT;
+		uint32_t fontAddr = (uint32_t)c * FONT_WIDTH * FONT_HEIGHT;
 
-		for(uint32 yy=0; yy<FONT_HEIGHT; yy++)
+		for(uint32_t yy=0; yy<FONT_HEIGHT; yy++)
 		{
-			for(uint32 xx=0; xx<FONT_WIDTH; xx++)
+			for(uint32_t xx=0; xx<FONT_WIDTH; xx++)
 			{
-/*				uint8 fontTrans = font1[fontAddr++];
-//				uint32 newTrans = (fontTrans * transparency / 255) << 24;
-				uint32 newTrans = fontTrans << 24;
-				uint32 pixel = newTrans | color;
+/*				uint8_t fontTrans = font1[fontAddr++];
+//				uint32_t newTrans = (fontTrans * transparency / 255) << 24;
+				uint32_t newTrans = fontTrans << 24;
+				uint32_t pixel = newTrans | color;
 
 				*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = pixel;//*/
 
-				uint8 trans = font1[fontAddr++];
+				uint8_t trans = font1[fontAddr++];
 
 				if (trans)
 				{
-					uint32 existingColor = *(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH));
+					uint32_t existingColor = *(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH));
 
-					uint8 eBlue = (existingColor >> 16) & 0xFF,
+					uint8_t eBlue = (existingColor >> 16) & 0xFF,
 						eGreen = (existingColor >> 8) & 0xFF,
 						eRed = existingColor & 0xFF;
 
 //This could be sped up by using a table of 5 + 5 + 5 bits (32 levels transparency -> 32768 entries)
 //Here we've modified it to have 33 levels of transparency (could have any # we want!)
 //because dividing by 32 is faster than dividing by 31...!
-					uint8 invTrans = 255 - trans;
+					uint8_t invTrans = 255 - trans;
 
-					uint32 bRed   = (eRed   * invTrans + nRed   * trans) / 255;
-					uint32 bGreen = (eGreen * invTrans + nGreen * trans) / 255;
-					uint32 bBlue  = (eBlue  * invTrans + nBlue  * trans) / 255;
+					uint32_t bRed   = (eRed   * invTrans + nRed   * trans) / 255;
+					uint32_t bGreen = (eGreen * invTrans + nGreen * trans) / 255;
+					uint32_t bBlue  = (eBlue  * invTrans + nBlue  * trans) / 255;
 
 //THIS IS NOT ENDIAN SAFE
 					*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = 0xFF000000 | (bBlue << 16) | (bGreen << 8) | bRed;
@@ -402,13 +408,14 @@ static void DrawString2(uint32 x, uint32 y, uint32 color)
 	}
 }
 
-static void Render40ColumnTextLine(uint8 line)
+
+static void Render40ColumnTextLine(uint8_t line)
 {
-	uint32 pixelOn = (screenType == ST_GREEN_MONO ? 0xFF61FF61 : 0xFFFFFFFF);
+	uint32_t pixelOn = (screenType == ST_GREEN_MONO ? 0xFF61FF61 : 0xFFFFFFFF);
 
 	for(int x=0; x<40; x++)
 	{
-		uint8 chr = ram[lineAddrLoRes[line] + (displayPage2 ? 0x0400 : 0x0000) + x];
+		uint8_t chr = ram[lineAddrLoRes[line] + (displayPage2 ? 0x0400 : 0x0000) + x];
 
 		// Render character at (x, y)
 
@@ -416,7 +423,7 @@ static void Render40ColumnTextLine(uint8 line)
 		{
 			for(int cx=0; cx<7; cx++)
 			{
-				uint32 pixel = 0xFF000000;
+				uint32_t pixel = 0xFF000000;
 
 				if (!alternateCharset)
 				{
@@ -455,13 +462,15 @@ static void Render40ColumnTextLine(uint8 line)
 	}
 }
 
+
 static void Render40ColumnText(void)
 {
-	for(uint8 line=0; line<24; line++)
+	for(uint8_t line=0; line<24; line++)
 		Render40ColumnTextLine(line);
 }
 
-static void RenderLoRes(uint16 toLine/*= 24*/)
+
+static void RenderLoRes(uint16_t toLine/*= 24*/)
 {
 // NOTE: The green mono rendering doesn't skip every other line... !!! FIX !!!
 //       Also, we could set up three different Render functions depending on which
@@ -488,18 +497,18 @@ fb 9e be -> 11 [1101] -> 11?	PINK
 be ae fb ->  7 [1110] -> 7?		LIGHT BLUE (CYAN)
 fb fb fb -> 15 [1111] -> 15		WHITE
 */
-	uint8 mirrorNybble[16] = { 0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15 };
+	uint8_t mirrorNybble[16] = { 0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15 };
 
 //This is the old "perfect monitor" rendering code...
 /*	if (screenType != ST_COLOR_TV) // Not correct, but for now...
 //if (1)
 	{
-		for(uint16 y=0; y<toLine; y++)
+		for(uint16_t y=0; y<toLine; y++)
 		{
-			for(uint16 x=0; x<40; x++)
+			for(uint16_t x=0; x<40; x++)
 			{
-				uint8 scrByte = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x];
-				uint32 pixel = palette[scrByte & 0x0F];
+				uint8_t scrByte = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x];
+				uint32_t pixel = palette[scrByte & 0x0F];
 
 				for(int cy=0; cy<4; cy++)
 					for(int cx=0; cx<14; cx++)
@@ -515,22 +524,22 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 	}
 	else//*/
 
-	uint32 pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
+	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
 
-	for(uint16 y=0; y<toLine; y++)
+	for(uint16_t y=0; y<toLine; y++)
 	{
 		// Do top half of lores screen bytes...
 
-		uint32 previous3Bits = 0;
+		uint32_t previous3Bits = 0;
 
-		for(uint16 x=0; x<40; x+=2)
+		for(uint16_t x=0; x<40; x+=2)
 		{
-			uint8 scrByte1 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 0] & 0x0F;
-			uint8 scrByte2 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 1] & 0x0F;
+			uint8_t scrByte1 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 0] & 0x0F;
+			uint8_t scrByte2 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 1] & 0x0F;
 			scrByte1 = mirrorNybble[scrByte1];
 			scrByte2 = mirrorNybble[scrByte2];
 			// This is just a guess, but it'll have to do for now...
-			uint32 pixels = previous3Bits | (scrByte1 << 24) | (scrByte1 << 20) | (scrByte1 << 16)
+			uint32_t pixels = previous3Bits | (scrByte1 << 24) | (scrByte1 << 20) | (scrByte1 << 16)
 				| ((scrByte1 & 0x0C) << 12) | ((scrByte2 & 0x03) << 12)
 				| (scrByte2 << 8) | (scrByte2 << 4) | scrByte2;
 
@@ -540,16 +549,16 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 
 			if (screenType == ST_COLOR_TV)
 			{
-				for(uint8 i=0; i<7; i++)
+				for(uint8_t i=0; i<7; i++)
 				{
-					uint8 bitPat = (pixels & 0x7F000000) >> 24;
+					uint8_t bitPat = (pixels & 0x7F000000) >> 24;
 					pixels <<= 4;
 
-					for(uint8 j=0; j<4; j++)
+					for(uint8_t j=0; j<4; j++)
 					{
-						uint8 color = blurTable[bitPat][j];
+						uint8_t color = blurTable[bitPat][j];
 
-						for(uint32 cy=0; cy<8; cy++)
+						for(uint32_t cy=0; cy<8; cy++)
 						{
 							scrBuffer[((x * 14) + (i * 4) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
 //							scrBuffer[((x * 14) + (i * 4) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
@@ -563,7 +572,7 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 			{
 				for(int j=0; j<28; j++)
 				{
-					for(uint32 cy=0; cy<8; cy++)
+					for(uint32_t cy=0; cy<8; cy++)
 					{
 						scrBuffer[((x * 14) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = (pixels & 0x08000000 ? pixelOn : 0xFF000000);
 //						scrBuffer[((x * 14) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = (pixels & 0x08000000 ? pixelOn : 0xFF000000);
@@ -578,14 +587,14 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 
 		previous3Bits = 0;
 
-		for(uint16 x=0; x<40; x+=2)
+		for(uint16_t x=0; x<40; x+=2)
 		{
-			uint8 scrByte1 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 0] >> 4;
-			uint8 scrByte2 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 1] >> 4;
+			uint8_t scrByte1 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 0] >> 4;
+			uint8_t scrByte2 = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x + 1] >> 4;
 			scrByte1 = mirrorNybble[scrByte1];
 			scrByte2 = mirrorNybble[scrByte2];
 			// This is just a guess, but it'll have to do for now...
-			uint32 pixels = previous3Bits | (scrByte1 << 24) | (scrByte1 << 20) | (scrByte1 << 16)
+			uint32_t pixels = previous3Bits | (scrByte1 << 24) | (scrByte1 << 20) | (scrByte1 << 16)
 				| ((scrByte1 & 0x0C) << 12) | ((scrByte2 & 0x03) << 12)
 				| (scrByte2 << 8) | (scrByte2 << 4) | scrByte2;
 
@@ -595,16 +604,16 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 
 			if (screenType == ST_COLOR_TV)
 			{
-				for(uint8 i=0; i<7; i++)
+				for(uint8_t i=0; i<7; i++)
 				{
-					uint8 bitPat = (pixels & 0x7F000000) >> 24;
+					uint8_t bitPat = (pixels & 0x7F000000) >> 24;
 					pixels <<= 4;
 
-					for(uint8 j=0; j<4; j++)
+					for(uint8_t j=0; j<4; j++)
 					{
-						uint8 color = blurTable[bitPat][j];
+						uint8_t color = blurTable[bitPat][j];
 
-						for(uint32 cy=8; cy<16; cy++)
+						for(uint32_t cy=8; cy<16; cy++)
 						{
 							scrBuffer[((x * 14) + (i * 4) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
 //							scrBuffer[((x * 14) + (i * 4) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
@@ -618,7 +627,7 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 			{
 				for(int j=0; j<28; j++)
 				{
-					for(uint32 cy=8; cy<16; cy++)
+					for(uint32_t cy=8; cy<16; cy++)
 					{
 						scrBuffer[((x * 14) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = (pixels & 0x08000000 ? pixelOn : 0xFF000000);
 //						scrBuffer[((x * 14) + j) + (((y * 16) + cy) * VIRTUAL_SCREEN_WIDTH)] = (pixels & 0x08000000 ? pixelOn : 0xFF000000);
@@ -631,32 +640,33 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 	}
 }
 
-static void RenderHiRes(uint16 toLine/*= 192*/)
+
+static void RenderHiRes(uint16_t toLine/*= 192*/)
 {
 // NOTE: Not endian safe. !!! FIX !!! [DONE]
 #if 0
-	uint32 pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
+	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
 #else
 // Now it is. Now roll this fix into all the other places... !!! FIX !!!
 // The colors are set in the 8-bit array as R G B A
-	uint8 monoColors[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0x61, 0xFF };
-	uint32 * colorPtr = (uint32 *)monoColors;
-	uint32 pixelOn = (screenType == ST_WHITE_MONO ? colorPtr[0] : colorPtr[1]);
+	uint8_t monoColors[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0x61, 0xFF };
+	uint32_t * colorPtr = (uint32_t *)monoColors;
+	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? colorPtr[0] : colorPtr[1]);
 #endif
 
-	for(uint16 y=0; y<toLine; y++)
+	for(uint16_t y=0; y<toLine; y++)
 	{
-		uint16 previousLoPixel = 0;
-		uint32 previous3bits = 0;
+		uint16_t previousLoPixel = 0;
+		uint32_t previous3bits = 0;
 
-		for(uint16 x=0; x<40; x+=2)
+		for(uint16_t x=0; x<40; x+=2)
 		{
-			uint8 screenByte = ram[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x];
-			uint32 pixels = appleHiresToMono[previousLoPixel | screenByte];
+			uint8_t screenByte = ram[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x];
+			uint32_t pixels = appleHiresToMono[previousLoPixel | screenByte];
 			previousLoPixel = (screenByte << 2) & 0x0100;
 
 			screenByte = ram[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x + 1];
-			uint32 pixels2 = appleHiresToMono[previousLoPixel | screenByte];
+			uint32_t pixels2 = appleHiresToMono[previousLoPixel | screenByte];
 			previousLoPixel = (screenByte << 2) & 0x0100;
 
 			pixels = previous3bits | (pixels << 14) | pixels2;
@@ -667,14 +677,14 @@ static void RenderHiRes(uint16 toLine/*= 192*/)
 
 			if (screenType == ST_COLOR_TV)
 			{
-				for(uint8 i=0; i<7; i++)
+				for(uint8_t i=0; i<7; i++)
 				{
-					uint8 bitPat = (pixels & 0x7F000000) >> 24;
+					uint8_t bitPat = (pixels & 0x7F000000) >> 24;
 					pixels <<= 4;
 
-					for(uint8 j=0; j<4; j++)
+					for(uint8_t j=0; j<4; j++)
 					{
-						uint8 color = blurTable[bitPat][j];
+						uint8_t color = blurTable[bitPat][j];
 #if 0
 //This doesn't seem to make things go any faster...
 //It's the OpenGL render that's faster... Hmm...
@@ -704,6 +714,7 @@ static void RenderHiRes(uint16 toLine/*= 192*/)
 		}
 	}
 }
+
 
 void RenderVideoFrame(void)
 {
@@ -755,3 +766,4 @@ return;//*/
 
 	RenderScreenBuffer();
 }
+

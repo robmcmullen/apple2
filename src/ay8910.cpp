@@ -292,10 +292,10 @@ void _AYWriteReg(int n, int r, int v)
 
 // /length/ is the number of samples we require
 // NB. This should be called at twice the 6522 IRQ rate or (eg) 60Hz if no IRQ.
-void AY8910Update(int chip, int16 ** buffer, int length)	// [TC: Removed static]
+void AY8910Update(int chip, int16_t ** buffer, int length)	// [TC: Removed static]
 {
 	struct AY8910 * PSG = &AYPSG[chip];
-	int16 * buf1, * buf2, * buf3;
+	int16_t * buf1, * buf2, * buf3;
 	int outn;
 
 	buf1 = buffer[0];
@@ -726,7 +726,7 @@ void AY8910_InitClock(int clock)
 		AY8910_set_clock(chip, clock);
 }
 
-uint8 * AY8910_GetRegsPtr(uint16 chipNum)
+uint8_t * AY8910_GetRegsPtr(uint16_t chipNum)
 {
 	if (chipNum >= MAX_8910)
 		return NULL;

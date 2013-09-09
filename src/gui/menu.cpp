@@ -41,21 +41,21 @@ MenuItems::MenuItems(): charLength(0), popupBackstore(NULL)
 {
 }
 
-bool MenuItems::Inside(uint32 x, uint32 y)
+bool MenuItems::Inside(uint32_t x, uint32_t y)
 {
-	return (x >= (uint32)extents.x && x < (uint32)(extents.x + extents.w)
-		&& y >= (uint32)extents.y && y < (uint32)(extents.y + extents.h) ? true : false);
+	return (x >= (uint32_t)extents.x && x < (uint32_t)(extents.x + extents.w)
+		&& y >= (uint32_t)extents.y && y < (uint32_t)(extents.y + extents.h) ? true : false);
 }
 
 //
 // Menu class implementation
 //
 
-Menu::Menu(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
-	uint8 fgcR/*= 0x00*/, uint8 fgcG/*= 0x00*/, uint8 fgcB/*= 0x7F*/, uint8 fgcA/*= 0xFF*/,
-	uint8 bgcR/*= 0x3F*/, uint8 bgcG/*= 0x3F*/, uint8 bgcB/*= 0xFF*/, uint8 bgcA/*= 0xFF*/,
-	uint8 fgchR/*= 0x3F*/, uint8 fgchG/*= 0x3F*/, uint8 fgchB/*= 0xFF*/, uint8 fgchA/*= 0xFF*/,
-	uint8 bgchR/*= 0x87*/, uint8 bgchG/*= 0x87*/, uint8 bgchB/*= 0xFF*/, uint8 bgchA/*= 0xFF*/):
+Menu::Menu(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/,
+	uint8_t fgcR/*= 0x00*/, uint8_t fgcG/*= 0x00*/, uint8_t fgcB/*= 0x7F*/, uint8_t fgcA/*= 0xFF*/,
+	uint8_t bgcR/*= 0x3F*/, uint8_t bgcG/*= 0x3F*/, uint8_t bgcB/*= 0xFF*/, uint8_t bgcA/*= 0xFF*/,
+	uint8_t fgchR/*= 0x3F*/, uint8_t fgchG/*= 0x3F*/, uint8_t fgchB/*= 0xFF*/, uint8_t fgchA/*= 0xFF*/,
+	uint8_t bgchR/*= 0x87*/, uint8_t bgchG/*= 0x87*/, uint8_t bgchB/*= 0xFF*/, uint8_t bgchA/*= 0xFF*/):
 	Element(x, y, w, GetFontHeight(), fgcR, fgcG, fgcB, fgcA, bgcR, bgcG, bgcB, bgcA),
 	activated(false), clicked(false),
 	inside(0), insidePopup(0), menuChosen(-1), menuItemChosen(-1),
@@ -65,9 +65,9 @@ Menu::Menu(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
 #if 0
 	// This *should* allow us to store our colors in an endian safe way... :-/
 	// Nope. Only on SW surfaces. With HW, all bets are off. :-(
-	uint8 * c = (uint8 *)&fgColorHL;
+	uint8_t * c = (uint8_t *)&fgColorHL;
 	c[0] = fgchR, c[1] = fgchG, c[2] = fgchB, c[3] = fgchA;
-	c = (uint8 *)&bgColorHL;
+	c = (uint8_t *)&bgColorHL;
 	c[0] = bgchR, c[1] = bgchG, c[2] = bgchB, c[3] = bgchA;
 #else
 	fgColorHL = SDL_MapRGBA(screen->format, fgchR, fgchG, fgchB, fgchA);
@@ -77,20 +77,20 @@ Menu::Menu(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
 
 Menu::~Menu()
 {
-	for(uint32 i=0; i<itemList.size(); i++)
+	for(uint32_t i=0; i<itemList.size(); i++)
 	{
 		if (itemList[i].popupBackstore)
 			SDL_FreeSurface(itemList[i].popupBackstore);
 	}
 }
 
-void Menu::HandleKey(SDLKey key)
+void Menu::HandleKey(SDL_Scancode key)
 {
 	SaveStateVariables();
 
-	for(uint32 i=0; i<itemList.size(); i++)
+	for(uint32_t i=0; i<itemList.size(); i++)
 	{
-		for(uint32 j=0; j<itemList[i].item.size(); j++)
+		for(uint32_t j=0; j<itemList[i].item.size(); j++)
 		{
 			if (itemList[i].item[j].hotKey == key)
 			{
@@ -109,7 +109,7 @@ void Menu::HandleKey(SDLKey key)
 	CheckStateAndRedrawIfNeeded();
 }
 
-void Menu::HandleMouseMove(uint32 x, uint32 y)
+void Menu::HandleMouseMove(uint32_t x, uint32_t y)
 {
 #ifdef DEBUG_MENU
 WriteLog("--> Inside Menu::HandleMouseMove()...\n");
@@ -121,11 +121,11 @@ WriteLog("--> Inside Menu::HandleMouseMove()...\n");
 	if (Inside(x, y))
 	{
 		// Find out *where* we are inside the menu bar
-		uint32 xpos = extents.x;
+		uint32_t xpos = extents.x;
 
-		for(uint32 i=0; i<itemList.size(); i++)
+		for(uint32_t i=0; i<itemList.size(); i++)
 		{
-			uint32 width = (itemList[i].title.length() + 2) * GetFontWidth();
+			uint32_t width = (itemList[i].title.length() + 2) * GetFontWidth();
 
 			if (x >= xpos && x < xpos + width)
 			{
@@ -152,7 +152,7 @@ WriteLog("--> Inside Menu::HandleMouseMove()...\n");
 	CheckStateAndRedrawIfNeeded();
 }
 
-void Menu::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void Menu::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 #ifdef DEBUG_MENU
 WriteLog("--> Inside Menu::HandleMouseButton()...\n");
@@ -201,13 +201,13 @@ WriteLog("--> Inside Menu::Draw()...\n");
 #endif
 	char separator[] = "--------------------------------------------------------";
 
-	uint32 xpos = extents.x;
+	uint32_t xpos = extents.x;
 
-	for(uint32 i=0; i<itemList.size(); i++)
+	for(uint32_t i=0; i<itemList.size(); i++)
 	{
-		uint32 color1 = fgColor, color2 = bgColor;
+		uint32_t color1 = fgColor, color2 = bgColor;
 
-		if (inside == (i + 1) || (menuChosen != -1 && (uint32)menuChosen == i))
+		if (inside == (i + 1) || (menuChosen != -1 && (uint32_t)menuChosen == i))
 			color1 = fgColorHL, color2 = bgColorHL;
 
 		DrawStringOpaque(screen, xpos, extents.y, color1, color2,
@@ -234,11 +234,11 @@ WriteLog("--> Attempting to prime pubs...\n    pubs x/y/w/h = %u/%u/%u/%u\n    s
 	// Draw sub menu (but only if active)
 	if (clicked)
 	{
-		uint32 ypos = extents.y + GetFontHeight() + 1;
+		uint32_t ypos = extents.y + GetFontHeight() + 1;
 
-		for(uint32 i=0; i<itemList[menuChosen].item.size(); i++)
+		for(uint32_t i=0; i<itemList[menuChosen].item.size(); i++)
 		{
-			uint32 color1 = fgColor, color2 = bgColor;
+			uint32_t color1 = fgColor, color2 = bgColor;
 
 			if (insidePopup == i + 1)
 				color1 = fgColorHL, color2 = bgColorHL, menuItemChosen = i;
@@ -274,7 +274,7 @@ void Menu::Notify(Element *)
 
 void Menu::Add(MenuItems mi)
 {
-	for(uint32 i=0; i<mi.item.size(); i++)
+	for(uint32_t i=0; i<mi.item.size(); i++)
 		if (mi.item[i].name.length() > mi.charLength)
 			mi.charLength = mi.item[i].name.length();
 

@@ -17,15 +17,15 @@
 class Button: public Element
 {
 	public:
-		Button(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0, Element * parent = NULL);
-		Button(uint32 x, uint32 y, uint32 w, uint32 h, SDL_Surface * upImg, Element * parent = NULL);
-		Button(uint32 x, uint32 y, SDL_Surface * bU, SDL_Surface * bH = NULL, SDL_Surface * bD = NULL, Element * parent = NULL);
-		Button(uint32 x, uint32 y, uint32 w, uint32 h, std::string s, Element * parent = NULL);
-		Button(uint32 x, uint32 y, std::string s, Element * parent = NULL);
+		Button(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0, Element * parent = NULL);
+		Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, SDL_Surface * upImg, Element * parent = NULL);
+		Button(uint32_t x, uint32_t y, SDL_Surface * bU, SDL_Surface * bH = NULL, SDL_Surface * bD = NULL, Element * parent = NULL);
+		Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, std::string s, Element * parent = NULL);
+		Button(uint32_t x, uint32_t y, std::string s, Element * parent = NULL);
 		~Button();
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
 		virtual void Draw(void);
 		virtual void Notify(Element *);
 		bool ButtonClicked(void);
@@ -36,8 +36,8 @@ class Button: public Element
 	protected:
 		bool activated, clicked, inside;
 		SDL_Surface * buttonUp, * buttonDown, * buttonHover;
-		uint32 fgColorHL;
-		uint32 bgColorHL;
+		uint32_t fgColorHL;
+		uint32_t bgColorHL;
 
 	private:
 		bool surfacesAreLocal;

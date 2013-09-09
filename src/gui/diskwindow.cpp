@@ -48,7 +48,7 @@ IDEA: Make a recently used file list when ejecting a disk, either here or in
 // NOTE: FG/BG colors are hard-wired
 //
 
-DiskWindow::DiskWindow(FloppyDrive * fdp, uint32 x/*= 0*/, uint32 y/*= 0*/): Window(x, y, 200, 140, NULL), floppyDrive(fdp)
+DiskWindow::DiskWindow(FloppyDrive * fdp, uint32_t x/*= 0*/, uint32_t y/*= 0*/): Window(x, y, 200, 140, NULL), floppyDrive(fdp)
 {
 //Could probably move this into the initializer list as well...
 //	closeButton = new Button(w - (cbWidth + 1), 1, cbUp, cbHover, cbDown, this);
@@ -104,7 +104,7 @@ printf("Inside ~DiskWindow()...\n");
 #endif
 }
 
-void DiskWindow::HandleKey(SDLKey key)
+void DiskWindow::HandleKey(SDL_Scancode key)
 {
 	Window::HandleKey(key);
 #if 0
@@ -116,34 +116,34 @@ void DiskWindow::HandleKey(SDLKey key)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->HandleKey(key);
 #endif
 }
 
-void DiskWindow::HandleMouseMove(uint32 x, uint32 y)
+void DiskWindow::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	Window::HandleMouseMove(x, y);
 #if 0
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseMove(x - extents.x, y - extents.y);
 #endif
 }
 
-void DiskWindow::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void DiskWindow::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	Window::HandleMouseButton(x, y, mouseDown);
 #if 0
 #if 1
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
 #else //? This works in draggablewindow2...
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 	{
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
@@ -164,7 +164,7 @@ void DiskWindow::Draw(void)
 	SDL_FillRect(screen, &extents, bgColor);
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw();
 
 	needToRefreshScreen = true;

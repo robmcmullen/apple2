@@ -31,7 +31,7 @@
 // Text edit class implementation
 //
 
-TextEdit::TextEdit(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
+TextEdit::TextEdit(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/,
 	std::string s/*= ""*/, Element * parent/*= NULL*/):
 	Element(x, y, w, h, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x40, 0x40, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
@@ -44,9 +44,9 @@ TextEdit::TextEdit(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*
 
 	// Setup hardwired colors...
 
-	uint8 * c = (uint8 *)&hiliteColor;
+	uint8_t * c = (uint8_t *)&hiliteColor;
 	c[0] = 0xFF, c[1] = 0x80, c[2] = 0x00, c[3] = 0xFF;
-	c = (uint8 *)&cursorColor;
+	c = (uint8_t *)&cursorColor;
 	c[0] = 0x40, c[1] = 0xFF, c[2] = 0x60, c[3] = 0xFF;
 
 	// Create the text edit surface here...
@@ -64,18 +64,20 @@ TextEdit::~TextEdit()
 }
 
 //Set different filters depending on type passed in on construction, e.g., filename, amount, etc...?
-void TextEdit::HandleKey(SDLKey key)
+void TextEdit::HandleKey(SDL_Scancode key)
 {
 	if (!activated)
 		return;
 
+// Punting this for now on SDL 2...
+#if 0
 	SaveStateVariables();
 	SDLMod keyMod = SDL_GetModState();
 
 	if ((key >= SDLK_a && key <= SDLK_z) || (key >= SDLK_0 && key <= SDLK_9)
 		|| key == SDLK_PERIOD || key == SDLK_SLASH || key == SDLK_SPACE)
 	{
-		uint8 chr = (uint8)key;
+		uint8_t chr = (uint8_t)key;
 
 		// Handle shift key as well...
 		if (keyMod & KMOD_SHIFT)
@@ -134,16 +136,17 @@ void TextEdit::HandleKey(SDLKey key)
 	}
 
 	CheckStateAndRedrawIfNeeded();
+#endif
 }
 
-void TextEdit::HandleMouseMove(uint32 x, uint32 y)
+void TextEdit::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	SaveStateVariables();
 	inside = Inside(x, y);
 	CheckStateAndRedrawIfNeeded();
 }
 
-void TextEdit::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void TextEdit::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	SaveStateVariables();
 

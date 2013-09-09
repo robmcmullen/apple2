@@ -15,9 +15,9 @@ struct NameAction
 {
 	std::string name;
 	Element * (* action)(void);
-	SDLKey hotKey;
+	SDL_Scancode hotKey;
 
-	NameAction(std::string n, Element * (* a)(void) = NULL, SDLKey k = SDLK_UNKNOWN): name(n),
+	NameAction(std::string n, Element * (* a)(void) = NULL, SDL_Scancode k = SDL_SCANCODE_UNKNOWN): name(n),
 		action(a), hotKey(k) {}
 };
 
@@ -25,11 +25,11 @@ class MenuItems
 {
 	public:
 		MenuItems();
-		bool Inside(uint32 x, uint32 y);
+		bool Inside(uint32_t x, uint32_t y);
 
 		std::string title;
 		std::vector<NameAction> item;
-		uint32 charLength;
+		uint32_t charLength;
 		SDL_Rect extents;
 		SDL_Surface * popupBackstore;
 };
@@ -37,15 +37,15 @@ class MenuItems
 class Menu: public Element
 {
 	public:
-		Menu(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0,
-			uint8 fgcR = 0x00, uint8 fgcG = 0x00, uint8 fgcB = 0x7F, uint8 fgcA = 0xFF,
-			uint8 bgcR = 0x3F, uint8 bgcG = 0x3F, uint8 bgcB = 0xFF, uint8 bgcA = 0xFF,
-			uint8 fgchR = 0x3F, uint8 fgchG = 0x3F, uint8 fgchB = 0xFF, uint8 fgchA = 0xFF,
-			uint8 bgchR = 0x87, uint8 bgchG = 0x87, uint8 bgchB = 0xFF, uint8 bgchA = 0xFF);
+		Menu(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0,
+			uint8_t fgcR = 0x00, uint8_t fgcG = 0x00, uint8_t fgcB = 0x7F, uint8_t fgcA = 0xFF,
+			uint8_t bgcR = 0x3F, uint8_t bgcG = 0x3F, uint8_t bgcB = 0xFF, uint8_t bgcA = 0xFF,
+			uint8_t fgchR = 0x3F, uint8_t fgchG = 0x3F, uint8_t fgchB = 0xFF, uint8_t fgchA = 0xFF,
+			uint8_t bgchR = 0x87, uint8_t bgchG = 0x87, uint8_t bgchB = 0xFF, uint8_t bgchA = 0xFF);
 		~Menu();
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
 		virtual void Draw(void);
 		virtual void Notify(Element *);
 		void Add(MenuItems mi);
@@ -54,14 +54,14 @@ class Menu: public Element
 
 	protected:
 		bool activated, clicked;
-		uint32 inside, insidePopup;
+		uint32_t inside, insidePopup;
 		int menuChosen, menuItemChosen;
-		uint32 fgColorHL, bgColorHL;
+		uint32_t fgColorHL, bgColorHL;
 
 	private:
 		std::vector<MenuItems> itemList;
 		bool activatedSave, clickedSave;
-		uint32 insideSave, insidePopupSave;
+		uint32_t insideSave, insidePopupSave;
 		int menuChosenSave, menuItemChosenSave;
 };
 

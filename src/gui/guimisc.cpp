@@ -35,7 +35,7 @@
 // Local variables
 // This will enable us to set up any font without having it embedded here...
 
-static Font font((uint8 *)font2, FONT_WIDTH, FONT_HEIGHT);
+static Font font((uint8_t *)font2, FONT_WIDTH, FONT_HEIGHT);
 static std::vector<Font> oldFontList;
 
 
@@ -54,12 +54,12 @@ void RestoreOldFont(void)
 	oldFontList.pop_back();
 }
 
-uint32 GetFontWidth(void)
+uint32_t GetFontWidth(void)
 {
 	return font.width;
 }
 
-uint32 GetFontHeight(void)
+uint32_t GetFontHeight(void)
 {
 	return font.height;
 }
@@ -67,7 +67,7 @@ uint32 GetFontHeight(void)
 //
 // Draw text at the given x/y coordinates with transparency (255 is fully opaque, 0 is fully transparent).
 //
-void DrawStringTrans(SDL_Surface * screen, uint32 x, uint32 y, uint32 color, const char * text, ...)
+void DrawStringTrans(SDL_Surface * screen, uint32_t x, uint32_t y, uint32_t color, const char * text, ...)
 {
 	char string[4096];
 	va_list arg;
@@ -76,9 +76,9 @@ void DrawStringTrans(SDL_Surface * screen, uint32 x, uint32 y, uint32 color, con
 	vsprintf(string, text, arg);
 	va_end(arg);
 
-	uint8 * esColor = (uint8 *)&color;			// Do things endian safe...!
-	uint8 trans = esColor[3];
-	uint32 length = strlen(string);
+	uint8_t * esColor = (uint8_t *)&color;			// Do things endian safe...!
+	uint8_t trans = esColor[3];
+	uint32_t length = strlen(string);
 
 	// Make a "stamp" surface (with built in alpha!) for constructing our font chars...
 	SDL_Surface * chr = SDL_CreateRGBSurface(SDL_SWSURFACE, font.width, font.height, 32,
@@ -87,22 +87,22 @@ void DrawStringTrans(SDL_Surface * screen, uint32 x, uint32 y, uint32 color, con
 	rect.x = x, rect.y = y;
 
 //bleh
-uint8 r1, g1, b1, a1;
+uint8_t r1, g1, b1, a1;
 SDL_GetRGBA(color, screen->format, &r1, &g1, &b1, &a1);
 color = SDL_MapRGBA(chr->format, r1, g1, b1, a1);
 //helb
 
-	for(uint32 i=0; i<length; i++)
+	for(uint32_t i=0; i<length; i++)
 	{
-		uint8 c = string[i];
-		uint32 fontAddr = (uint32)(c < 32 ? 0 : c - 32) * font.width * font.height;
+		uint8_t c = string[i];
+		uint32_t fontAddr = (uint32_t)(c < 32 ? 0 : c - 32) * font.width * font.height;
 
-		for(uint32 yy=0; yy<font.height; yy++)
+		for(uint32_t yy=0; yy<font.height; yy++)
 		{
-			for(uint32 xx=0; xx<font.width; xx++)
+			for(uint32_t xx=0; xx<font.width; xx++)
 			{
 				esColor[3] = (font.data[fontAddr++] * trans) / 255;
-				((uint32 *)chr->pixels)[xx + (yy * (chr->pitch / 4))] = color;
+				((uint32_t *)chr->pixels)[xx + (yy * (chr->pitch / 4))] = color;
 			}
 		}
 
@@ -116,7 +116,7 @@ color = SDL_MapRGBA(chr->format, r1, g1, b1, a1);
 //
 // Draw text at given x/y coords using foreground/background color combination
 //
-void DrawStringOpaque(SDL_Surface * screen, uint32 x, uint32 y, uint32 fg, uint32 bg, const char * text, ...)
+void DrawStringOpaque(SDL_Surface * screen, uint32_t x, uint32_t y, uint32_t fg, uint32_t bg, const char * text, ...)
 {
 	char string[4096];
 	va_list arg;
@@ -125,8 +125,8 @@ void DrawStringOpaque(SDL_Surface * screen, uint32 x, uint32 y, uint32 fg, uint3
 	vsprintf(string, text, arg);
 	va_end(arg);
 
-	uint8 * esColor = (uint8 *)&fg;				// Do things endian safe...!
-	uint32 length = strlen(string);
+	uint8_t * esColor = (uint8_t *)&fg;				// Do things endian safe...!
+	uint32_t length = strlen(string);
 
 	SDL_Rect destRect;
 
@@ -142,24 +142,24 @@ void DrawStringOpaque(SDL_Surface * screen, uint32 x, uint32 y, uint32 fg, uint3
 	rect.x = x, rect.y = y;
 
 //bleh (we have to map colors from the HW surface to the SW surface)
-uint8 r1, g1, b1, a1;
+uint8_t r1, g1, b1, a1;
 SDL_GetRGBA(fg, screen->format, &r1, &g1, &b1, &a1);
 fg = SDL_MapRGBA(chr->format, r1, g1, b1, a1);
 SDL_GetRGBA(bg, screen->format, &r1, &g1, &b1, &a1);
 bg = SDL_MapRGBA(chr->format, r1, g1, b1, a1);
 //helb
 
-	for(uint32 i=0; i<length; i++)
+	for(uint32_t i=0; i<length; i++)
 	{
-		uint8 c = string[i];
-		uint32 fontAddr = (uint32)(c < 32 ? 0 : c - 32) * font.width * font.height;
+		uint8_t c = string[i];
+		uint32_t fontAddr = (uint32_t)(c < 32 ? 0 : c - 32) * font.width * font.height;
 
-		for(uint32 yy=0; yy<font.height; yy++)
+		for(uint32_t yy=0; yy<font.height; yy++)
 		{
-			for(uint32 xx=0; xx<font.width; xx++)
+			for(uint32_t xx=0; xx<font.width; xx++)
 			{
 				esColor[3] = font.data[fontAddr++];
-				((uint32 *)chr->pixels)[xx + (yy * (chr->pitch / 4))] = fg;
+				((uint32_t *)chr->pixels)[xx + (yy * (chr->pitch / 4))] = fg;
 			}
 		}
 
@@ -218,7 +218,7 @@ bool RectangleFirstInsideSecond(SDL_Rect r1, SDL_Rect r2)
 
 // These representations *should* be endian safe.
 
-uint8 closeBox[] = {
+uint8_t closeBox[] = {
 	15 / 256, 15 % 256,		// width (HI byte, LO byte)
 	15 / 256, 15 % 256,		// height (HI byte, LO byte)
 
@@ -239,7 +239,7 @@ uint8 closeBox[] = {
 	0x00, 0x00, 0x00, 0x00, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0x00, 0x00, 0x00, 0x00
 };
 
-uint8 closeBoxHover[] = {
+uint8_t closeBoxHover[] = {
 	15 / 256, 15 % 256,		// width (HI byte, LO byte)
 	15 / 256, 15 % 256,		// height (HI byte, LO byte)
 
@@ -260,7 +260,7 @@ uint8 closeBoxHover[] = {
 	0x00, 0x00, 0x00, 0x00, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0xED, 0x38, 0x38, 0xFF, 0x00, 0x00, 0x00, 0x00
 };
 
-uint8 closeBoxDown[] = {
+uint8_t closeBoxDown[] = {
 	15 / 256, 15 % 256,		// width (HI byte, LO byte)
 	15 / 256, 15 % 256,		// height (HI byte, LO byte)
 
@@ -312,17 +312,17 @@ using namespace std;								// For STL stuff
 
 class Window;										// Forward declaration...
 
-//void DrawTransparentBitmap(uint32 * screen, uint32 x, uint32 y, uint32 * bitmap, uint8 * alpha = NULL);
-void DrawTransparentBitmapDeprecated(uint32 * screen, uint32 x, uint32 y, uint32 * bitmap);
-void DrawTransparentBitmap(uint32 * screen, uint32 x, uint32 y, const void * bitmap);
-void DrawBitmap(uint32 * screen, uint32 x, uint32 y, const void * bitmap);
+//void DrawTransparentBitmap(uint32_t * screen, uint32_t x, uint32_t y, uint32_t * bitmap, uint8_t * alpha = NULL);
+void DrawTransparentBitmapDeprecated(uint32_t * screen, uint32_t x, uint32_t y, uint32_t * bitmap);
+void DrawTransparentBitmap(uint32_t * screen, uint32_t x, uint32_t y, const void * bitmap);
+void DrawBitmap(uint32_t * screen, uint32_t x, uint32_t y, const void * bitmap);
 //Should call this FillScreenRectangle with a number representing the RGBA value to fill. !!! FIX !!!
-//void ClearScreenRectangle(uint32 * screen, uint32 x, uint32 y, uint32 w, uint32 h);
-void FillScreenRectangle(uint32 * screen, uint32 x, uint32 y, uint32 w, uint32 h, uint32 color);
-void DrawStringTrans(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 opacity, const char * text, ...);
-void DrawStringOpaque(uint32 * screen, uint32 x, uint32 y, uint32 color1, uint32 color2, const char * text, ...);
-void DrawString(uint32 * screen, uint32 x, uint32 y, bool invert, const char * text, ...);
-void DrawString2(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 transparency, const char * text, ...);
+//void ClearScreenRectangle(uint32_t * screen, uint32_t x, uint32_t y, uint32_t w, uint32_t h);
+void FillScreenRectangle(uint32_t * screen, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color);
+void DrawStringTrans(uint32_t * screen, uint32_t x, uint32_t y, uint32_t color, uint8_t opacity, const char * text, ...);
+void DrawStringOpaque(uint32_t * screen, uint32_t x, uint32_t y, uint32_t color1, uint32_t color2, const char * text, ...);
+void DrawString(uint32_t * screen, uint32_t x, uint32_t y, bool invert, const char * text, ...);
+void DrawString2(uint32_t * screen, uint32_t x, uint32_t y, uint32_t color, uint8_t transparency, const char * text, ...);
 Window * LoadROM(void);
 Window * ResetJaguar(void);
 Window * ResetJaguarCD(void);
@@ -335,10 +335,10 @@ int gzfilelength(gzFile gd);
 
 // External variables
 
-extern uint8 * jaguar_mainRam;
-extern uint8 * jaguar_mainRom;
-extern uint8 * jaguar_bootRom;
-extern uint8 * jaguar_CDBootROM;
+extern uint8_t * jaguar_mainRam;
+extern uint8_t * jaguar_mainRom;
+extern uint8_t * jaguar_bootRom;
+extern uint8_t * jaguar_CDBootROM;
 extern bool BIOSLoaded;
 extern bool CDBIOSLoaded;
 
@@ -346,7 +346,7 @@ extern bool CDBIOSLoaded;
 
 bool exitGUI = false;								// GUI (emulator) done variable
 int mouseX = 0, mouseY = 0;
-uint32 background[1280 * 256];						// GUI background buffer
+uint32_t background[1280 * 256];						// GUI background buffer
 
 char separator[] = "--------------------------------------------------------";
 
@@ -382,38 +382,38 @@ enum { WINDOW_CLOSE, MENU_ITEM_CHOSEN };
 class Element
 {
 	public:
-		Element(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0)
+		Element(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0)
 			{ extents.x = x, extents.y = y, extents.w = w, extents.h = h; }
-		virtual void HandleKey(SDLKey key) = 0;		// These are "pure" virtual functions...
-		virtual void HandleMouseMove(uint32 x, uint32 y) = 0;
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown) = 0;
-		virtual void Draw(uint32, uint32) = 0;
+		virtual void HandleKey(SDL_Scancode key) = 0;		// These are "pure" virtual functions...
+		virtual void HandleMouseMove(uint32_t x, uint32_t y) = 0;
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown) = 0;
+		virtual void Draw(uint32_t, uint32_t) = 0;
 		virtual void Notify(Element *) = 0;
 //Needed?		virtual ~Element() = 0;
 //We're not allocating anything in the base class, so the answer would be NO.
-		bool Inside(uint32 x, uint32 y);
+		bool Inside(uint32_t x, uint32_t y);
 		// Class method
-//		static void SetScreenAndPitch(int16 * s, uint32 p) { screenBuffer = s, pitch = p; }
-		static void SetScreenAndPitch(uint32 * s, uint32 p) { screenBuffer = s, pitch = p; }
+//		static void SetScreenAndPitch(int16_t * s, uint32_t p) { screenBuffer = s, pitch = p; }
+		static void SetScreenAndPitch(uint32_t * s, uint32_t p) { screenBuffer = s, pitch = p; }
 
 	protected:
 		SDL_Rect extents;
-		uint32 state;
+		uint32_t state;
 		// Class variables...
-//		static int16 * screenBuffer;
-		static uint32 * screenBuffer;
-		static uint32 pitch;
+//		static int16_t * screenBuffer;
+		static uint32_t * screenBuffer;
+		static uint32_t pitch;
 };
 
 // Initialize class variables (Element)
-//int16 * Element::screenBuffer = NULL;
-uint32 * Element::screenBuffer = NULL;
-uint32 Element::pitch = 0;
+//int16_t * Element::screenBuffer = NULL;
+uint32_t * Element::screenBuffer = NULL;
+uint32_t Element::pitch = 0;
 
-bool Element::Inside(uint32 x, uint32 y)
+bool Element::Inside(uint32_t x, uint32_t y)
 {
-	return (x >= (uint32)extents.x && x < (uint32)(extents.x + extents.w)
-		&& y >= (uint32)extents.y && y < (uint32)(extents.y + extents.h) ? true : false);
+	return (x >= (uint32_t)extents.x && x < (uint32_t)(extents.x + extents.w)
+		&& y >= (uint32_t)extents.y && y < (uint32_t)(extents.y + extents.h) ? true : false);
 }
 
 
@@ -424,46 +424,46 @@ bool Element::Inside(uint32 x, uint32 y)
 class Button: public Element
 {
 	public:
-		Button(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0): Element(x, y, w, h),
+		Button(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0): Element(x, y, w, h),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFFFFFF),
 			bgColor(0xFF00FF00), pic(NULL), elementToTell(NULL) {}
-		Button(uint32 x, uint32 y, uint32 w, uint32 h, uint32 * p): Element(x, y, w, h),
+		Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t * p): Element(x, y, w, h),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFFFFFF),
 			bgColor(0xFF00FF00), pic(p), elementToTell(NULL) {}
-//		Button(uint32 x, uint32 y, uint32 * p): Element(x, y, 0, 0),
-		Button(uint32 x, uint32 y, uint32 * p, uint32 * pH = NULL, uint32 * pD = NULL): Element(x, y, 0, 0),
+//		Button(uint32_t x, uint32_t y, uint32_t * p): Element(x, y, 0, 0),
+		Button(uint32_t x, uint32_t y, uint32_t * p, uint32_t * pH = NULL, uint32_t * pD = NULL): Element(x, y, 0, 0),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFFFFFF),
 			bgColor(0xFF00FF00), pic(p), picHover(pH), picDown(pD), elementToTell(NULL)
 			{ if (pic) extents.w = pic[0], extents.h = pic[1]; }
-		Button(uint32 x, uint32 y, uint32 w, uint32 h, string s): Element(x, y, w, h),
+		Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, string s): Element(x, y, w, h),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFFFFFF),
 			bgColor(0xFF00FF00), pic(NULL), text(s), elementToTell(NULL) {}
-		Button(uint32 x, uint32 y, string s): Element(x, y, 0, FONT_HEIGHT),
+		Button(uint32_t x, uint32_t y, string s): Element(x, y, 0, FONT_HEIGHT),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFFFFFF),
 			bgColor(0xFF00FF00), pic(NULL), text(s), elementToTell(NULL)
 			{ extents.w = s.length() * FONT_WIDTH; }
-		virtual void HandleKey(SDLKey key) {}
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key) {}
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element *) {}
 		bool ButtonClicked(void) { return activated; }
 		void SetNotificationElement(Element * e) { elementToTell = e; }
 
 	protected:
 		bool activated, clicked, inside;
-		uint32 fgColor, bgColor;
-		uint32 * pic, * picHover, * picDown;
+		uint32_t fgColor, bgColor;
+		uint32_t * pic, * picHover, * picDown;
 		string text;
 		Element * elementToTell;
 };
 
-void Button::HandleMouseMove(uint32 x, uint32 y)
+void Button::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	inside = Inside(x, y);
 }
 
-void Button::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void Button::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	if (inside)
 	{
@@ -483,16 +483,16 @@ void Button::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 		clicked = activated = false;
 }
 
-void Button::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void Button::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
-	uint32 addr = (extents.x + offsetX) + ((extents.y + offsetY) * pitch);
+	uint32_t addr = (extents.x + offsetX) + ((extents.y + offsetY) * pitch);
 
 	if (text.length() > 0)							// Simple text button
 //	if (pic == NULL)
 	{
-		for(uint32 y=0; y<extents.h; y++)
+		for(uint32_t y=0; y<extents.h; y++)
 		{
-			for(uint32 x=0; x<extents.w; x++)
+			for(uint32_t x=0; x<extents.w; x++)
 			{
 				// Doesn't clip in y axis! !!! FIX !!!
 				if (extents.x + x < pitch)
@@ -507,7 +507,7 @@ void Button::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 	}
 	else											// Graphical button
 	{
-		uint32 * picToShow = pic;
+		uint32_t * picToShow = pic;
 
 		if (picHover != NULL && inside && !clicked)
 			picToShow = picHover;
@@ -533,31 +533,31 @@ class PushButton: public Element
 //like change from fullscreen to windowed... !!! FIX !!!
 
 	public:
-//		PushButton(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0): Element(x, y, w, h),
+//		PushButton(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0): Element(x, y, w, h),
 //			activated(false), clicked(false), inside(false), fgColor(0xFFFF),
 //			bgColor(0x03E0), pic(NULL), elementToTell(NULL) {}
-//		PushButton(uint32 x, uint32 y, bool * st, string s): Element(x, y, 8, 8), state(st),
+//		PushButton(uint32_t x, uint32_t y, bool * st, string s): Element(x, y, 8, 8), state(st),
 //			inside(false), text(s) { if (st == NULL) state = &internalState; }
-		PushButton(uint32 x, uint32 y, bool * st, string s): Element(x, y, 16, 16), state(st),
+		PushButton(uint32_t x, uint32_t y, bool * st, string s): Element(x, y, 16, 16), state(st),
 			inside(false), text(s) { if (st == NULL) state = &internalState; }
-/*		Button(uint32 x, uint32 y, uint32 w, uint32 h, uint32 * p): Element(x, y, w, h),
+/*		Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t * p): Element(x, y, w, h),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFF),
 			bgColor(0x03E0), pic(p), elementToTell(NULL) {}
-		Button(uint32 x, uint32 y, uint32 * p): Element(x, y, 0, 0),
+		Button(uint32_t x, uint32_t y, uint32_t * p): Element(x, y, 0, 0),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFF),
 			bgColor(0x03E0), pic(p), elementToTell(NULL)
 			{ if (pic) extents.w = pic[0], extents.h = pic[1]; }
-		Button(uint32 x, uint32 y, uint32 w, uint32 h, string s): Element(x, y, w, h),
+		Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, string s): Element(x, y, w, h),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFF),
 			bgColor(0x03E0), pic(NULL), text(s), elementToTell(NULL) {}
-		PushButton(uint32 x, uint32 y, string s): Element(x, y, 0, 8),
+		PushButton(uint32_t x, uint32_t y, string s): Element(x, y, 0, 8),
 			activated(false), clicked(false), inside(false), fgColor(0xFFFF),
 			bgColor(0x03E0), pic(NULL), text(s), elementToTell(NULL)
 			{ extents.w = s.length() * 8; }*/
-		virtual void HandleKey(SDLKey key) {}
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key) {}
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element *) {}
 //		bool ButtonClicked(void) { return activated; }
 //		void SetNotificationElement(Element * e) { elementToTell = e; }
@@ -566,19 +566,19 @@ class PushButton: public Element
 		bool * state;
 		bool inside;
 //		bool activated, clicked, inside;
-//		uint16 fgColor, bgColor;
-//		uint32 * pic;
+//		uint16_t fgColor, bgColor;
+//		uint32_t * pic;
 		string text;
 //		Element * elementToTell;
 		bool internalState;
 };
 
-void PushButton::HandleMouseMove(uint32 x, uint32 y)
+void PushButton::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	inside = Inside(x, y);
 }
 
-void PushButton::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void PushButton::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	if (inside && mouseDown)
 	{
@@ -599,13 +599,13 @@ void PushButton::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 //		clicked = activated = false;
 }
 
-void PushButton::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void PushButton::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
-/*	uint32 addr = (extents.x + offsetX) + ((extents.y + offsetY) * pitch);
+/*	uint32_t addr = (extents.x + offsetX) + ((extents.y + offsetY) * pitch);
 
-	for(uint32 y=0; y<extents.h; y++)
+	for(uint32_t y=0; y<extents.h; y++)
 	{
-		for(uint32 x=0; x<extents.w; x++)
+		for(uint32_t x=0; x<extents.w; x++)
 		{
 			// Doesn't clip in y axis! !!! FIX !!!
 			if (extents.x + x < pitch)
@@ -635,12 +635,12 @@ class SlideSwitch: public Element
 //Seems to be handled the same as PushButton, but without sanity checks. !!! FIX !!!
 
 	public:
-		SlideSwitch(uint32 x, uint32 y, bool * st, string s1, string s2): Element(x, y, 16, 32), state(st),
+		SlideSwitch(uint32_t x, uint32_t y, bool * st, string s1, string s2): Element(x, y, 16, 32), state(st),
 			inside(false), text1(s1), text2(s2) {}
-		virtual void HandleKey(SDLKey key) {}
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key) {}
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element *) {}
 //		bool ButtonClicked(void) { return activated; }
 //		void SetNotificationElement(Element * e) { elementToTell = e; }
@@ -649,18 +649,18 @@ class SlideSwitch: public Element
 		bool * state;
 		bool inside;
 //		bool activated, clicked, inside;
-//		uint16 fgColor, bgColor;
-//		uint32 * pic;
+//		uint16_t fgColor, bgColor;
+//		uint32_t * pic;
 		string text1, text2;
 //		Element * elementToTell;
 };
 
-void SlideSwitch::HandleMouseMove(uint32 x, uint32 y)
+void SlideSwitch::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	inside = Inside(x, y);
 }
 
-void SlideSwitch::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void SlideSwitch::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	if (inside && mouseDown)
 	{
@@ -681,7 +681,7 @@ void SlideSwitch::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 //		clicked = activated = false;
 }
 
-void SlideSwitch::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void SlideSwitch::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
 	DrawTransparentBitmapDeprecated(screenBuffer, extents.x + offsetX, extents.y + offsetY, (*state ? slideSwitchDown : slideSwitchUp));
 
@@ -700,10 +700,10 @@ void SlideSwitch::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 class Window: public Element
 {
 	public:
-/*		Window(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0):	Element(x, y, w, h),
+/*		Window(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0):	Element(x, y, w, h),
 			fgColor(0x4FF0), bgColor(0xFE10)
 			{ close = new Button(w - 8, 1, closeBox); list.push_back(close); }*/
-		Window(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0,
+		Window(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0,
 			void (* f)(Element *) = NULL): Element(x, y, w, h),
 //			/*clicked(false), inside(false),*/ fgColor(0x4FF0), bgColor(0x1E10),
 //4FF0 -> 010011 11111 10000 -> 0100 1101 1111 1111 1000 0100 -> 4D FF 84
@@ -714,17 +714,17 @@ class Window: public Element
 			  list.push_back(close);
 			  close->SetNotificationElement(this); }
 		virtual ~Window();
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element * e);
 		void AddElement(Element * e);
 //		bool WindowActive(void) { return true; }//return !close->ButtonClicked(); }
 
 	protected:
 //		bool clicked, inside;
-		uint32 fgColor, bgColor;
+		uint32_t fgColor, bgColor;
 		void (* handler)(Element *);
 		Button * close;
 //We have to use a list of Element *pointers* because we can't make a list that will hold
@@ -734,12 +734,12 @@ class Window: public Element
 
 Window::~Window()
 {
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		if (list[i])
 			delete list[i];
 }
 
-void Window::HandleKey(SDLKey key)
+void Window::HandleKey(SDL_Scancode key)
 {
 	if (key == SDLK_ESCAPE)
 	{
@@ -749,34 +749,34 @@ void Window::HandleKey(SDLKey key)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleKey(key);
 }
 
-void Window::HandleMouseMove(uint32 x, uint32 y)
+void Window::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseMove(x - extents.x, y - extents.y);
 }
 
-void Window::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void Window::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
 }
 
-void Window::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void Window::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
-	uint32 addr = (extents.x + offsetX) + ((extents.y + offsetY) * pitch);
+	uint32_t addr = (extents.x + offsetX) + ((extents.y + offsetY) * pitch);
 
-	for(uint32 y=0; y<extents.h; y++)
+	for(uint32_t y=0; y<extents.h; y++)
 	{
-		for(uint32 x=0; x<extents.w; x++)
+		for(uint32_t x=0; x<extents.w; x++)
 		{
 			// Doesn't clip in y axis! !!! FIX !!!
 			if (extents.x + x < pitch)
@@ -785,7 +785,7 @@ void Window::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw(extents.x, extents.y);
 }
 
@@ -812,28 +812,28 @@ void Window::Notify(Element * e)
 class Text: public Element
 {
 	public:
-//		Text(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0): Element(x, y, w, h),
+//		Text(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0): Element(x, y, w, h),
 //			fgColor(0x4FF0), bgColor(0xFE10) {}
-//		Text(uint32 x, uint32 y, string s, uint16 fg = 0x4FF0, uint16 bg = 0xFE10): Element(x, y, 0, 0),
+//		Text(uint32_t x, uint32_t y, string s, uint16_t fg = 0x4FF0, uint16_t bg = 0xFE10): Element(x, y, 0, 0),
 //			fgColor(fg), bgColor(bg), text(s) {}
 //4FF0 -> 010011 11111 10000 -> 0100 1101 1111 1111 1000 0100 -> 4D FF 84
 //FE10 -> 111111 10000 10000 -> 1111 1111 1000 0100 1000 0100 -> FF 84 84
-		Text(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0): Element(x, y, w, h),
+		Text(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0): Element(x, y, w, h),
 			fgColor(0xFF8484FF), bgColor(0xFF84FF4D) {}
-		Text(uint32 x, uint32 y, string s, uint32 fg = 0xFF8484FF, uint32 bg = 0xFF84FF4D):
+		Text(uint32_t x, uint32_t y, string s, uint32_t fg = 0xFF8484FF, uint32_t bg = 0xFF84FF4D):
 			Element(x, y, 0, 0), fgColor(fg), bgColor(bg), text(s) {}
-		virtual void HandleKey(SDLKey key) {}
-		virtual void HandleMouseMove(uint32 x, uint32 y) {}
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown) {}
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key) {}
+		virtual void HandleMouseMove(uint32_t x, uint32_t y) {}
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown) {}
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element *) {}
 
 	protected:
-		uint32 fgColor, bgColor;
+		uint32_t fgColor, bgColor;
 		string text;
 };
 
-void Text::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void Text::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
 	if (text.length() > 0)
 //		DrawString(screenBuffer, extents.x + offsetX, extents.y + offsetY, false, "%s", text.c_str());
@@ -848,19 +848,19 @@ void Text::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 class Image: public Element
 {
 	public:
-		Image(uint32 x, uint32 y, const void * img): Element(x, y, 0, 0), image(img) {}
-		virtual void HandleKey(SDLKey key) {}
-		virtual void HandleMouseMove(uint32 x, uint32 y) {}
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown) {}
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		Image(uint32_t x, uint32_t y, const void * img): Element(x, y, 0, 0), image(img) {}
+		virtual void HandleKey(SDL_Scancode key) {}
+		virtual void HandleMouseMove(uint32_t x, uint32_t y) {}
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown) {}
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element *) {}
 
 	protected:
-		uint32 fgColor, bgColor;
+		uint32_t fgColor, bgColor;
 		const void * image;
 };
 
-void Image::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void Image::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
 	if (image != NULL)
 		DrawTransparentBitmap(screenBuffer, extents.x + offsetX, extents.y + offsetY, image);
@@ -874,27 +874,27 @@ void Image::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 class TextEdit: public Element
 {
 	public:
-		TextEdit(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0): Element(x, y, w, h),
+		TextEdit(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0): Element(x, y, w, h),
 			fgColor(0xFF8484FF), bgColor(0xFF84FF4D), text(""), caretPos(0),
 			maxScreenSize(10) {}
-		TextEdit(uint32 x, uint32 y, string s, uint32 mss = 10, uint32 fg = 0xFF8484FF,
-			uint32 bg = 0xFF84FF4D): Element(x, y, 0, 0), fgColor(fg), bgColor(bg), text(s),
+		TextEdit(uint32_t x, uint32_t y, string s, uint32_t mss = 10, uint32_t fg = 0xFF8484FF,
+			uint32_t bg = 0xFF84FF4D): Element(x, y, 0, 0), fgColor(fg), bgColor(bg), text(s),
 			caretPos(0), maxScreenSize(mss) {}
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y) {}
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown) {}
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y) {}
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown) {}
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element *) {}
 
 	protected:
-		uint32 fgColor, bgColor;
+		uint32_t fgColor, bgColor;
 		string text;
-		uint32 caretPos;
-		uint32 maxScreenSize;
+		uint32_t caretPos;
+		uint32_t maxScreenSize;
 };
 
 //Set different filters depending on type passed in on construction, e.g., filename, amount, etc...?
-void TextEdit::HandleKey(SDLKey key)
+void TextEdit::HandleKey(SDL_Scancode key)
 {
 	if ((key >= SDLK_a && key <= SDLK_z) || (key >= SDLK_0 && key <= SDLK_9) || key == SDLK_PERIOD
 		|| key == SDLK_SLASH)
@@ -913,7 +913,7 @@ void TextEdit::HandleKey(SDLKey key)
 //left, right arrow
 }
 
-void TextEdit::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void TextEdit::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
 	if (text.length() > 0)
 	{
@@ -934,15 +934,15 @@ class ListBox: public Element
 //class ListBox: public Window
 {
 	public:
-//		ListBox(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0): Element(x, y, w, h),
-		ListBox(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0);//: Window(x, y, w, h),
+//		ListBox(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0): Element(x, y, w, h),
+		ListBox(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0);//: Window(x, y, w, h),
 //		windowPtr(0), cursor(0), limit(0), charWidth((w / 8) - 1), charHeight(h / 8),
 //		elementToTell(NULL), upArrow(w - 8, 0, upArrowBox),
 //		downArrow(w - 8, h - 8, downArrowBox), upArrow2(w - 8, h - 16, upArrowBox) {}
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element * e);
 		void SetNotificationElement(Element * e) { elementToTell = e; }
 		void AddItem(string s);
@@ -950,17 +950,17 @@ class ListBox: public Element
 
 	protected:
 		bool thumbClicked;
-		uint32 windowPtr, cursor, limit;
-		uint32 charWidth, charHeight;				// Box width/height in characters
+		uint32_t windowPtr, cursor, limit;
+		uint32_t charWidth, charHeight;				// Box width/height in characters
 		Element * elementToTell;
 		Button upArrow, downArrow, upArrow2;
 		vector<string> item;
 
 	private:
-		uint32 yRelativePoint;
+		uint32_t yRelativePoint;
 };
 
-ListBox::ListBox(uint32 x, uint32 y, uint32 w, uint32 h): Element(x, y, w, h),
+ListBox::ListBox(uint32_t x, uint32_t y, uint32_t w, uint32_t h): Element(x, y, w, h),
 	thumbClicked(false), windowPtr(0), cursor(0), limit(0), charWidth((w / FONT_WIDTH) - 1),
 	charHeight(h / FONT_HEIGHT), elementToTell(NULL), upArrow(w - 8, 0, upArrowBox),
 	downArrow(w - 8, h - 8, downArrowBox), upArrow2(w - 8, h - 16, upArrowBox)
@@ -971,7 +971,7 @@ ListBox::ListBox(uint32 x, uint32 y, uint32 w, uint32 h): Element(x, y, w, h),
 	extents.w -= 8;									// Make room for scrollbar...
 }
 
-void ListBox::HandleKey(SDLKey key)
+void ListBox::HandleKey(SDL_Scancode key)
 {
 	if (key == SDLK_DOWN)
 	{
@@ -1019,9 +1019,9 @@ void ListBox::HandleKey(SDLKey key)
 	else if (key >= SDLK_a && key <= SDLK_z)
 	{
 		// Advance cursor to filename with first letter pressed...
-		uint8 which = (key - SDLK_a) + 65;	// Convert key to A-Z char
+		uint8_t which = (key - SDLK_a) + 65;	// Convert key to A-Z char
 
-		for(uint32 i=0; i<item.size(); i++)
+		for(uint32_t i=0; i<item.size(); i++)
 		{
 			if ((item[i][0] & 0xDF) == which)
 			{
@@ -1036,7 +1036,7 @@ void ListBox::HandleKey(SDLKey key)
 	}
 }
 
-void ListBox::HandleMouseMove(uint32 x, uint32 y)
+void ListBox::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	upArrow.HandleMouseMove(x - extents.x, y - extents.y);
 	downArrow.HandleMouseMove(x - extents.x, y - extents.y);
@@ -1044,25 +1044,25 @@ void ListBox::HandleMouseMove(uint32 x, uint32 y)
 
 	if (thumbClicked)
 	{
-		uint32 sbHeight = extents.h - 24,
-			thumb = (uint32)(((float)limit / (float)item.size()) * (float)sbHeight);
+		uint32_t sbHeight = extents.h - 24,
+			thumb = (uint32_t)(((float)limit / (float)item.size()) * (float)sbHeight);
 
 //yRelativePoint is the spot on the thumb where we clicked...
-		int32 newThumbStart = y - yRelativePoint;
+		int32_t newThumbStart = y - yRelativePoint;
 
 		if (newThumbStart < 0)
 			newThumbStart = 0;
 
-		if ((uint32)newThumbStart > sbHeight - thumb)
+		if ((uint32_t)newThumbStart > sbHeight - thumb)
 			newThumbStart = sbHeight - thumb;
 
-		windowPtr = (uint32)(((float)newThumbStart / (float)sbHeight) * (float)item.size());
+		windowPtr = (uint32_t)(((float)newThumbStart / (float)sbHeight) * (float)item.size());
 //Check for cursor bounds as well... Or do we need to???
 //Actually, we don't...!
 	}
 }
 
-void ListBox::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void ListBox::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	if (Inside(x, y) && mouseDown)
 	{
@@ -1073,15 +1073,15 @@ void ListBox::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 	}
 
 	// Check for a hit on the scrollbar...
-	if (x > (uint32)(extents.x + extents.w) && x <= (uint32)(extents.x + extents.w + 8)
-		&& y > (uint32)(extents.y + 8) && y <= (uint32)(extents.y + extents.h - 16))
+	if (x > (uint32_t)(extents.x + extents.w) && x <= (uint32_t)(extents.x + extents.w + 8)
+		&& y > (uint32_t)(extents.y + 8) && y <= (uint32_t)(extents.y + extents.h - 16))
 	{
 		if (mouseDown)
 		{
 // This shiaut should be calculated in AddItem(), not here... (or in Draw() for that matter)
-			uint32 sbHeight = extents.h - 24,
-				thumb = (uint32)(((float)limit / (float)item.size()) * (float)sbHeight),
-				thumbStart = (uint32)(((float)windowPtr / (float)item.size()) * (float)sbHeight);
+			uint32_t sbHeight = extents.h - 24,
+				thumb = (uint32_t)(((float)limit / (float)item.size()) * (float)sbHeight),
+				thumbStart = (uint32_t)(((float)windowPtr / (float)item.size()) * (float)sbHeight);
 
 			// Did we hit the thumb?
 			if (y >= (extents.y + 8 + thumbStart) && y < (extents.y + 8 + thumbStart + thumb))
@@ -1101,9 +1101,9 @@ void ListBox::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 	upArrow2.HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
 }
 
-void ListBox::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void ListBox::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
-	for(uint32 i=0; i<limit; i++)
+	for(uint32_t i=0; i<limit; i++)
 	{
 		// Strip off the extension
 		// (extension stripping should be an option, not default!)
@@ -1117,14 +1117,14 @@ void ListBox::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 	downArrow.Draw(extents.x + offsetX, extents.y + offsetY);
 	upArrow2.Draw(extents.x + offsetX, extents.y + offsetY);
 
-	uint32 sbHeight = extents.h - 24,
-		thumb = (uint32)(((float)limit / (float)item.size()) * (float)sbHeight),
-		thumbStart = (uint32)(((float)windowPtr / (float)item.size()) * (float)sbHeight);
+	uint32_t sbHeight = extents.h - 24,
+		thumb = (uint32_t)(((float)limit / (float)item.size()) * (float)sbHeight),
+		thumbStart = (uint32_t)(((float)windowPtr / (float)item.size()) * (float)sbHeight);
 
-	for(uint32 y=extents.y+offsetY+8; y<extents.y+offsetY+extents.h-16; y++)
+	for(uint32_t y=extents.y+offsetY+8; y<extents.y+offsetY+extents.h-16; y++)
 	{
-//		for(uint32 x=extents.x+offsetX+extents.w-8; x<extents.x+offsetX+extents.w; x++)
-		for(uint32 x=extents.x+offsetX+extents.w; x<extents.x+offsetX+extents.w+8; x++)
+//		for(uint32_t x=extents.x+offsetX+extents.w-8; x<extents.x+offsetX+extents.w; x++)
+		for(uint32_t x=extents.x+offsetX+extents.w; x<extents.x+offsetX+extents.w+8; x++)
 		{
 			if (y >= thumbStart + (extents.y+offsetY+8) && y < thumbStart + thumb + (extents.y+offsetY+8))
 //				screenBuffer[x + (y * pitch)] = (thumbClicked ? 0x458E : 0xFFFF);
@@ -1196,12 +1196,12 @@ string ListBox::GetSelectedItem(void)
 class FileList: public Window
 {
 	public:
-		FileList(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0);
+		FileList(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0);
 		virtual ~FileList() {}
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y) { Window::HandleMouseMove(x, y); }
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown) { Window::HandleMouseButton(x, y, mouseDown); }
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0) { Window::Draw(offsetX, offsetY); }
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y) { Window::HandleMouseMove(x, y); }
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown) { Window::HandleMouseButton(x, y, mouseDown); }
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0) { Window::Draw(offsetX, offsetY); }
 		virtual void Notify(Element * e);
 
 	protected:
@@ -1210,7 +1210,7 @@ class FileList: public Window
 };
 
 //Need 4 buttons, one scrollbar...
-FileList::FileList(uint32 x, uint32 y, uint32 w, uint32 h): Window(x, y, w, h)
+FileList::FileList(uint32_t x, uint32_t y, uint32_t w, uint32_t h): Window(x, y, w, h)
 {
 	files = new ListBox(8, 8, w - 16, h - 32);
 	AddElement(files);
@@ -1243,7 +1243,7 @@ FileList::FileList(uint32 x, uint32 y, uint32 w, uint32 h): Window(x, y, w, h)
 	}
 }
 
-void FileList::HandleKey(SDLKey key)
+void FileList::HandleKey(SDL_Scancode key)
 {
 	if (key == SDLK_RETURN)
 		Notify(load);
@@ -1264,7 +1264,7 @@ void FileList::Notify(Element * e)
 
 		strcat(filename, files->GetSelectedItem().c_str());
 
-//		uint32 romSize = JaguarLoadROM(jaguar_mainRom, filename);
+//		uint32_t romSize = JaguarLoadROM(jaguar_mainRom, filename);
 //		JaguarLoadCart(jaguar_mainRom, filename);
 		if (JaguarLoadFile(filename))
 		{
@@ -1300,9 +1300,9 @@ struct NameAction
 {
 	string name;
 	Window * (* action)(void);
-	SDLKey hotKey;
+	SDL_Scancode hotKey;
 
-	NameAction(string n, Window * (* a)(void) = NULL, SDLKey k = SDLK_UNKNOWN): name(n),
+	NameAction(string n, Window * (* a)(void) = NULL, SDL_Scancode k = SDLK_UNKNOWN): name(n),
 		action(a), hotKey(k) {}
 };
 
@@ -1310,13 +1310,13 @@ class MenuItems
 {
 	public:
 		MenuItems(): charLength(0) {}
-		bool Inside(uint32 x, uint32 y)
-		{ return (x >= (uint32)extents.x && x < (uint32)(extents.x + extents.w)
-		&& y >= (uint32)extents.y && y < (uint32)(extents.y + extents.h) ? true : false); }
+		bool Inside(uint32_t x, uint32_t y)
+		{ return (x >= (uint32_t)extents.x && x < (uint32_t)(extents.x + extents.w)
+		&& y >= (uint32_t)extents.y && y < (uint32_t)(extents.y + extents.h) ? true : false); }
 
 		string title;
 		vector<NameAction> item;
-		uint32 charLength;
+		uint32_t charLength;
 		SDL_Rect extents;
 };
 
@@ -1325,40 +1325,40 @@ class Menu: public Element
 	public:
 // 1CFF -> 0 001 11 00  111 1 1111
 // 421F -> 0 100 00 10  000 1 1111
-		Menu(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = FONT_HEIGHT,
-/*			uint16 fgc = 0x1CFF, uint16 bgc = 0x000F, uint16 fgch = 0x421F,
-			uint16 bgch = 0x1CFF): Element(x, y, w, h), activated(false), clicked(false),*/
-/*			uint32 fgc = 0xFF3F3F00, uint32 bgc = 0x7F000000, uint32 fgch = 0xFF878700,
-			uint32 bgch = 0xFF3F3F00): Element(x, y, w, h), activated(false), clicked(false),*/
-/*			uint32 fgc = 0xFFFF3F3F, uint32 bgc = 0xFF7F0000, uint32 fgch = 0xFFFF8787,
-			uint32 bgch = 0xFFFF3F3F): Element(x, y, w, h), activated(false), clicked(false),*/
-			uint32 fgc = 0xFF7F0000, uint32 bgc = 0xFFFF3F3F, uint32 fgch = 0xFFFF3F3F,
-			uint32 bgch = 0xFFFF8787): Element(x, y, w, h), activated(false), clicked(false),
+		Menu(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = FONT_HEIGHT,
+/*			uint16_t fgc = 0x1CFF, uint16_t bgc = 0x000F, uint16_t fgch = 0x421F,
+			uint16_t bgch = 0x1CFF): Element(x, y, w, h), activated(false), clicked(false),*/
+/*			uint32_t fgc = 0xFF3F3F00, uint32_t bgc = 0x7F000000, uint32_t fgch = 0xFF878700,
+			uint32_t bgch = 0xFF3F3F00): Element(x, y, w, h), activated(false), clicked(false),*/
+/*			uint32_t fgc = 0xFFFF3F3F, uint32_t bgc = 0xFF7F0000, uint32_t fgch = 0xFFFF8787,
+			uint32_t bgch = 0xFFFF3F3F): Element(x, y, w, h), activated(false), clicked(false),*/
+			uint32_t fgc = 0xFF7F0000, uint32_t bgc = 0xFFFF3F3F, uint32_t fgch = 0xFFFF3F3F,
+			uint32_t bgch = 0xFFFF8787): Element(x, y, w, h), activated(false), clicked(false),
 			inside(0), insidePopup(0), fgColor(fgc), bgColor(bgc), fgColorHL(fgch),
 			bgColorHL(bgch), menuChosen(-1), menuItemChosen(-1) {}
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0);
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0);
 		virtual void Notify(Element *) {}
 		void Add(MenuItems mi);
 
 	protected:
 		bool activated, clicked;
-		uint32 inside, insidePopup;
-//		uint16 fgColor, bgColor, fgColorHL, bgColorHL;
-		uint32 fgColor, bgColor, fgColorHL, bgColorHL;
+		uint32_t inside, insidePopup;
+//		uint16_t fgColor, bgColor, fgColorHL, bgColorHL;
+		uint32_t fgColor, bgColor, fgColorHL, bgColorHL;
 		int menuChosen, menuItemChosen;
 
 	private:
 		vector<MenuItems> itemList;
 };
 
-void Menu::HandleKey(SDLKey key)
+void Menu::HandleKey(SDL_Scancode key)
 {
-	for(uint32 i=0; i<itemList.size(); i++)
+	for(uint32_t i=0; i<itemList.size(); i++)
 	{
-		for(uint32 j=0; j<itemList[i].item.size(); j++)
+		for(uint32_t j=0; j<itemList[i].item.size(); j++)
 		{
 			if (itemList[i].item[j].hotKey == key)
 			{
@@ -1375,18 +1375,18 @@ void Menu::HandleKey(SDLKey key)
 	}
 }
 
-void Menu::HandleMouseMove(uint32 x, uint32 y)
+void Menu::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	inside = insidePopup = 0;
 
 	if (Inside(x, y))
 	{
 		// Find out *where* we are inside the menu bar
-		uint32 xpos = extents.x;
+		uint32_t xpos = extents.x;
 
-		for(uint32 i=0; i<itemList.size(); i++)
+		for(uint32_t i=0; i<itemList.size(); i++)
 		{
-			uint32 width = (itemList[i].title.length() + 2) * FONT_WIDTH;
+			uint32_t width = (itemList[i].title.length() + 2) * FONT_WIDTH;
 
 			if (x >= xpos && x < xpos + width)
 			{
@@ -1411,7 +1411,7 @@ void Menu::HandleMouseMove(uint32 x, uint32 y)
 	}
 }
 
-void Menu::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void Menu::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	if (!clicked)
 	{
@@ -1454,15 +1454,15 @@ void Menu::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 	}
 }
 
-void Menu::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
+void Menu::Draw(uint32_t offsetX/*= 0*/, uint32_t offsetY/*= 0*/)
 {
-	uint32 xpos = extents.x + offsetX;
+	uint32_t xpos = extents.x + offsetX;
 
-	for(uint32 i=0; i<itemList.size(); i++)
+	for(uint32_t i=0; i<itemList.size(); i++)
 	{
-//		uint16 color1 = fgColor, color2 = bgColor;
-		uint32 color1 = fgColor, color2 = bgColor;
-		if (inside == (i + 1) || (menuChosen != -1 && (uint32)menuChosen == i))
+//		uint16_t color1 = fgColor, color2 = bgColor;
+		uint32_t color1 = fgColor, color2 = bgColor;
+		if (inside == (i + 1) || (menuChosen != -1 && (uint32_t)menuChosen == i))
 			color1 = fgColorHL, color2 = bgColorHL;
 
 		DrawStringOpaque(screenBuffer, xpos, extents.y + offsetY, color1, color2,
@@ -1473,12 +1473,12 @@ void Menu::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 	// Draw sub menu (but only if active)
 	if (clicked)
 	{
-		uint32 ypos = extents.y + FONT_HEIGHT + 1;
+		uint32_t ypos = extents.y + FONT_HEIGHT + 1;
 
-		for(uint32 i=0; i<itemList[menuChosen].item.size(); i++)
+		for(uint32_t i=0; i<itemList[menuChosen].item.size(); i++)
 		{
-//			uint16 color1 = fgColor, color2 = bgColor;
-			uint32 color1 = fgColor, color2 = bgColor;
+//			uint16_t color1 = fgColor, color2 = bgColor;
+			uint32_t color1 = fgColor, color2 = bgColor;
 
 			if (insidePopup == i + 1)
 				color1 = fgColorHL, color2 = bgColorHL, menuItemChosen = i;
@@ -1498,7 +1498,7 @@ void Menu::Draw(uint32 offsetX/*= 0*/, uint32 offsetY/*= 0*/)
 
 void Menu::Add(MenuItems mi)
 {
-	for(uint32 i=0; i<mi.item.size(); i++)
+	for(uint32_t i=0; i<mi.item.size(); i++)
 		if (mi.item[i].name.length() > mi.charLength)
 			mi.charLength = mi.item[i].name.length();
 
@@ -1519,23 +1519,23 @@ void Menu::Add(MenuItems mi)
 		RootWindow(Menu * m, Window * w = NULL): menu(m), window(w) {}
 //Do we even need to care about this crap?
 //			{ extents.x = extents.y = 0, extents.w = 320, extents.h = 240; }
-		virtual void HandleKey(SDLKey key) {}
-		virtual void HandleMouseMove(uint32 x, uint32 y) {}
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown) {}
-		virtual void Draw(uint32 offsetX = 0, uint32 offsetY = 0) {}
+		virtual void HandleKey(SDL_Scancode key) {}
+		virtual void HandleMouseMove(uint32_t x, uint32_t y) {}
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown) {}
+		virtual void Draw(uint32_t offsetX = 0, uint32_t offsetY = 0) {}
 		virtual void Notify(Element *) {}
 
 	private:
 		Menu * menu;
 		Window * window;
-		int16 * rootImage[1280 * 240 * 2];
+		int16_t * rootImage[1280 * 240 * 2];
 };//*/
 
 
 //
 // Draw text at the given x/y coordinates. Can invert text as well.
 //
-void DrawString(uint32 * screen, uint32 x, uint32 y, bool invert, const char * text, ...)
+void DrawString(uint32_t * screen, uint32_t x, uint32_t y, bool invert, const char * text, ...)
 {
 	char string[4096];
 	va_list arg;
@@ -1544,32 +1544,32 @@ void DrawString(uint32 * screen, uint32 x, uint32 y, bool invert, const char * t
 	vsprintf(string, text, arg);
 	va_end(arg);
 
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
-	uint32 length = strlen(string), address = x + (y * pitch);
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
+	uint32_t length = strlen(string), address = x + (y * pitch);
 
-	uint32 color1 = 0x0080FF;
-	uint8 nBlue = (color1 >> 16) & 0xFF, nGreen = (color1 >> 8) & 0xFF, nRed = color1 & 0xFF;
-	uint8 xorMask = (invert ? 0xFF : 0x00);
+	uint32_t color1 = 0x0080FF;
+	uint8_t nBlue = (color1 >> 16) & 0xFF, nGreen = (color1 >> 8) & 0xFF, nRed = color1 & 0xFF;
+	uint8_t xorMask = (invert ? 0xFF : 0x00);
 
-	for(uint32 i=0; i<length; i++)
+	for(uint32_t i=0; i<length; i++)
 	{
-		uint8 c = string[i];
-		uint32 fontAddr = (uint32)(c < 32 ? 0 : c - 32) * FONT_WIDTH * FONT_HEIGHT;
+		uint8_t c = string[i];
+		uint32_t fontAddr = (uint32_t)(c < 32 ? 0 : c - 32) * FONT_WIDTH * FONT_HEIGHT;
 
-		for(uint32 yy=0; yy<FONT_HEIGHT; yy++)
+		for(uint32_t yy=0; yy<FONT_HEIGHT; yy++)
 		{
-			for(uint32 xx=0; xx<FONT_WIDTH; xx++)
+			for(uint32_t xx=0; xx<FONT_WIDTH; xx++)
 			{
-				uint32 existingColor = *(screen + address + xx + (yy * pitch));
+				uint32_t existingColor = *(screen + address + xx + (yy * pitch));
 
-				uint8 eBlue = (existingColor >> 16) & 0xFF,
+				uint8_t eBlue = (existingColor >> 16) & 0xFF,
 					eGreen = (existingColor >> 8) & 0xFF,
 					eRed = existingColor & 0xFF;
 
-				uint8 trans = font2[fontAddr] ^ xorMask;
-				uint8 invTrans = trans ^ 0xFF;
+				uint8_t trans = font2[fontAddr] ^ xorMask;
+				uint8_t invTrans = trans ^ 0xFF;
 
-				uint32 bRed = (eRed * invTrans + nRed * trans) / 255,
+				uint32_t bRed = (eRed * invTrans + nRed * trans) / 255,
 					bGreen = (eGreen * invTrans + nGreen * trans) / 255,
 					bBlue = (eBlue * invTrans + nBlue * trans) / 255;
 
@@ -1585,7 +1585,7 @@ void DrawString(uint32 * screen, uint32 x, uint32 y, bool invert, const char * t
 //
 // Draw text at the given x/y coordinates, using FG/BG colors.
 //
-void DrawStringOpaque(uint32 * screen, uint32 x, uint32 y, uint32 color1, uint32 color2, const char * text, ...)
+void DrawStringOpaque(uint32_t * screen, uint32_t x, uint32_t y, uint32_t color1, uint32_t color2, const char * text, ...)
 {
 	char string[4096];
 	va_list arg;
@@ -1594,28 +1594,28 @@ void DrawStringOpaque(uint32 * screen, uint32 x, uint32 y, uint32 color1, uint32
 	vsprintf(string, text, arg);
 	va_end(arg);
 
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();
-	uint32 length = strlen(string), address = x + (y * pitch);
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();
+	uint32_t length = strlen(string), address = x + (y * pitch);
 
-	uint8 eBlue = (color2 >> 16) & 0xFF, eGreen = (color2 >> 8) & 0xFF, eRed = color2 & 0xFF,
+	uint8_t eBlue = (color2 >> 16) & 0xFF, eGreen = (color2 >> 8) & 0xFF, eRed = color2 & 0xFF,
 		nBlue = (color1 >> 16) & 0xFF, nGreen = (color1 >> 8) & 0xFF, nRed = color1 & 0xFF;
 
-	for(uint32 i=0; i<length; i++)
+	for(uint32_t i=0; i<length; i++)
 	{
-		uint8 c = string[i];
+		uint8_t c = string[i];
 		c = (c < 32 ? 0 : c - 32);
-		uint32 fontAddr = (uint32)c * FONT_WIDTH * FONT_HEIGHT;
+		uint32_t fontAddr = (uint32_t)c * FONT_WIDTH * FONT_HEIGHT;
 
-		for(uint32 yy=0; yy<FONT_HEIGHT; yy++)
+		for(uint32_t yy=0; yy<FONT_HEIGHT; yy++)
 		{
-			for(uint32 xx=0; xx<FONT_WIDTH; xx++)
+			for(uint32_t xx=0; xx<FONT_WIDTH; xx++)
 			{
-				uint8 trans = font2[fontAddr++];
-				uint8 invTrans = trans ^ 0xFF;
+				uint8_t trans = font2[fontAddr++];
+				uint8_t invTrans = trans ^ 0xFF;
 
-				uint32 bRed   = (eRed   * invTrans + nRed   * trans) / 255;
-				uint32 bGreen = (eGreen * invTrans + nGreen * trans) / 255;
-				uint32 bBlue  = (eBlue  * invTrans + nBlue  * trans) / 255;
+				uint32_t bRed   = (eRed   * invTrans + nRed   * trans) / 255;
+				uint32_t bGreen = (eGreen * invTrans + nGreen * trans) / 255;
+				uint32_t bBlue  = (eBlue  * invTrans + nBlue  * trans) / 255;
 
 				*(screen + address + xx + (yy * pitch)) = 0xFF000000 | (bBlue << 16) | (bGreen << 8) | bRed;
 			}
@@ -1628,7 +1628,7 @@ void DrawStringOpaque(uint32 * screen, uint32 x, uint32 y, uint32 color1, uint32
 //
 // Draw text at the given x/y coordinates with transparency (0 is fully opaque, 32 is fully transparent).
 //
-void DrawStringTrans(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 trans, const char * text, ...)
+void DrawStringTrans(uint32_t * screen, uint32_t x, uint32_t y, uint32_t color, uint8_t trans, const char * text, ...)
 {
 	char string[4096];
 	va_list arg;
@@ -1637,22 +1637,22 @@ void DrawStringTrans(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 tr
 	vsprintf(string, text, arg);
 	va_end(arg);
 
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
-	uint32 length = strlen(string), address = x + (y * pitch);
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
+	uint32_t length = strlen(string), address = x + (y * pitch);
 
-	for(uint32 i=0; i<length; i++)
+	for(uint32_t i=0; i<length; i++)
 	{
-		uint32 fontAddr = (uint32)string[i] * 64;
+		uint32_t fontAddr = (uint32_t)string[i] * 64;
 
-		for(uint32 yy=0; yy<8; yy++)
+		for(uint32_t yy=0; yy<8; yy++)
 		{
-			for(uint32 xx=0; xx<8; xx++)
+			for(uint32_t xx=0; xx<8; xx++)
 			{
 				if (font1[fontAddr])
 				{
-					uint32 existingColor = *(screen + address + xx + (yy * pitch));
+					uint32_t existingColor = *(screen + address + xx + (yy * pitch));
 
-					uint8 eBlue = (existingColor >> 16) & 0xFF,
+					uint8_t eBlue = (existingColor >> 16) & 0xFF,
 						eGreen = (existingColor >> 8) & 0xFF,
 						eRed = existingColor & 0xFF,
 //This could be done ahead of time, instead of on each pixel...
@@ -1663,11 +1663,11 @@ void DrawStringTrans(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 tr
 //This could be sped up by using a table of 5 + 5 + 5 bits (32 levels transparency -> 32768 entries)
 //Here we've modified it to have 33 levels of transparency (could have any # we want!)
 //because dividing by 32 is faster than dividing by 31...!
-					uint8 invTrans = 32 - trans;
+					uint8_t invTrans = 32 - trans;
 
-					uint32 bRed = (eRed * trans + nRed * invTrans) / 32;
-					uint32 bGreen = (eGreen * trans + nGreen * invTrans) / 32;
-					uint32 bBlue = (eBlue * trans + nBlue * invTrans) / 32;
+					uint32_t bRed = (eRed * trans + nRed * invTrans) / 32;
+					uint32_t bGreen = (eGreen * trans + nGreen * invTrans) / 32;
+					uint32_t bBlue = (eBlue * trans + nBlue * invTrans) / 32;
 
 					*(screen + address + xx + (yy * pitch)) = 0xFF000000 | (bBlue << 16) | (bGreen << 8) | bRed;
 				}
@@ -1683,7 +1683,7 @@ void DrawStringTrans(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 tr
 //
 // Draw text at the given x/y coordinates, using FG color and overlay alpha blending.
 //
-void DrawString2(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 transparency, const char * text, ...)
+void DrawString2(uint32_t * screen, uint32_t x, uint32_t y, uint32_t color, uint8_t transparency, const char * text, ...)
 {
 	char string[4096];
 	va_list arg;
@@ -1692,24 +1692,24 @@ void DrawString2(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 transp
 	vsprintf(string, text, arg);
 	va_end(arg);
 
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();
-	uint32 length = strlen(string), address = x + (y * pitch);
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();
+	uint32_t length = strlen(string), address = x + (y * pitch);
 
 	color &= 0x00FFFFFF;						// Just in case alpha was passed in...
 
-	for(uint32 i=0; i<length; i++)
+	for(uint32_t i=0; i<length; i++)
 	{
-		uint8 c = string[i];
+		uint8_t c = string[i];
 		c = (c < 32 ? 0 : c - 32);
-		uint32 fontAddr = (uint32)c * FONT_WIDTH * FONT_HEIGHT;
+		uint32_t fontAddr = (uint32_t)c * FONT_WIDTH * FONT_HEIGHT;
 
-		for(uint32 yy=0; yy<FONT_HEIGHT; yy++)
+		for(uint32_t yy=0; yy<FONT_HEIGHT; yy++)
 		{
-			for(uint32 xx=0; xx<FONT_WIDTH; xx++)
+			for(uint32_t xx=0; xx<FONT_WIDTH; xx++)
 			{
-				uint8 fontTrans = font2[fontAddr++];
-				uint32 newTrans = (fontTrans * transparency / 255) << 24;
-				uint32 pixel = newTrans | color;
+				uint8_t fontTrans = font2[fontAddr++];
+				uint32_t newTrans = (fontTrans * transparency / 255) << 24;
+				uint32_t pixel = newTrans | color;
 
 				*(screen + address + xx + (yy * pitch)) = pixel;
 			}
@@ -1725,19 +1725,19 @@ void DrawString2(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 transp
 // Can also use an optional alpha channel
 // Alpha channel is now mandatory! ;-)
 //
-//void DrawTransparentBitmap(int16 * screen, uint32 x, uint32 y, uint16 * bitmap, uint8 * alpha/*=NULL*/)
-/*void DrawTransparentBitmap(uint32 * screen, uint32 x, uint32 y, uint32 * bitmap, uint8 * alpha)
+//void DrawTransparentBitmap(int16_t * screen, uint32_t x, uint32_t y, uint16_t * bitmap, uint8_t * alpha/*=NULL*/)
+/*void DrawTransparentBitmap(uint32_t * screen, uint32_t x, uint32_t y, uint32_t * bitmap, uint8_t * alpha)
 {
-	uint32 width = bitmap[0], height = bitmap[1];
+	uint32_t width = bitmap[0], height = bitmap[1];
 	bitmap += 2;
 
-//	uint32 pitch = GetSDLScreenPitch() / 2;			// Returns pitch in bytes but we need words...
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
-	uint32 address = x + (y * pitch);
+//	uint32_t pitch = GetSDLScreenPitch() / 2;			// Returns pitch in bytes but we need words...
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
+	uint32_t address = x + (y * pitch);
 
-	for(uint32 yy=0; yy<height; yy++)
+	for(uint32_t yy=0; yy<height; yy++)
 	{
-		for(uint32 xx=0; xx<width; xx++)
+		for(uint32_t xx=0; xx<width; xx++)
 		{
 			if (alpha == NULL)
 			{
@@ -1746,11 +1746,11 @@ void DrawString2(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 transp
 			}
 			else
 			{
-				uint8 trans = *alpha;
-				uint32 color = *bitmap;
-				uint32 existingColor = *(screen + address + xx + (yy * pitch));
+				uint8_t trans = *alpha;
+				uint32_t color = *bitmap;
+				uint32_t existingColor = *(screen + address + xx + (yy * pitch));
 
-				uint8 eRed = existingColor & 0xFF,
+				uint8_t eRed = existingColor & 0xFF,
 					eGreen = (existingColor >> 8) & 0xFF,
 					eBlue = (existingColor >> 16) & 0xFF,
 
@@ -1758,12 +1758,12 @@ void DrawString2(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 transp
 					nGreen = (color >> 8) & 0xFF,
 					nBlue = (color >> 16) & 0xFF;
 
-				uint8 invTrans = 255 - trans;
-				uint32 bRed = (eRed * trans + nRed * invTrans) / 255;
-				uint32 bGreen = (eGreen * trans + nGreen * invTrans) / 255;
-				uint32 bBlue = (eBlue * trans + nBlue * invTrans) / 255;
+				uint8_t invTrans = 255 - trans;
+				uint32_t bRed = (eRed * trans + nRed * invTrans) / 255;
+				uint32_t bGreen = (eGreen * trans + nGreen * invTrans) / 255;
+				uint32_t bBlue = (eBlue * trans + nBlue * invTrans) / 255;
 
-				uint32 blendedColor = 0xFF000000 | bRed | (bGreen << 8) | (bBlue << 16);
+				uint32_t blendedColor = 0xFF000000 | bRed | (bGreen << 8) | (bBlue << 16);
 
 				*(screen + address + xx + (yy * pitch)) = blendedColor;
 
@@ -1774,28 +1774,28 @@ void DrawString2(uint32 * screen, uint32 x, uint32 y, uint32 color, uint8 transp
 		}
 	}
 }*/
-void DrawTransparentBitmapDeprecated(uint32 * screen, uint32 x, uint32 y, uint32 * bitmap)
+void DrawTransparentBitmapDeprecated(uint32_t * screen, uint32_t x, uint32_t y, uint32_t * bitmap)
 {
-	uint32 width = bitmap[0], height = bitmap[1];
+	uint32_t width = bitmap[0], height = bitmap[1];
 	bitmap += 2;
 
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
-	uint32 address = x + (y * pitch);
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();//GetSDLScreenWidthInPixels();
+	uint32_t address = x + (y * pitch);
 
-	for(uint32 yy=0; yy<height; yy++)
+	for(uint32_t yy=0; yy<height; yy++)
 	{
-		for(uint32 xx=0; xx<width; xx++)
+		for(uint32_t xx=0; xx<width; xx++)
 		{
-			uint32 color = *bitmap;
-			uint32 blendedColor = color;
-			uint32 existingColor = *(screen + address + xx + (yy * pitch));
+			uint32_t color = *bitmap;
+			uint32_t blendedColor = color;
+			uint32_t existingColor = *(screen + address + xx + (yy * pitch));
 
 			if (existingColor >> 24 != 0x00)		// Pixel needs blending
 			{
-				uint8 trans = color >> 24;
-				uint8 invTrans = trans ^ 0xFF;//255 - trans;
+				uint8_t trans = color >> 24;
+				uint8_t invTrans = trans ^ 0xFF;//255 - trans;
 
-				uint8 eRed = existingColor & 0xFF,
+				uint8_t eRed = existingColor & 0xFF,
 					eGreen = (existingColor >> 8) & 0xFF,
 					eBlue = (existingColor >> 16) & 0xFF,
 
@@ -1803,9 +1803,9 @@ void DrawTransparentBitmapDeprecated(uint32 * screen, uint32 x, uint32 y, uint32
 					nGreen = (color >> 8) & 0xFF,
 					nBlue = (color >> 16) & 0xFF;
 
-				uint32 bRed = (eRed * invTrans + nRed * trans) / 255;
-				uint32 bGreen = (eGreen * invTrans + nGreen * trans) / 255;
-				uint32 bBlue = (eBlue * invTrans + nBlue * trans) / 255;
+				uint32_t bRed = (eRed * invTrans + nRed * trans) / 255;
+				uint32_t bGreen = (eGreen * invTrans + nGreen * trans) / 255;
+				uint32_t bBlue = (eBlue * invTrans + nBlue * trans) / 255;
 
 				blendedColor = 0xFF000000 | bRed | (bGreen << 8) | (bBlue << 16);
 			}
@@ -1816,26 +1816,26 @@ void DrawTransparentBitmapDeprecated(uint32 * screen, uint32 x, uint32 y, uint32
 	}
 }
 
-void DrawTransparentBitmap(uint32 * screen, uint32 x, uint32 y, const void * bitmap)
+void DrawTransparentBitmap(uint32_t * screen, uint32_t x, uint32_t y, const void * bitmap)
 {
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();
-	uint32 address = x + (y * pitch);
-	uint32 count = 0;
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();
+	uint32_t address = x + (y * pitch);
+	uint32_t count = 0;
 
-	for(uint32 yy=0; yy<((Bitmap *)bitmap)->height; yy++)
+	for(uint32_t yy=0; yy<((Bitmap *)bitmap)->height; yy++)
 	{
-		for(uint32 xx=0; xx<((Bitmap *)bitmap)->width; xx++)
+		for(uint32_t xx=0; xx<((Bitmap *)bitmap)->width; xx++)
 		{
-			uint32 color = ((uint32 *)((Bitmap *)bitmap)->pixelData)[count];
-			uint32 blendedColor = color;
-			uint32 existingColor = *(screen + address + xx + (yy * pitch));
+			uint32_t color = ((uint32_t *)((Bitmap *)bitmap)->pixelData)[count];
+			uint32_t blendedColor = color;
+			uint32_t existingColor = *(screen + address + xx + (yy * pitch));
 
 			if (existingColor >> 24 != 0x00)	// Pixel needs blending
 			{
-				uint8 trans = color >> 24;
-				uint8 invTrans = trans ^ 0xFF;
+				uint8_t trans = color >> 24;
+				uint8_t invTrans = trans ^ 0xFF;
 
-				uint8 eRed = existingColor & 0xFF,
+				uint8_t eRed = existingColor & 0xFF,
 					eGreen = (existingColor >> 8) & 0xFF,
 					eBlue = (existingColor >> 16) & 0xFF,
 
@@ -1843,9 +1843,9 @@ void DrawTransparentBitmap(uint32 * screen, uint32 x, uint32 y, const void * bit
 					nGreen = (color >> 8) & 0xFF,
 					nBlue = (color >> 16) & 0xFF;
 
-				uint32 bRed = (eRed * invTrans + nRed * trans) / 255;
-				uint32 bGreen = (eGreen * invTrans + nGreen * trans) / 255;
-				uint32 bBlue = (eBlue * invTrans + nBlue * trans) / 255;
+				uint32_t bRed = (eRed * invTrans + nRed * trans) / 255;
+				uint32_t bGreen = (eGreen * invTrans + nGreen * trans) / 255;
+				uint32_t bBlue = (eBlue * invTrans + nBlue * trans) / 255;
 
 // Instead of $FF, should use the alpha from the destination pixel as the final alpha value...
 				blendedColor = 0xFF000000 | bRed | (bGreen << 8) | (bBlue << 16);
@@ -1860,17 +1860,17 @@ void DrawTransparentBitmap(uint32 * screen, uint32 x, uint32 y, const void * bit
 //
 // Draw a bitmap without using blending
 //
-void DrawBitmap(uint32 * screen, uint32 x, uint32 y, const void * bitmap)
+void DrawBitmap(uint32_t * screen, uint32_t x, uint32_t y, const void * bitmap)
 {
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();
-	uint32 address = x + (y * pitch);
-	uint32 count = 0;
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();
+	uint32_t address = x + (y * pitch);
+	uint32_t count = 0;
 
-	for(uint32 yy=0; yy<((Bitmap *)bitmap)->height; yy++)
+	for(uint32_t yy=0; yy<((Bitmap *)bitmap)->height; yy++)
 	{
-		for(uint32 xx=0; xx<((Bitmap *)bitmap)->width; xx++)
+		for(uint32_t xx=0; xx<((Bitmap *)bitmap)->width; xx++)
 		{
-			*(screen + address + xx + (yy * pitch)) = ((uint32 *)((Bitmap *)bitmap)->pixelData)[count];
+			*(screen + address + xx + (yy * pitch)) = ((uint32_t *)((Bitmap *)bitmap)->pixelData)[count];
 			count++;
 		}
 	}
@@ -1879,14 +1879,14 @@ void DrawBitmap(uint32 * screen, uint32 x, uint32 y, const void * bitmap)
 //
 // Fill a portion of the screen with the passed in color
 //
-void FillScreenRectangle(uint32 * screen, uint32 x, uint32 y, uint32 w, uint32 h, uint32 color)
-//void ClearScreenRectangle(uint32 * screen, uint32 x, uint32 y, uint32 w, uint32 h)
+void FillScreenRectangle(uint32_t * screen, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color)
+//void ClearScreenRectangle(uint32_t * screen, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
 {
-	uint32 pitch = sdlemuGetOverlayWidthInPixels();
-	uint32 address = x + (y * pitch);
+	uint32_t pitch = sdlemuGetOverlayWidthInPixels();
+	uint32_t address = x + (y * pitch);
 
-	for(uint32 yy=0; yy<h; yy++)
-		for(uint32 xx=0; xx<w; xx++)
+	for(uint32_t yy=0; yy<h; yy++)
+		for(uint32_t xx=0; xx<w; xx++)
 			*(screen + address + xx + (yy * pitch)) = color;
 }
 
@@ -1913,19 +1913,19 @@ bool GUIMain(char * filename)
 {
 WriteLog("GUI: Inside GUIMain...\n");
 
-	uint32 pointerBGSave[6 * 8 + 2];
+	uint32_t pointerBGSave[6 * 8 + 2];
 	pointerBGSave[0] = 6;
 	pointerBGSave[1] = 8;
 
 // Need to set things up so that it loads and runs a file if given on the command line. !!! FIX !!! [DONE]
-	extern uint32 * backbuffer;
+	extern uint32_t * backbuffer;
 //	bool done = false;
 	SDL_Event event;
 	Window * mainWindow = NULL;
 
 	// Set up the GUI classes...
 //	Element::SetScreenAndPitch(backbuffer, GetSDLScreenWidthInPixels());
-	Element::SetScreenAndPitch((uint32 *)sdlemuGetOverlayPixels(), sdlemuGetOverlayWidthInPixels());
+	Element::SetScreenAndPitch((uint32_t *)sdlemuGetOverlayPixels(), sdlemuGetOverlayWidthInPixels());
 	sdlemuEnableOverlay();
 
 	Menu mainMenu;
@@ -1966,14 +1966,14 @@ Bitmap ptr = { 6, 8, 4,
 //"000011112222333344445555"
 //"000011112222333344445555"
 };//*/
-	uint32 * overlayPixels = (uint32 *)sdlemuGetOverlayPixels();
-	uint32 count = 2;
+	uint32_t * overlayPixels = (uint32_t *)sdlemuGetOverlayPixels();
+	uint32_t count = 2;
 
-	for(uint32 y=0; y<pointerBGSave[1]; y++)
-		for(uint32 x=0; x<pointerBGSave[0]; x++)
+	for(uint32_t y=0; y<pointerBGSave[1]; y++)
+		for(uint32_t x=0; x<pointerBGSave[0]; x++)
 			pointerBGSave[count++] = overlayPixels[((mouseY + y) * sdlemuGetOverlayWidthInPixels()) + (mouseX + x)];
 
-	uint32 oldMouseX = mouseX, oldMouseY = mouseY;
+	uint32_t oldMouseX = mouseX, oldMouseY = mouseY;
 
 //This is crappy!!! !!! FIX !!!
 //Is this even needed any more? Hmm. Maybe. Dunno.
@@ -1984,12 +1984,12 @@ WriteLog("GUI: Clearing BG save...\n");
 	// Set up our background save...
 //	memset(background, 0x11, tom_getVideoModeWidth() * 240 * 2);
 //1111 -> 000100 01000 10001 -> 0001 0000 0100 0010 1000 1100 -> 10 42 8C
-	for(uint32 i=0; i<tom_getVideoModeWidth()*240; i++)
+	for(uint32_t i=0; i<tom_getVideoModeWidth()*240; i++)
 //		background[i] = 0xFF8C4210;
 		backbuffer[i] = 0xFF8C4210;
 
-/*	uint32 * overlayPix = (uint32 *)sdlemuGetOverlayPixels();
-	for(uint32 i=0; i<sdlemuGetOverlayWidthInPixels()*480; i++)
+/*	uint32_t * overlayPix = (uint32_t *)sdlemuGetOverlayPixels();
+	for(uint32_t i=0; i<sdlemuGetOverlayWidthInPixels()*480; i++)
 		overlayPix[i] = 0x00000000;*/
 
 	// Handle loading file passed in on the command line...! [DONE]
@@ -2076,7 +2076,7 @@ WriteLog("GUI: Entering main loop...\n");
 			}
 			else if (event.type == SDL_MOUSEBUTTONDOWN)
 			{
-				uint32 mx = event.button.x, my = event.button.y;
+				uint32_t mx = event.button.x, my = event.button.y;
 
 				if (mainWindow)
 					mainWindow->HandleMouseButton(mx, my, true);
@@ -2085,7 +2085,7 @@ WriteLog("GUI: Entering main loop...\n");
 			}
 			else if (event.type == SDL_MOUSEBUTTONUP)
 			{
-				uint32 mx = event.button.x, my = event.button.y;
+				uint32_t mx = event.button.x, my = event.button.y;
 
 				if (mainWindow)
 					mainWindow->HandleMouseButton(mx, my, false);
@@ -2120,7 +2120,7 @@ WriteLog("GUI: Entering main loop...\n");
 				mainWindow->Draw();
 #endif
 
-/*uint32 pBGS[6 * 8 + 3] = { 6, 8, 4,
+/*uint32_t pBGS[6 * 8 + 3] = { 6, 8, 4,
 	0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0,
@@ -2133,19 +2133,19 @@ WriteLog("GUI: Entering main loop...\n");
 //This isn't working... Why????
 //It's because DrawTransparentBitmap does alpha blending if it detects zero in the alpha channel.
 //So why do it that way? Hm.
-			overlayPixels = (uint32 *)sdlemuGetOverlayPixels();
+			overlayPixels = (uint32_t *)sdlemuGetOverlayPixels();
 
 #ifdef NEW_BACKSTORE_METHOD
 //			DrawTransparentBitmapDeprecated(overlayPixels, oldMouseX, oldMouseY, pointerBGSave);
 //			DrawTransparentBitmap(overlayPixels, oldMouseX, oldMouseY, pBGS);
-			for(uint32 y=0; y<pointerBGSave[1]; y++)
-				for(uint32 x=0; x<pointerBGSave[0]; x++)
+			for(uint32_t y=0; y<pointerBGSave[1]; y++)
+				for(uint32_t x=0; x<pointerBGSave[0]; x++)
 					overlayPixels[((oldMouseY + y) * sdlemuGetOverlayWidthInPixels()) + (oldMouseX + x)] = 0x00000000;
 
 			count = 2;
 
-			for(uint32 y=0; y<pointerBGSave[1]; y++)
-				for(uint32 x=0; x<pointerBGSave[0]; x++)
+			for(uint32_t y=0; y<pointerBGSave[1]; y++)
+				for(uint32_t x=0; x<pointerBGSave[0]; x++)
 					pointerBGSave[count++] = overlayPixels[((mouseY + y) * sdlemuGetOverlayWidthInPixels()) + (mouseX + x)];
 #endif
 
@@ -2198,17 +2198,17 @@ Window * ResetJaguarCD(void)
 bool debounceRunKey = true;
 Window * RunEmu(void)
 {
-	extern uint32 * backbuffer;
+	extern uint32_t * backbuffer;
 //Temporary, to test the new timer based code...
 sdlemuDisableOverlay();
 JaguarExecuteNew();
 sdlemuEnableOverlay();
 	// Save the background for the GUI...
 	// In this case, we squash the color to monochrome, then force it to blue + green...
-	for(uint32 i=0; i<tom_getVideoModeWidth() * 256; i++)
+	for(uint32_t i=0; i<tom_getVideoModeWidth() * 256; i++)
 	{
-		uint32 pixel = backbuffer[i];
-		uint8 b = (pixel >> 16) & 0xFF, g = (pixel >> 8) & 0xFF, r = pixel & 0xFF;
+		uint32_t pixel = backbuffer[i];
+		uint8_t b = (pixel >> 16) & 0xFF, g = (pixel >> 8) & 0xFF, r = pixel & 0xFF;
 		pixel = ((r + g + b) / 3) & 0x00FF;
 		backbuffer[i] = 0xFF000000 | (pixel << 16) | (pixel << 8);
 	}
@@ -2217,16 +2217,16 @@ return NULL;//*/
 //This is crappy... !!! FIX !!!
 	extern bool finished, showGUI;
 
-//	uint32 nFrame = 0, nFrameskip = 0;
-	uint32 totalFrames = 0;
+//	uint32_t nFrame = 0, nFrameskip = 0;
+	uint32_t totalFrames = 0;
 	finished = false;
 	bool showMessage = true;
-	uint32 showMsgFrames = 120;
-	uint8 transparency = 0;
+	uint32_t showMsgFrames = 120;
+	uint8_t transparency = 0;
 	// Pass a message to the "joystick" code to debounce the ESC key...
 	debounceRunKey = true;
 
-	uint32 cartType = 4;
+	uint32_t cartType = 4;
 	if (jaguarRomSize == 0x200000)
 		cartType = 0;
 	else if (jaguarRomSize == 0x400000)
@@ -2237,7 +2237,7 @@ return NULL;//*/
 		cartType = 3;
 
 	char * cartTypeName[5] = { "2M Cartridge", "4M Cartridge", "CD BIOS", "CD Dev BIOS", "Homebrew" };
-	uint32 elapsedTicks = SDL_GetTicks(), frameCount = 0, framesPerSecond = 0;
+	uint32_t elapsedTicks = SDL_GetTicks(), frameCount = 0, framesPerSecond = 0;
 
 	while (true)
 	{
@@ -2259,7 +2259,7 @@ return NULL;//*/
 		// Some QnD GUI stuff here...
 		if (showGUI)
 		{
-			extern uint32 gpu_pc, dsp_pc;
+			extern uint32_t gpu_pc, dsp_pc;
 			DrawString(backbuffer, 8, 8, false, "GPU PC: %08X", gpu_pc);
 			DrawString(backbuffer, 8, 16, false, "DSP PC: %08X", dsp_pc);
 			DrawString(backbuffer, 8, 32, false, "%u FPS", framesPerSecond);
@@ -2269,9 +2269,9 @@ return NULL;//*/
 		{
 // FF0F -> 1111 11 11  000 0 1111 -> 3F 18 0F
 // 3FE3 -> 0011 11 11  111 0 0011 -> 0F 3F 03
-/*			DrawStringTrans((uint32 *)backbuffer, 8, 24*8, 0xFF0F, transparency, "Running...");
-			DrawStringTrans((uint32 *)backbuffer, 8, 26*8, 0x3FE3, transparency, "%s, run address: %06X", cartTypeName[cartType], jaguarRunAddress);
-			DrawStringTrans((uint32 *)backbuffer, 8, 27*8, 0x3FE3, transparency, "CRC: %08X", jaguar_mainRom_crc32);//*/
+/*			DrawStringTrans((uint32_t *)backbuffer, 8, 24*8, 0xFF0F, transparency, "Running...");
+			DrawStringTrans((uint32_t *)backbuffer, 8, 26*8, 0x3FE3, transparency, "%s, run address: %06X", cartTypeName[cartType], jaguarRunAddress);
+			DrawStringTrans((uint32_t *)backbuffer, 8, 27*8, 0x3FE3, transparency, "CRC: %08X", jaguar_mainRom_crc32);//*/
 //first has wrong color. !!! FIX !!!
 			DrawStringTrans(backbuffer, 8, 24*8, 0xFF7F63FF, transparency, "Running...");
 			DrawStringTrans(backbuffer, 8, 26*8, 0xFF1FFF3F, transparency, "%s, run address: %06X", cartTypeName[cartType], jaguarRunAddress);
@@ -2301,15 +2301,15 @@ doGPUDis = true;//*/
 	}
 
 	// Reset the pitch, since it may have been changed in-game...
-	Element::SetScreenAndPitch((uint32 *)backbuffer, GetSDLScreenWidthInPixels());
+	Element::SetScreenAndPitch((uint32_t *)backbuffer, GetSDLScreenWidthInPixels());
 
 	// Save the background for the GUI...
 //	memcpy(background, backbuffer, tom_getVideoModeWidth() * 240 * 2);
 	// In this case, we squash the color to monochrome, then force it to blue + green...
-	for(uint32 i=0; i<tom_getVideoModeWidth() * 256; i++)
+	for(uint32_t i=0; i<tom_getVideoModeWidth() * 256; i++)
 	{
-		uint32 pixel = backbuffer[i];
-		uint8 b = (pixel >> 16) & 0xFF, g = (pixel >> 8) & 0xFF, r = pixel & 0xFF;
+		uint32_t pixel = backbuffer[i];
+		uint8_t b = (pixel >> 16) & 0xFF, g = (pixel >> 8) & 0xFF, r = pixel & 0xFF;
 		pixel = ((r + g + b) / 3) & 0x00FF;
 		background[i] = 0xFF000000 | (pixel << 16) | (pixel << 8);
 	}
@@ -2322,8 +2322,8 @@ doGPUDis = true;//*/
 bool debounceRunKey = true;
 Window * RunEmu(void)
 {
-	extern uint32 * backbuffer;
-	uint32 * overlayPixels = (uint32 *)sdlemuGetOverlayPixels();
+	extern uint32_t * backbuffer;
+	uint32_t * overlayPixels = (uint32_t *)sdlemuGetOverlayPixels();
 	memset(overlayPixels, 0x00, 640 * 480 * 4);			// Clear out overlay...
 
 //This is crappy... !!! FIX !!!
@@ -2331,16 +2331,16 @@ Window * RunEmu(void)
 
 	sdlemuDisableOverlay();
 
-//	uint32 nFrame = 0, nFrameskip = 0;
-	uint32 totalFrames = 0;
+//	uint32_t nFrame = 0, nFrameskip = 0;
+	uint32_t totalFrames = 0;
 	finished = false;
 	bool showMessage = true;
-	uint32 showMsgFrames = 120;
-	uint8 transparency = 0xFF;
+	uint32_t showMsgFrames = 120;
+	uint8_t transparency = 0xFF;
 	// Pass a message to the "joystick" code to debounce the ESC key...
 	debounceRunKey = true;
 
-	uint32 cartType = 4;
+	uint32_t cartType = 4;
 	if (jaguarRomSize == 0x200000)
 		cartType = 0;
 	else if (jaguarRomSize == 0x400000)
@@ -2351,7 +2351,7 @@ Window * RunEmu(void)
 		cartType = 3;
 
 	char * cartTypeName[5] = { "2M Cartridge", "4M Cartridge", "CD BIOS", "CD Dev BIOS", "Homebrew" };
-	uint32 elapsedTicks = SDL_GetTicks(), frameCount = 0, framesPerSecond = 0;
+	uint32_t elapsedTicks = SDL_GetTicks(), frameCount = 0, framesPerSecond = 0;
 
 	while (!finished)
 	{
@@ -2376,7 +2376,7 @@ else
 		if (showGUI)
 		{
 			FillScreenRectangle(overlayPixels, 8, 1*FONT_HEIGHT, 128, 4*FONT_HEIGHT, 0x00000000);
-			extern uint32 gpu_pc, dsp_pc;
+			extern uint32_t gpu_pc, dsp_pc;
 			DrawString(overlayPixels, 8, 1*FONT_HEIGHT, false, "GPU PC: %08X", gpu_pc);
 			DrawString(overlayPixels, 8, 2*FONT_HEIGHT, false, "DSP PC: %08X", dsp_pc);
 			DrawString(overlayPixels, 8, 4*FONT_HEIGHT, false, "%u FPS", framesPerSecond);
@@ -2412,10 +2412,10 @@ doGPUDis = true;//*/
 
 	// Save the background for the GUI...
 	// In this case, we squash the color to monochrome, then force it to blue + green...
-	for(uint32 i=0; i<tom_getVideoModeWidth() * 256; i++)
+	for(uint32_t i=0; i<tom_getVideoModeWidth() * 256; i++)
 	{
-		uint32 pixel = backbuffer[i];
-		uint8 b = (pixel >> 16) & 0xFF, g = (pixel >> 8) & 0xFF, r = pixel & 0xFF;
+		uint32_t pixel = backbuffer[i];
+		uint8_t b = (pixel >> 16) & 0xFF, g = (pixel >> 8) & 0xFF, r = pixel & 0xFF;
 		pixel = ((r + g + b) / 3) & 0x00FF;
 		backbuffer[i] = 0xFF000000 | (pixel << 16) | (pixel << 8);
 	}
@@ -2444,8 +2444,8 @@ Window * About(void)
 //fprintf(fp, "VirtualJaguar v1.0.8 (Last full build was on %s %s)\n", __DATE__, __TIME__);
 //VirtualJaguar v1.0.8 (Last full build was on Dec 30 2004 20:01:31)
 //Hardwired, bleh... !!! FIX !!!
-uint32 width = 55 * FONT_WIDTH, height = 18 * FONT_HEIGHT;
-uint32 xpos = (640 - width) / 2, ypos = (480 - height) / 2;
+uint32_t width = 55 * FONT_WIDTH, height = 18 * FONT_HEIGHT;
+uint32_t xpos = (640 - width) / 2, ypos = (480 - height) / 2;
 //	Window * window = new Window(8, 16, 50 * FONT_WIDTH, 21 * FONT_HEIGHT);
 	Window * window = new Window(xpos, ypos, width, height);
 //	window->AddElement(new Text(8, 8, "Virtual Jaguar 1.0.8"));
@@ -2485,8 +2485,8 @@ Window * MiscOptions(void)
 
 	window->AddElement(new TextEdit(88, 8, vjs.ROMPath, 20, 0xFF8484FF, 0xFF000000));
 
-/*TextEdit(uint32 x, uint32 y, string s, uint32 mss = 10, uint32 fg = 0xFF8484FF,
-	uint32 bg = 0xFF84FF4D): Element(x, y, 0, 0), fgColor(fg), bgColor(bg), text(s),
+/*TextEdit(uint32_t x, uint32_t y, string s, uint32_t mss = 10, uint32_t fg = 0xFF8484FF,
+	uint32_t bg = 0xFF84FF4D): Element(x, y, 0, 0), fgColor(fg), bgColor(bg), text(s),
 	caretPos(0), maxScreenSize(mss) {}*/
 // Missing:
 // * BIOS path
@@ -2506,11 +2506,11 @@ Window * MiscOptions(void)
 //
 // Generic ROM loading
 //
-uint32 JaguarLoadROM(uint8 * rom, char * path)
+uint32_t JaguarLoadROM(uint8_t * rom, char * path)
 {
 // We really should have some kind of sanity checking for the ROM size here to prevent
 // a buffer overflow... !!! FIX !!!
-	uint32 romSize = 0;
+	uint32_t romSize = 0;
 
 WriteLog("JaguarLoadROM: Attempting to load file '%s'...", path);
 	char * ext = strrchr(path, '.');
@@ -2721,7 +2721,7 @@ Start of Data Segment = 0x00803dd0
 */
 		if (jaguar_mainRom[0] == 0x60 && jaguar_mainRom[1] == 0x1B)
 		{
-			uint32 loadAddress = GET32(jaguar_mainRom, 0x16), //runAddress = GET32(jaguar_mainRom, 0x2A),
+			uint32_t loadAddress = GET32(jaguar_mainRom, 0x16), //runAddress = GET32(jaguar_mainRom, 0x2A),
 				codeSize = GET32(jaguar_mainRom, 0x02) + GET32(jaguar_mainRom, 0x06);
 			WriteLog("GUI: Setting up homebrew (ABS-1)... Run address: %08X, length: %08X\n", loadAddress, codeSize);
 
@@ -2741,7 +2741,7 @@ Start of Data Segment = 0x00803dd0
 		}
 		else if (jaguar_mainRom[0] == 0x01 && jaguar_mainRom[1] == 0x50)
 		{
-			uint32 loadAddress = GET32(jaguar_mainRom, 0x28), runAddress = GET32(jaguar_mainRom, 0x24),
+			uint32_t loadAddress = GET32(jaguar_mainRom, 0x28), runAddress = GET32(jaguar_mainRom, 0x24),
 				codeSize = GET32(jaguar_mainRom, 0x18) + GET32(jaguar_mainRom, 0x1C);
 			WriteLog("GUI: Setting up homebrew (ABS-2)... Run address: %08X, length: %08X\n", runAddress, codeSize);
 
@@ -2772,11 +2772,11 @@ Start of Data Segment = 0x00803dd0
 //      Also, there's *always* a $601A header at position $00...
 		if (jaguar_mainRom[0] == 0x60 && jaguar_mainRom[1] == 0x1A)
 		{
-			uint32 loadAddress = GET32(jaguar_mainRom, 0x22), runAddress = GET32(jaguar_mainRom, 0x2A);
+			uint32_t loadAddress = GET32(jaguar_mainRom, 0x22), runAddress = GET32(jaguar_mainRom, 0x2A);
 //This is not always right! Especially when converted via bin2jag1!!!
 //We should have access to the length of the furshlumiger file that was loaded anyway!
 //Now, we do! ;-)
-//			uint32 progLength = GET32(jaguar_mainRom, 0x02);
+//			uint32_t progLength = GET32(jaguar_mainRom, 0x02);
 //jaguarRomSize
 //jaguarRunAddress
 //			WriteLog("Jaguar: Setting up PD ROM... Run address: %08X, length: %08X\n", runAddress, progLength);

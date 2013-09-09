@@ -7,12 +7,13 @@
 #ifndef __GUI_H__
 #define __GUI_H__
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <list>
 
 class Menu;										// Now *this* should work, since we've got pointers...
 class MenuItems;
 class Element;
+
 
 class GUI
 {
@@ -20,7 +21,7 @@ class GUI
 		GUI(SDL_Surface *);
 		~GUI();
 		void AddMenuTitle(const char *);
-		void AddMenuItem(const char *, Element * (* a)(void) = NULL, SDLKey k = SDLK_UNKNOWN);
+		void AddMenuItem(const char *, Element * (* a)(void) = NULL, SDL_Scancode k = SDL_SCANCODE_UNKNOWN);
 		void CommitItemsToMenu(void);
 		void Run(void);
 		void Stop(void);
@@ -35,3 +36,4 @@ class GUI
 };
 
 #endif	// __GUI_H__
+

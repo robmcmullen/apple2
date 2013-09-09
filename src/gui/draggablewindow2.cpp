@@ -44,13 +44,13 @@
 // NOTE: FG/BG colors are hard-wired
 //
 
-DraggableWindow2::DraggableWindow2(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
+DraggableWindow2::DraggableWindow2(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/,
 	void (* f)(Element *)/*= NULL*/):
 	Window(x, y, w, h, f), clicked(false)
 {
 #ifdef BACKGROUND_IMG_TEST
-	uint16 imgWidth = (floppyDiskImg[0] << 8) | floppyDiskImg[1];
-	uint16 imgHeight = (floppyDiskImg[2] << 8) | floppyDiskImg[3];
+	uint16_t imgWidth = (floppyDiskImg[0] << 8) | floppyDiskImg[1];
+	uint16_t imgHeight = (floppyDiskImg[2] << 8) | floppyDiskImg[3];
 	img = SDL_CreateRGBSurfaceFrom(&floppyDiskImg[4], imgWidth, imgHeight, 32, imgWidth * 4,
 		MASK_R, MASK_G, MASK_B, MASK_A);
 //	label = SDL_CreateRGBSurface(SDL_SWSURFACE, 16*7, 32, 32,
@@ -59,7 +59,7 @@ DraggableWindow2::DraggableWindow2(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*=
 //Prolly should draw this in the constructor...
 //Now is! :-D
 	extern char textChar2e[];
-	uint8 * fontAddr = (uint8 *)textChar2e + ((128 + 32) * 7 * 8);
+	uint8_t * fontAddr = (uint8_t *)textChar2e + ((128 + 32) * 7 * 8);
 	SetNewFont(Font(fontAddr, 7, 8));
 //	DrawStringOpaque(label, 0,  0, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
 //	DrawStringOpaque(label, 0,  8, 0xFF000000, 0xFFFFFFFF, "0123456789012345");
@@ -92,14 +92,14 @@ printf("Inside ~DraggableWindow2()...\n");
 #endif
 }
 
-void DraggableWindow2::HandleMouseMove(uint32 x, uint32 y)
+void DraggableWindow2::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	if (clicked)
 	{
 //Need to check whether or not we've run into the extents of the screen... !!! FIX !!!
 //[DONE]
-		int32 newX = x - offset.x;
-		int32 newY = y - offset.y;
+		int32_t newX = x - offset.x;
+		int32_t newY = y - offset.y;
 		SDL_Rect clip = GetParentRect();
 
 		if (newX < clip.x)
@@ -127,13 +127,13 @@ void DraggableWindow2::HandleMouseMove(uint32 x, uint32 y)
 	}
 
 	// Handle the items this window contains...
-//	for(uint32 i=0; i<list.size(); i++)
+//	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 //		list[i]->HandleMouseMove(x - extents.x, y - extents.y);
 	Window::HandleMouseMove(x, y);
 }
 
-void DraggableWindow2::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void DraggableWindow2::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	clicked = false;
 
@@ -145,7 +145,7 @@ void DraggableWindow2::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 	{
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
@@ -177,7 +177,7 @@ void DraggableWindow2::Draw(void)
 //	SDL_BlitSurface(label, &src, screen, &dst);
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw();
 #else
 	// These are *always* top level and parentless, so no need to traverse up through
@@ -192,7 +192,7 @@ void DraggableWindow2::Draw(void)
 
 //WTF? Unnecessary!
 //	extern char textChar2e[];
-//	uint8 * fontAddr = (uint8 *)textChar2e + ((128 + 32) * 7 * 8);
+//	uint8_t * fontAddr = (uint8_t *)textChar2e + ((128 + 32) * 7 * 8);
 //	SetNewFont(Font(fontAddr, 7, 8));
 //	DrawStringOpaque(screen, extents.x + 8, extents.y +  6, 0xFF000000, 0xFFFFFFFF, "Ultima III - Boo");
 //	DrawStringOpaque(screen, extents.x + 8, extents.y + 14, 0xFF000000, 0xFFFFFFFF, "0123456789012345");
@@ -204,7 +204,7 @@ void DraggableWindow2::Draw(void)
 #endif
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw();
 #endif
 

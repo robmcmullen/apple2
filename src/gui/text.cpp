@@ -8,13 +8,13 @@
 
 #include "guimisc.h"
 
-Text::Text(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/, Element * parent/*= NULL*/):
+Text::Text(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/, Element * parent/*= NULL*/):
 	Element(x, y, w, h, parent)
 {
 	fgColor = 0xFF8484FF, bgColor = 0xFF84FF4D;
 }
 
-Text::Text(uint32 x, uint32 y, std::string s, uint32 fg/*= 0xFF8484FF*/, uint32 bg/*= 0xFF84FF4D*/, Element * parent/*= NULL*/):
+Text::Text(uint32_t x, uint32_t y, std::string s, uint32_t fg/*= 0xFF8484FF*/, uint32_t bg/*= 0xFF84FF4D*/, Element * parent/*= NULL*/):
 	Element(x, y, 0, 0, parent), text(s)
 {
 	fgColor = fg, bgColor = bg;

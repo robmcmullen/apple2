@@ -1,6 +1,6 @@
 /* GIMP RGBA C-Source image dump (fd-img-128x128.c) */
 
-uint8 floppyDiskImg[] = {
+uint8_t floppyDiskImg[] = {
 //	128 / 256, 128 % 256,	// width (HI byte, LO byte)
 //	128 / 256, 128 % 256,	// height (HI byte, LO byte)
 	"\000\200\000\200"		// Same thing as above, just in octal... :-P

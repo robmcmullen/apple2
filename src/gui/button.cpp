@@ -42,7 +42,7 @@ Some notes about this class:
 - Button colors are hardwired (for plain text buttons)
 */
 
-Button::Button(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
+Button::Button(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/,
 	Element * parent/*= NULL*/):
 	Element(x, y, w, h, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
@@ -52,7 +52,7 @@ Button::Button(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*
 	// Should we make a local button bitmap here?
 }
 
-Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, SDL_Surface * upImg, Element * parent/*= NULL*/):
+Button::Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, SDL_Surface * upImg, Element * parent/*= NULL*/):
 	Element(x, y, w, h, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
 	buttonUp(upImg), buttonDown(NULL), buttonHover(NULL), surfacesAreLocal(false),
@@ -61,7 +61,7 @@ Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, SDL_Surface * upImg, Elem
 //	if (upImg == NULL)
 //		return;
 //
-//	uint32 width = ((Bitmap *)upImg)->width, height = ((Bitmap *)upImg)->height;
+//	uint32_t width = ((Bitmap *)upImg)->width, height = ((Bitmap *)upImg)->height;
 //
 //	buttonUp = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height,
 //		32, MASK_R, MASK_G, MASK_B, MASK_A);
@@ -70,7 +70,7 @@ Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, SDL_Surface * upImg, Elem
 	// Should we make a local button bitmap here? NO--it's passed in!
 }
 
-Button::Button(uint32 x, uint32 y, SDL_Surface * bU, SDL_Surface * bH/*= NULL*/,
+Button::Button(uint32_t x, uint32_t y, SDL_Surface * bU, SDL_Surface * bH/*= NULL*/,
 	SDL_Surface * bD/*= NULL*/, Element * parent/*= NULL*/):
 	Element(x, y, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
@@ -82,7 +82,7 @@ Button::Button(uint32 x, uint32 y, SDL_Surface * bU, SDL_Surface * bH/*= NULL*/,
 		extents.h = buttonUp->h;
 }
 
-Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, std::string s, Element * parent/*= NULL*/):
+Button::Button(uint32_t x, uint32_t y, uint32_t w, uint32_t h, std::string s, Element * parent/*= NULL*/):
 	Element(x, y, w, h, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
 	buttonUp(NULL), buttonDown(NULL), buttonHover(NULL), surfacesAreLocal(true),
@@ -91,7 +91,7 @@ Button::Button(uint32 x, uint32 y, uint32 w, uint32 h, std::string s, Element * 
 	// Create the button surfaces here...
 }
 
-Button::Button(uint32 x, uint32 y, std::string s, Element * parent/*= NULL*/):
+Button::Button(uint32_t x, uint32_t y, std::string s, Element * parent/*= NULL*/):
 	Element(x, y, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0xCF, 0x00, 0xFF, parent),
 	activated(false), clicked(false), inside(false),
 	buttonUp(NULL), buttonDown(NULL), buttonHover(NULL), surfacesAreLocal(true),
@@ -110,7 +110,7 @@ Button::Button(uint32 x, uint32 y, std::string s, Element * parent/*= NULL*/):
 		MASK_R, MASK_G, MASK_B, MASK_A);
 
 //bleh
-uint8 r1, g1, b1, a1;
+uint8_t r1, g1, b1, a1;
 SDL_GetRGBA(fgColor, screen->format, &r1, &g1, &b1, &a1);
 fgColor = SDL_MapRGBA(buttonUp->format, r1, g1, b1, a1);
 SDL_GetRGBA(bgColor, screen->format, &r1, &g1, &b1, &a1);
@@ -151,11 +151,11 @@ Button::~Button()
 	}
 }
 
-void Button::HandleKey(SDLKey key)
+void Button::HandleKey(SDL_Scancode key)
 {
 }
 
-void Button::HandleMouseMove(uint32 x, uint32 y)
+void Button::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	if (!visible)
 		return;
@@ -165,7 +165,7 @@ void Button::HandleMouseMove(uint32 x, uint32 y)
 	CheckStateAndRedrawIfNeeded();
 }
 
-void Button::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void Button::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 	if (!visible)
 		return;

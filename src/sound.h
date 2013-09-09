@@ -8,7 +8,7 @@
 #ifndef __SOUND_H__
 #define __SOUND_H__
 
-#include "types.h"
+#include <stdint.h>
 
 // Global variables (exported)
 
@@ -17,11 +17,11 @@
 
 void SoundInit(void);
 void SoundDone(void);
-void ToggleSpeaker(uint64 elapsedCycles);
-//void AddToSoundTimeBase(uint64 cycles);
-void AdjustLastToggleCycles(uint64 elapsedCycles);
+void ToggleSpeaker(uint64_t elapsedCycles);
+//void AddToSoundTimeBase(uint64_t cycles);
+void AdjustLastToggleCycles(uint64_t elapsedCycles);
 void VolumeUp(void);
 void VolumeDown(void);
-uint8 GetVolume(void);
+uint8_t GetVolume(void);
 
 #endif	// __SOUND_H__

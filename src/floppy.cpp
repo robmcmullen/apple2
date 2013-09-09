@@ -29,13 +29,13 @@ enum { IO_MODE_READ, IO_MODE_WRITE };
 
 // FloppyDrive class variable initialization
 
-uint8 FloppyDrive::header[21] = {
+uint8_t FloppyDrive::header[21] = {
 	0xD5, 0xAA, 0x96, 0xFF, 0xFE, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0xDE, 0xAA, 0xFF,	0xFF, 0xFF,
 	0xFF, 0xFF, 0xD5, 0xAA, 0xAD };
-uint8 FloppyDrive::doSector[16] = {
+uint8_t FloppyDrive::doSector[16] = {
 	0x0, 0x7, 0xE, 0x6, 0xD, 0x5, 0xC, 0x4, 0xB, 0x3, 0xA, 0x2, 0x9, 0x1, 0x8, 0xF };
-uint8 FloppyDrive::poSector[16] = {
+uint8_t FloppyDrive::poSector[16] = {
 	0x0, 0x8, 0x1, 0x9, 0x2, 0xA, 0x3, 0xB, 0x4, 0xC, 0x5, 0xD, 0x6, 0xE, 0x7, 0xF };
 char FloppyDrive::nameBuf[MAX_PATH];
 
@@ -60,7 +60,7 @@ FloppyDrive::~FloppyDrive()
 		delete[] disk[1];
 }
 
-bool FloppyDrive::LoadImage(const char * filename, uint8 driveNum/*= 0*/)
+bool FloppyDrive::LoadImage(const char * filename, uint8_t driveNum/*= 0*/)
 {
 	WriteLog("FLOPPY: Attempting to load image '%s' in drive #%u.\n", filename, driveNum);
 
@@ -86,7 +86,7 @@ bool FloppyDrive::LoadImage(const char * filename, uint8 driveNum/*= 0*/)
 	fseek(fp, 0, SEEK_END);
 	diskSize[driveNum] = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	disk[driveNum] =  new uint8[diskSize[driveNum]];
+	disk[driveNum] =  new uint8_t[diskSize[driveNum]];
 	fread(disk[driveNum], 1, diskSize[driveNum], fp);
 
 	fclose(fp);
@@ -112,7 +112,7 @@ bool FloppyDrive::LoadImage(const char * filename, uint8 driveNum/*= 0*/)
 	return true;
 }
 
-bool FloppyDrive::SaveImage(uint8 driveNum/*= 0*/)
+bool FloppyDrive::SaveImage(uint8_t driveNum/*= 0*/)
 {
 	if (driveNum > 1)
 	{
@@ -153,7 +153,7 @@ bool FloppyDrive::SaveImage(uint8 driveNum/*= 0*/)
 	return true;
 }
 
-bool FloppyDrive::SaveImageAs(const char * filename, uint8 driveNum/*= 0*/)
+bool FloppyDrive::SaveImageAs(const char * filename, uint8_t driveNum/*= 0*/)
 {
 //WARNING: Buffer overflow possibility
 #warning "Buffer overflow possible--!!! FIX !!!"
@@ -161,12 +161,12 @@ bool FloppyDrive::SaveImageAs(const char * filename, uint8 driveNum/*= 0*/)
 	return SaveImage(driveNum);
 }
 
-void FloppyDrive::CreateBlankImage(uint8 driveNum/*= 0*/)
+void FloppyDrive::CreateBlankImage(uint8_t driveNum/*= 0*/)
 {
 	if (disk[driveNum] != NULL)
 		delete disk[driveNum];
 
-	disk[driveNum] = new uint8[143360];
+	disk[driveNum] = new uint8_t[143360];
 	diskSize[driveNum] = 143360;
 	memset(disk[driveNum], 0x00, 143360);
 	memset(nybblizedImage[driveNum], 0x00, 232960);	// Set it to 0 instead of $FF for proper formatting...
@@ -178,7 +178,7 @@ SpawnMessage("New blank image inserted in drive %u...", driveNum);
 
 void FloppyDrive::SwapImages(void)
 {
-	uint8 nybblizedImageTmp[232960];
+	uint8_t nybblizedImageTmp[232960];
 	char imageNameTmp[MAX_PATH];
 
 	memcpy(nybblizedImageTmp, nybblizedImage[0], 232960);
@@ -189,29 +189,29 @@ void FloppyDrive::SwapImages(void)
 	memcpy(imageName[0], imageName[1], MAX_PATH);
 	memcpy(imageName[1], imageNameTmp, MAX_PATH);
 
-	uint8 * diskTmp = disk[0];
+	uint8_t * diskTmp = disk[0];
 	disk[0] = disk[1];
 	disk[1] = diskTmp;
 
-	uint32 diskSizeTmp = diskSize[0];
+	uint32_t diskSizeTmp = diskSize[0];
 	diskSize[0] = diskSize[1];
 	diskSize[1] = diskSizeTmp;
 
-	uint8 diskTypeTmp = diskType[0];
+	uint8_t diskTypeTmp = diskType[0];
 	diskType[0] = diskType[1];
 	diskType[1] = diskTypeTmp;
 
-	uint8 imageDirtyTmp = imageDirty[0];
+	uint8_t imageDirtyTmp = imageDirty[0];
 	imageDirty[0] = imageDirty[1];
 	imageDirty[1] = imageDirtyTmp;
 
-	uint8 writeProtectedTmp = writeProtected[0];
+	uint8_t writeProtectedTmp = writeProtected[0];
 	writeProtected[0] = writeProtected[1];
 	writeProtected[1] = writeProtectedTmp;
 SpawnMessage("Drive 0: %s...", imageName[0]);
 }
 
-void FloppyDrive::DetectImageType(const char * filename, uint8 driveNum)
+void FloppyDrive::DetectImageType(const char * filename, uint8_t driveNum)
 {
 	diskType[driveNum] = DT_UNKNOWN;
 
@@ -268,7 +268,7 @@ WriteLog("FLOPPY: Detected image type %s...\n", (diskType[driveNum] == DT_NYBBLE
 	"DOS 3.3 image" : (diskType[driveNum] == DT_PRODOS ? "ProDOS image" : "unknown"))));
 }
 
-void FloppyDrive::NybblizeImage(uint8 driveNum)
+void FloppyDrive::NybblizeImage(uint8_t driveNum)
 {
 	// Format of a sector is header (23) + nybbles (343) + footer (30) = 396
 	// (short by 20 bytes of 416 [413 if 48 byte header is one time only])
@@ -277,7 +277,7 @@ void FloppyDrive::NybblizeImage(uint8 driveNum)
 	// hdr (21) + nybbles (343) + footer (48) = 412 bytes per sector
 	// (not incl. 64 byte track marker)
 
-	uint8 footer[48] = {
+	uint8_t footer[48] = {
 		0xDE, 0xAA, 0xEB, 0xFF, 0xEB, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -285,7 +285,7 @@ void FloppyDrive::NybblizeImage(uint8 driveNum)
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-	uint8 diskbyte[0x40] = {
+	uint8_t diskbyte[0x40] = {
 		0x96, 0x97, 0x9A, 0x9B, 0x9D, 0x9E, 0x9F, 0xA6,
 		0xA7, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB2, 0xB3,
 		0xB4, 0xB5, 0xB6, 0xB7, 0xB9, 0xBA, 0xBB, 0xBC,
@@ -295,15 +295,15 @@ void FloppyDrive::NybblizeImage(uint8 driveNum)
 		0xED, 0xEE, 0xEF, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6,
 		0xF7, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF };
 
-	uint8 * img = nybblizedImage[driveNum];
+	uint8_t * img = nybblizedImage[driveNum];
 	memset(img, 0xFF, 232960);					// Doesn't matter if 00s or FFs...
 
-	for(uint8 trk=0; trk<35; trk++)
+	for(uint8_t trk=0; trk<35; trk++)
 	{
 		memset(img, 0xFF, 64);					// Write gap 1, 64 bytes (self-sync)
 		img += 64;
 
-		for(uint8 sector=0; sector<16; sector++)
+		for(uint8_t sector=0; sector<16; sector++)
 		{
 			memcpy(img, header, 21);			// Set up the sector header
 
@@ -315,7 +315,7 @@ void FloppyDrive::NybblizeImage(uint8 driveNum)
 			img[10] = ((trk ^ sector ^ 0xFE)       & 0x55) | 0xAA;
 
 			img += 21;
-			uint8 * bytes = disk[driveNum];
+			uint8_t * bytes = disk[driveNum];
 
 			if (diskType[driveNum] == DT_DOS33)
 				bytes += (doSector[sector] * 256) + (trk * 256 * 16);
@@ -326,7 +326,7 @@ void FloppyDrive::NybblizeImage(uint8 driveNum)
 
 			// Convert the 256 8-bit bytes into 342 6-bit bytes.
 
-			for(uint16 i=0; i<0x56; i++)
+			for(uint16_t i=0; i<0x56; i++)
 			{
 				img[i] = ((bytes[(i + 0xAC) & 0xFF] & 0x01) << 7)
 					| ((bytes[(i + 0xAC) & 0xFF] & 0x02) << 5)
@@ -345,12 +345,12 @@ void FloppyDrive::NybblizeImage(uint8 driveNum)
 
 			img[342] = 0x00;
 
-			for(uint16 i=342; i>0; i--)
+			for(uint16_t i=342; i>0; i--)
 				img[i] = img[i] ^ img[i - 1];
 
 			// Using a lookup table, convert the 6-bit bytes into disk bytes.
 
-			for(uint16 i=0; i<343; i++)
+			for(uint16_t i=0; i<343; i++)
 //#define TEST_NYBBLIZATION
 #ifdef TEST_NYBBLIZATION
 {
@@ -371,9 +371,9 @@ WriteLog("FL: i = %u, img[i] = %02X, diskbyte = %02X\n", i, img[i], diskbyte[img
 	}
 }
 
-void FloppyDrive::DenybblizeImage(uint8 driveNum)
+void FloppyDrive::DenybblizeImage(uint8_t driveNum)
 {
-	uint8 decodeNybble[0x80] = {
+	uint8_t decodeNybble[0x80] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
@@ -399,19 +399,19 @@ void FloppyDrive::DenybblizeImage(uint8 driveNum)
 		return;
 	}
 
-	uint8 * srcImg = nybblizedImage[driveNum];
-	uint8 * dstImg = disk[driveNum];
-	uint8 buffer[345];							// 2 extra bytes for the unpack routine below...
+	uint8_t * srcImg = nybblizedImage[driveNum];
+	uint8_t * dstImg = disk[driveNum];
+	uint8_t buffer[345];							// 2 extra bytes for the unpack routine below...
 
-	for(uint8 trk=0; trk<35; trk++)
+	for(uint8_t trk=0; trk<35; trk++)
 	{
-		uint8 * trackBase = srcImg + (trk * 6656);
+		uint8_t * trackBase = srcImg + (trk * 6656);
 
-		for(uint8 sector=0; sector<16; sector++)
+		for(uint8_t sector=0; sector<16; sector++)
 		{
-			uint16 sectorStart = (uint16)-1;
+			uint16_t sectorStart = (uint16_t)-1;
 
-			for(uint16 i=0; i<6656; i++)
+			for(uint16_t i=0; i<6656; i++)
 			{
 				if (trackBase[i] == header[0]
 					&& trackBase[(i + 1) % 6656] == header[1]
@@ -420,7 +420,7 @@ void FloppyDrive::DenybblizeImage(uint8 driveNum)
 					&& trackBase[(i + 4) % 6656] == header[4])
 				{
 //Could also check the track # at +5,6...
-					uint8 foundSector = ((trackBase[(i + 7) % 6656] & 0x55) << 1)
+					uint8_t foundSector = ((trackBase[(i + 7) % 6656] & 0x55) << 1)
 						| (trackBase[(i + 8) % 6656] & 0x55);
 
 					if (foundSector == sector)
@@ -432,7 +432,7 @@ void FloppyDrive::DenybblizeImage(uint8 driveNum)
 			}
 
 			// Sanity check...
-			if (sectorStart == (uint16)-1)
+			if (sectorStart == (uint16_t)-1)
 			{
 				WriteLog("FLOPPY: Failed to find sector %u (track %u) in nybble image!\n",
 					sector, trk);
@@ -441,24 +441,24 @@ void FloppyDrive::DenybblizeImage(uint8 driveNum)
 
 			// Using a lookup table, convert the disk bytes into 6-bit bytes.
 
-			for(uint16 i=0; i<343; i++)
+			for(uint16_t i=0; i<343; i++)
 				buffer[i] = decodeNybble[trackBase[(sectorStart + i) % 6656] & 0x7F];
 
 			// XOR the data block with itself, offset by one byte.
 
-			for(uint16 i=1; i<342; i++)
+			for(uint16_t i=1; i<342; i++)
 				buffer[i] = buffer[i] ^ buffer[i - 1];
 
 			// Convert the 342 6-bit bytes into 256 8-bit bytes (at buffer + $56).
 
-			for(uint16 i=0; i<0x56; i++)
+			for(uint16_t i=0; i<0x56; i++)
 			{
 				buffer[0x056 + i] |= ((buffer[i] >> 3) & 0x01) | ((buffer[i] >> 1) & 0x02);
 				buffer[0x0AC + i] |= ((buffer[i] >> 5) & 0x01) | ((buffer[i] >> 3) & 0x02);
 				buffer[0x102 + i] |= ((buffer[i] >> 7) & 0x01) | ((buffer[i] >> 5) & 0x02);
 			}
 
-			uint8 * bytes = dstImg;
+			uint8_t * bytes = dstImg;
 
 			if (diskType[driveNum] == DT_DOS33)
 				bytes += (doSector[sector] * 256) + (trk * 256 * 16);
@@ -472,7 +472,7 @@ void FloppyDrive::DenybblizeImage(uint8 driveNum)
 	}
 }
 
-const char * FloppyDrive::GetImageName(uint8 driveNum/*= 0*/)
+const char * FloppyDrive::GetImageName(uint8_t driveNum/*= 0*/)
 {
 	// Set up a zero-length string for return value
 	nameBuf[0] = 0;
@@ -508,7 +508,7 @@ const char * FloppyDrive::GetImageName(uint8 driveNum/*= 0*/)
 	return nameBuf;
 }
 
-void FloppyDrive::EjectImage(uint8 driveNum/*= 0*/)
+void FloppyDrive::EjectImage(uint8_t driveNum/*= 0*/)
 {
 	// Probably want to save a dirty image... ;-)
 	SaveImage(driveNum);
@@ -527,7 +527,7 @@ void FloppyDrive::EjectImage(uint8 driveNum/*= 0*/)
 	memset(nybblizedImage[driveNum], 0xFF, 232960);	// Doesn't matter if 00s or FFs...
 }
 
-bool FloppyDrive::DriveIsEmpty(uint8 driveNum/*= 0*/)
+bool FloppyDrive::DriveIsEmpty(uint8_t driveNum/*= 0*/)
 {
 	if (driveNum > 1)
 	{
@@ -539,7 +539,7 @@ bool FloppyDrive::DriveIsEmpty(uint8 driveNum/*= 0*/)
 	return (imageName[driveNum][0] == 0 ? true : false);
 }
 
-bool FloppyDrive::DiskIsWriteProtected(uint8 driveNum/*= 0*/)
+bool FloppyDrive::DiskIsWriteProtected(uint8_t driveNum/*= 0*/)
 {
 	if (driveNum > 1)
 	{
@@ -550,7 +550,7 @@ bool FloppyDrive::DiskIsWriteProtected(uint8 driveNum/*= 0*/)
 	return writeProtected[driveNum];
 }
 
-void FloppyDrive::SetWriteProtect(bool state, uint8 driveNum/*= 0*/)
+void FloppyDrive::SetWriteProtect(bool state, uint8_t driveNum/*= 0*/)
 {
 	if (driveNum > 1)
 	{
@@ -575,7 +575,7 @@ also more versatile and can represent the older 13-sector disks, many copy-prote
 other unusual encodings.
 */
 
-void FloppyDrive::ControlStepper(uint8 addr)
+void FloppyDrive::ControlStepper(uint8_t addr)
 {
 	// $C0E0 - 7
 /*
@@ -585,7 +585,7 @@ bit 0 is the "do something" bit.
 */
 	if (addr & 0x01)
 	{
-		uint8 newPhase = (addr >> 1) & 0x03;
+		uint8_t newPhase = (addr >> 1) & 0x03;
 //WriteLog("*** Stepper change [%u]: track = %u, phase = %u, newPhase = %u\n", addr, track, phase, newPhase);
 
 		if (((phase + 1) & 0x03) == newPhase)
@@ -606,19 +606,19 @@ SpawnMessage("Stepping to track %u...", track);
 //	return something if read mode...
 }
 
-void FloppyDrive::ControlMotor(uint8 addr)
+void FloppyDrive::ControlMotor(uint8_t addr)
 {
 	// $C0E8 - 9
 	motorOn = addr;
 }
 
-void FloppyDrive::DriveEnable(uint8 addr)
+void FloppyDrive::DriveEnable(uint8_t addr)
 {
 	// $C0EA - B
 	activeDrive = addr;
 }
 
-uint8 FloppyDrive::ReadWrite(void)
+uint8_t FloppyDrive::ReadWrite(void)
 {
 SpawnMessage("%u:%sing %s track %u, sector %u...", activeDrive,
 	(ioMode == IO_MODE_READ ? "Read" : "Write"),
@@ -644,20 +644,20 @@ Which we now do. :-)
 			return 0;//is this more like it?
 	}
 
-	uint8 diskByte = nybblizedImage[activeDrive][(track * 6656) + currentPos];
+	uint8_t diskByte = nybblizedImage[activeDrive][(track * 6656) + currentPos];
 	currentPos = (currentPos + 1) % 6656;
 
 //WriteLog("FL: diskByte=%02X, currentPos=%u\n", diskByte, currentPos);
 	return diskByte;
 }
 
-uint8 FloppyDrive::GetLatchValue(void)
+uint8_t FloppyDrive::GetLatchValue(void)
 {
 	// $C0ED
 	return latchValue;
 }
 
-void FloppyDrive::SetLatchValue(uint8 value)
+void FloppyDrive::SetLatchValue(uint8_t value)
 {
 	// $C0ED
 	latchValue = value;

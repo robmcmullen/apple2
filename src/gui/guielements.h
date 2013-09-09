@@ -7,7 +7,7 @@
 #ifndef __GUIELEMENTS_H__
 #define __GUIELEMENTS_H__
 
-#include "types.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,10 +28,10 @@ struct Bitmap {
 //NOTE: 32-bit pixels are in the format of ABGR...
 //      This may not be endian safe... Mac users?
 //Using the GIMP C style bitmap is portable in that it's specified in bytes
-//but we can cast it in uint32s and thus it will display correctly regardless of
+//but we can cast it in uint32_ts and thus it will display correctly regardless of
 //the underlying endianess. At least, in theory. ;-)
 
-uint32 mousePic[] = {
+uint32_t mousePic[] = {
 	6, 8,
 
 	0xFF00FF00,0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,		// +
@@ -63,7 +63,7 @@ uint32 mousePic[] = {
 */
 };
 
-uint32 upArrowBox[] = {
+uint32_t upArrowBox[] = {
 	8, 8,
 
 	0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,		// ++++++++
@@ -76,7 +76,7 @@ uint32 upArrowBox[] = {
 	0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400			// ........
 };
 
-uint32 downArrowBox[] = {
+uint32_t downArrowBox[] = {
 	8, 8,
 
 	0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,		// ++++++++
@@ -134,7 +134,7 @@ static const struct {
   "\0",
 };
 
-uint32 pushButtonUp[] = {
+uint32_t pushButtonUp[] = {
 	8, 8,
 
 	0x00000000, 0xFF1B1B1B, 0xFF545477, 0xFF525292, 0xFF474787, 0xFF363659, 0xFF0F0F0F, 0x00000000,
@@ -147,7 +147,7 @@ uint32 pushButtonUp[] = {
 	0x00000000, 0xFF0D0D0D, 0xFF343456, 0xFF3D3D80, 0xFF3D3D82, 0xFF333358, 0xFF0D0D0D, 0x00000000
 };
 
-uint8 pbuAlpha[] = {
+uint8_t pbuAlpha[] = {
 	0xFF, 0xE4, 0xA0, 0x99, 0xA4, 0xBE, 0xF0, 0xFF, 
 	0xE3, 0x85, 0x00, 0x00, 0x00, 0x00, 0xAF, 0xF0, 
 	0x9F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 
@@ -204,7 +204,7 @@ static const struct {
   "yy\343xxx\303xxx\177sss\35\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
 };
 
-uint32 pushButtonDown[] = {
+uint32_t pushButtonDown[] = {
 	8, 8,
 
 	0x00000000, 0xFF1B1B1B, 0xFF8B8B90, 0xFF8C8CAF, 0xFF767699, 0xFF56565B, 0xFF0F0F0F, 0x00000000,
@@ -217,7 +217,7 @@ uint32 pushButtonDown[] = {
 	0x00000000, 0xFF101010, 0xFF4E4E55, 0xFF5B5B83, 0xFF5B5B84, 0xFF4D4D54, 0xFF101010, 0x00000000
 };
 
-uint8 pbdAlpha[] = {
+uint8_t pbdAlpha[] = {
 	0xFF, 0xE4, 0x72, 0x68, 0x7E, 0xA7, 0xF0, 0xFF, 
 	0xE4, 0x3E, 0x00, 0x00, 0x00, 0x00, 0x93, 0xF0, 
 	0x71, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, 
@@ -228,7 +228,7 @@ uint8 pbdAlpha[] = {
 	0xFF, 0xEF, 0xAE, 0x98, 0x97, 0xAF, 0xEF, 0xFF
 };
 
-uint32 slideSwitchUp[] = {
+uint32_t slideSwitchUp[] = {
 	8, 16,
 
 //0C7F -> 000011 00011 11111 -> 0000 1100 0001 1000 1111 1111 -> 0C 18 FF
@@ -250,7 +250,7 @@ uint32 slideSwitchUp[] = {
 	0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400,0xFFBD8400			// ........
 };
 
-uint32 slideSwitchDown[] = {
+uint32_t slideSwitchDown[] = {
 	8, 16,
 
 	0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,0xFFF7D649,		// ++++++++
@@ -274,7 +274,7 @@ uint32 slideSwitchDown[] = {
 #define CLOSEBOX_WIDTH		15
 #define CLOSEBOX_HEIGHT		15
 
-uint32 closeBox[] = {
+uint32_t closeBox[] = {
 	15, 15,
 
 	0x00000000, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0x00000000, 
@@ -294,7 +294,7 @@ uint32 closeBox[] = {
 	0x00000000, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0x00000000
 };
 
-uint32 closeBoxHover[] = {
+uint32_t closeBoxHover[] = {
 	15, 15,
 
 	0x00000000, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0x00000000, 
@@ -314,7 +314,7 @@ uint32 closeBoxHover[] = {
 	0x00000000, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0x00000000
 };
 
-uint32 closeBoxDown[] = {
+uint32_t closeBoxDown[] = {
 	15, 15,
 
 	0x00000000, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0xFF3838ED, 0x00000000, 

@@ -8,8 +8,8 @@
 #ifndef __DIS65C02_H__
 #define __DIS65C02_H__
 
-#include "types.h"
+#include <stdint.h>
 
-int Decode65C02(uint16 pc);
+int Decode65C02(uint16_t pc);
 
 #endif	// __DIS65C02_H__

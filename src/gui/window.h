@@ -15,12 +15,12 @@ class Button;									// Forward declaration
 class Window: public Element
 {
 	public:
-		Window(uint32 x = 0, uint32 y = 0, uint32 w = 0, uint32 h = 0,
+		Window(uint32_t x = 0, uint32_t y = 0, uint32_t w = 0, uint32_t h = 0,
 			void (* f)(Element *) = NULL);
 		~Window(); //Does this destructor need to be virtual? Not sure... Check!
-		virtual void HandleKey(SDLKey key);
-		virtual void HandleMouseMove(uint32 x, uint32 y);
-		virtual void HandleMouseButton(uint32 x, uint32 y, bool mouseDown);
+		virtual void HandleKey(SDL_Scancode key);
+		virtual void HandleMouseMove(uint32_t x, uint32_t y);
+		virtual void HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown);
 		virtual void Draw(void);
 		virtual void Notify(Element *);
 		void AddElement(Element * e);
@@ -33,7 +33,7 @@ class Window: public Element
 		std::vector<Element *> list;
 
 	private:
-		uint16 cbWidth, cbHeight;
+		uint16_t cbWidth, cbHeight;
 		SDL_Surface * cbUp, * cbDown, * cbHover;
 		bool drawBackground;
 };

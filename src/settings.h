@@ -12,26 +12,26 @@
 #else
 #include <stdlib.h>								// for MAX_PATH on MinGW/Darwin
 #endif
-#include "types.h"
+#include <stdint.h>
 
 // Settings struct
 
 struct Settings
 {
 	bool useJoystick;
-	int32 joyport;								// Joystick port
+	int32_t joyport;								// Joystick port
 	bool hardwareTypeNTSC;						// Set to false for PAL
 	bool fullscreen;
 	bool useOpenGL;
-	uint32 glFilter;
-	uint32 frameSkip;
-	uint32 renderType;
+	uint32_t glFilter;
+	uint32_t frameSkip;
+	uint32_t renderType;
 	bool autoStateSaving;						// Auto-state loading/saving on entry/exit
 	
 	// Keybindings in order of U, D, L, R, C, B, A, Op, Pa, 0-9, #, *
 
-	uint16 p1KeyBindings[21];
-	uint16 p2KeyBindings[21];
+	uint16_t p1KeyBindings[21];
+	uint16_t p2KeyBindings[21];
 
 	// Paths
 
@@ -58,3 +58,4 @@ void SaveSettings(void);
 extern Settings settings;
 
 #endif	// __SETTINGS_H__
+

@@ -38,9 +38,9 @@
 #define SET_N(r)			(regs.cc = ((r) & 0x80 ? regs.cc | FLAG_N : regs.cc & ~FLAG_N))
 
 //Not sure that this code is computing the carry correctly... Investigate! [Seems to be]
-#define SET_C_ADD(a,b)		(regs.cc = ((uint8)(b) > (uint8)(~(a)) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
-//#define SET_C_SUB(a,b)		(regs.cc = ((uint8)(b) >= (uint8)(a) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
-#define SET_C_CMP(a,b)		(regs.cc = ((uint8)(b) >= (uint8)(a) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
+#define SET_C_ADD(a,b)		(regs.cc = ((uint8_t)(b) > (uint8_t)(~(a)) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
+//#define SET_C_SUB(a,b)		(regs.cc = ((uint8_t)(b) >= (uint8_t)(a) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
+#define SET_C_CMP(a,b)		(regs.cc = ((uint8_t)(b) >= (uint8_t)(a) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
 #define SET_ZN(r)			SET_N(r); SET_Z(r)
 #define SET_ZNC_ADD(a,b,r)	SET_N(r); SET_Z(r); SET_C_ADD(a,b)
 //#define SET_ZNC_SUB(a,b,r)	SET_N(r); SET_Z(r); SET_C_SUB(a,b)
@@ -74,15 +74,15 @@
 #define READ_IND_ZP_Y		regs.RdMem(EA_IND_ZP_Y)
 #define READ_IND_ZP			regs.RdMem(EA_IND_ZP)
 
-#define READ_IMM_WB(v)		uint16 addr = EA_IMM;      v = regs.RdMem(addr)
-#define READ_ZP_WB(v)		uint16 addr = EA_ZP;       v = regs.RdMem(addr)
-#define READ_ZP_X_WB(v)		uint16 addr = EA_ZP_X;     v = regs.RdMem(addr)
-#define READ_ABS_WB(v)		uint16 addr = EA_ABS;      v = regs.RdMem(addr)
-#define READ_ABS_X_WB(v)	uint16 addr = EA_ABS_X;    v = regs.RdMem(addr)
-#define READ_ABS_Y_WB(v)	uint16 addr = EA_ABS_Y;    v = regs.RdMem(addr)
-#define READ_IND_ZP_X_WB(v)	uint16 addr = EA_IND_ZP_X; v = regs.RdMem(addr)
-#define READ_IND_ZP_Y_WB(v)	uint16 addr = EA_IND_ZP_Y; v = regs.RdMem(addr)
-#define READ_IND_ZP_WB(v)	uint16 addr = EA_IND_ZP;   v = regs.RdMem(addr)
+#define READ_IMM_WB(v)		uint16_t addr = EA_IMM;      v = regs.RdMem(addr)
+#define READ_ZP_WB(v)		uint16_t addr = EA_ZP;       v = regs.RdMem(addr)
+#define READ_ZP_X_WB(v)		uint16_t addr = EA_ZP_X;     v = regs.RdMem(addr)
+#define READ_ABS_WB(v)		uint16_t addr = EA_ABS;      v = regs.RdMem(addr)
+#define READ_ABS_X_WB(v)	uint16_t addr = EA_ABS_X;    v = regs.RdMem(addr)
+#define READ_ABS_Y_WB(v)	uint16_t addr = EA_ABS_Y;    v = regs.RdMem(addr)
+#define READ_IND_ZP_X_WB(v)	uint16_t addr = EA_IND_ZP_X; v = regs.RdMem(addr)
+#define READ_IND_ZP_Y_WB(v)	uint16_t addr = EA_IND_ZP_Y; v = regs.RdMem(addr)
+#define READ_IND_ZP_WB(v)	uint16_t addr = EA_IND_ZP;   v = regs.RdMem(addr)
 
 #define WRITE_BACK(d)		regs.WrMem(addr, (d))
 
@@ -94,7 +94,7 @@ static V65C02REGS regs;
 //Also this doesn't take into account the extra cycle it takes when an indirect fetch
 //(ABS, ABS X/Y, ZP) crosses a page boundary, or extra cycle for BCD add/subtract...
 #warning "Cycle counts are not accurate--!!! FIX !!!"
-static uint8 CPUCycles[256] = {
+static uint8_t CPUCycles[256] = {
 #if 0
 	7, 6, 1, 1, 5, 3, 5, 1, 3, 2, 2, 1, 6, 4, 6, 1,
 	2, 5, 5, 1, 5, 4, 6, 1, 2, 4, 2, 1, 6, 4, 6, 1,
@@ -131,7 +131,7 @@ static uint8 CPUCycles[256] = {
 	2, 5, 5, 2, 4, 4, 6, 2, 2, 4, 4, 2, 4, 4, 6, 2 };
 #endif
 
-static uint8 _6502Cycles[256] = {
+static uint8_t _6502Cycles[256] = {
 	7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
 	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 6, 7,
 	6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 4, 2, 6, 6,
@@ -149,7 +149,7 @@ static uint8 _6502Cycles[256] = {
 	2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,
 	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 6, 7 };
 
-static uint8 _65C02Cycles[256] = {
+static uint8_t _65C02Cycles[256] = {
 	7, 6, 2, 2, 5, 3, 5, 2, 3, 2, 2, 2, 6, 4, 6, 2,
 	2, 5, 5, 2, 5, 4, 6, 2, 2, 4, 2, 2, 6, 4, 6, 2,
 	6, 6, 2, 2, 3, 3, 5, 2, 4, 2, 2, 2, 4, 2, 6, 2,
@@ -712,24 +712,24 @@ static uint8 _65C02Cycles[256] = {
 
 // Private function prototypes
 
-static uint16 RdMemW(uint16);
-static uint16 FetchMemW(uint16 addr);
+static uint16_t RdMemW(uint16_t);
+static uint16_t FetchMemW(uint16_t addr);
 
 //
-// Read a uint16 out of 65C02 memory (big endian format)
+// Read a uint16_t out of 65C02 memory (big endian format)
 //
-static inline uint16 RdMemW(uint16 address)
+static inline uint16_t RdMemW(uint16_t address)
 {
-	return (uint16)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
+	return (uint16_t)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
 }
 
 //
-// Read a uint16 out of 65C02 memory (big endian format) and increment PC
+// Read a uint16_t out of 65C02 memory (big endian format) and increment PC
 //
-static inline uint16 FetchMemW(uint16 address)
+static inline uint16_t FetchMemW(uint16_t address)
 {
 	regs.pc += 2;
-	return (uint16)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
+	return (uint16_t)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
 }
 
 
@@ -760,7 +760,7 @@ ADC			Immediate		ADC #Oper	69		2		2
 
 //This is non-optimal, but it works--optimize later. :-)
 #define OP_ADC_HANDLER(m) \
-	uint16 sum = (uint16)regs.a + (m) + (uint16)(regs.cc & FLAG_C); \
+	uint16_t sum = (uint16_t)regs.a + (m) + (uint16_t)(regs.cc & FLAG_C); \
 \
 	if (regs.cc & FLAG_D) \
 	{ \
@@ -780,55 +780,55 @@ ADC			Immediate		ADC #Oper	69		2		2
 
 static void Op69(void)							// ADC #
 {
-	uint16 m = READ_IMM;
+	uint16_t m = READ_IMM;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op65(void)							// ADC ZP
 {
-	uint16 m = READ_ZP;
+	uint16_t m = READ_ZP;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op75(void)							// ADC ZP, X
 {
-	uint16 m = READ_ZP_X;
+	uint16_t m = READ_ZP_X;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op6D(void)							// ADC ABS
 {
-	uint16 m = READ_ABS;
+	uint16_t m = READ_ABS;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op7D(void)							// ADC ABS, X
 {
-	uint16 m = READ_ABS_X;
+	uint16_t m = READ_ABS_X;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op79(void)							// ADC ABS, Y
 {
-	uint16 m = READ_ABS_Y;
+	uint16_t m = READ_ABS_Y;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op61(void)							// ADC (ZP, X)
 {
-	uint16 m = READ_IND_ZP_X;
+	uint16_t m = READ_IND_ZP_X;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op71(void)							// ADC (ZP), Y
 {
-	uint16 m = READ_IND_ZP_Y;
+	uint16_t m = READ_IND_ZP_Y;
 	OP_ADC_HANDLER(m);
 }
 
 static void Op72(void)							// ADC (ZP)
 {
-	uint16 m = READ_IND_ZP;
+	uint16_t m = READ_IND_ZP;
 	OP_ADC_HANDLER(m);
 }
 
@@ -852,55 +852,55 @@ Absolute,Y		AND Abs,Y	39	3	4
 
 static void Op29(void)							// AND #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_AND_HANDLER(m);
 }
 
 static void Op25(void)							// AND ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_AND_HANDLER(m);
 }
 
 static void Op35(void)							// AND ZP, X
 {
-	uint8 m = READ_ZP_X;
+	uint8_t m = READ_ZP_X;
 	OP_AND_HANDLER(m);
 }
 
 static void Op2D(void)							// AND ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_AND_HANDLER(m);
 }
 
 static void Op3D(void)							// AND ABS, X
 {
-	uint8 m = READ_ABS_X;
+	uint8_t m = READ_ABS_X;
 	OP_AND_HANDLER(m);
 }
 
 static void Op39(void)							// AND ABS, Y
 {
-	uint8 m = READ_ABS_Y;
+	uint8_t m = READ_ABS_Y;
 	OP_AND_HANDLER(m);
 }
 
 static void Op21(void)							// AND (ZP, X)
 {
-	uint8 m = READ_IND_ZP_X;
+	uint8_t m = READ_IND_ZP_X;
 	OP_AND_HANDLER(m);
 }
 
 static void Op31(void)							// AND (ZP), Y
 {
-	uint8 m = READ_IND_ZP_Y;
+	uint8_t m = READ_IND_ZP_Y;
 	OP_AND_HANDLER(m);
 }
 
 static void Op32(void)							// AND (ZP)
 {
-	uint8 m = READ_IND_ZP;
+	uint8_t m = READ_IND_ZP;
 	OP_AND_HANDLER(m);
 }
 
@@ -914,7 +914,7 @@ Absolute,X		ASL Abs,X	1E	3	7
 
 /*static void Op78(void)  // LSL ABS
 {
-	uint8 tmp;  uint16 addr;
+	uint8_t tmp;  uint16_t addr;
 	addr = FetchW();
 	tmp = regs.RdMem(addr);
 	(tmp&0x80 ? regs.cc |= 0x01 : regs.cc &= 0xFE);  // Shift hi bit into Carry
@@ -938,7 +938,7 @@ static void Op0A(void)							// ASL A
 
 static void Op06(void)							// ASL ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_ASL_HANDLER(m);
 	WRITE_BACK(m);
@@ -946,7 +946,7 @@ static void Op06(void)							// ASL ZP
 
 static void Op16(void)							// ASL ZP, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_X_WB(m);
 	OP_ASL_HANDLER(m);
 	WRITE_BACK(m);
@@ -954,7 +954,7 @@ static void Op16(void)							// ASL ZP, X
 
 static void Op0E(void)							// ASL ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_ASL_HANDLER(m);
 	WRITE_BACK(m);
@@ -962,7 +962,7 @@ static void Op0E(void)							// ASL ABS
 
 static void Op1E(void)							// ASL ABS, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_X_WB(m);
 	OP_ASL_HANDLER(m);
 	WRITE_BACK(m);
@@ -991,7 +991,7 @@ BBS7	Relative	BBS7 Oper	FF	2	2
 
 static void Op0F(void)							// BBR0
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x01))
 		regs.pc += m;
@@ -999,7 +999,7 @@ static void Op0F(void)							// BBR0
 
 static void Op1F(void)							// BBR1
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x02))
 		regs.pc += m;
@@ -1007,7 +1007,7 @@ static void Op1F(void)							// BBR1
 
 static void Op2F(void)							// BBR2
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x04))
 		regs.pc += m;
@@ -1015,7 +1015,7 @@ static void Op2F(void)							// BBR2
 
 static void Op3F(void)							// BBR3
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x08))
 		regs.pc += m;
@@ -1023,7 +1023,7 @@ static void Op3F(void)							// BBR3
 
 static void Op4F(void)							// BBR4
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x10))
 		regs.pc += m;
@@ -1031,7 +1031,7 @@ static void Op4F(void)							// BBR4
 
 static void Op5F(void)							// BBR5
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x20))
 		regs.pc += m;
@@ -1039,7 +1039,7 @@ static void Op5F(void)							// BBR5
 
 static void Op6F(void)							// BBR6
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x40))
 		regs.pc += m;
@@ -1047,7 +1047,7 @@ static void Op6F(void)							// BBR6
 
 static void Op7F(void)							// BBR7
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.a & 0x80))
 		regs.pc += m;
@@ -1055,7 +1055,7 @@ static void Op7F(void)							// BBR7
 
 static void Op8F(void)							// BBS0
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x01)
 		regs.pc += m;
@@ -1063,7 +1063,7 @@ static void Op8F(void)							// BBS0
 
 static void Op9F(void)							// BBS1
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x02)
 		regs.pc += m;
@@ -1071,7 +1071,7 @@ static void Op9F(void)							// BBS1
 
 static void OpAF(void)							// BBS2
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x04)
 		regs.pc += m;
@@ -1079,7 +1079,7 @@ static void OpAF(void)							// BBS2
 
 static void OpBF(void)							// BBS3
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x08)
 		regs.pc += m;
@@ -1087,7 +1087,7 @@ static void OpBF(void)							// BBS3
 
 static void OpCF(void)							// BBS4
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x10)
 		regs.pc += m;
@@ -1095,7 +1095,7 @@ static void OpCF(void)							// BBS4
 
 static void OpDF(void)							// BBS5
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x20)
 		regs.pc += m;
@@ -1103,7 +1103,7 @@ static void OpDF(void)							// BBS5
 
 static void OpEF(void)							// BBS6
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x40)
 		regs.pc += m;
@@ -1111,7 +1111,7 @@ static void OpEF(void)							// BBS6
 
 static void OpFF(void)							// BBS7
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.a & 0x80)
 		regs.pc += m;
@@ -1127,7 +1127,7 @@ BEQ	Relative	BEQ Oper	F0	2	2
 
 #define HANDLE_BRANCH_TAKEN(m)      \
 {                                   \
-	uint16 oldpc = regs.pc;         \
+	uint16_t oldpc = regs.pc;         \
 	regs.pc += m;                   \
 	regs.clock++;                   \
 	if ((oldpc ^ regs.pc) & 0xFF00) \
@@ -1138,7 +1138,7 @@ BEQ	Relative	BEQ Oper	F0	2	2
 
 static void Op90(void)							// BCC
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.cc & FLAG_C))
 		HANDLE_BRANCH_TAKEN(m)
@@ -1147,7 +1147,7 @@ static void Op90(void)							// BCC
 
 static void OpB0(void)							// BCS
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.cc & FLAG_C)
 		HANDLE_BRANCH_TAKEN(m)
@@ -1156,7 +1156,7 @@ static void OpB0(void)							// BCS
 
 static void OpF0(void)							// BEQ
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.cc & FLAG_Z)
 		HANDLE_BRANCH_TAKEN(m)
@@ -1178,39 +1178,39 @@ Absolute,X		BIT Abs,X	3C	3	4
       Z flag is set appropriately. */
 
 #define OP_BIT_HANDLER(m) \
-	int8 result = regs.a & (m); \
+	int8_t result = regs.a & (m); \
 	regs.cc &= ~(FLAG_N | FLAG_V); \
 	regs.cc |= ((m) & 0xC0); \
 	SET_Z(result)
 
 static void Op89(void)							// BIT #
 {
-	int8 m = READ_IMM;
-	int8 result = regs.a & m;
+	int8_t m = READ_IMM;
+	int8_t result = regs.a & m;
 	SET_Z(result);
 }
 
 static void Op24(void)							// BIT ZP
 {
-	int8 m = READ_ZP;
+	int8_t m = READ_ZP;
 	OP_BIT_HANDLER(m);
 }
 
 static void Op34(void)							// BIT ZP, X
 {
-	uint8 m = READ_ZP_X;
+	uint8_t m = READ_ZP_X;
 	OP_BIT_HANDLER(m);
 }
 
 static void Op2C(void)							// BIT ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_BIT_HANDLER(m);
 }
 
 static void Op3C(void)							// BIT ABS, X
 {
-	uint8 m = READ_ABS_X;
+	uint8_t m = READ_ABS_X;
 	OP_BIT_HANDLER(m);
 }
 
@@ -1225,7 +1225,7 @@ BRA	Relative	BRA Oper	80	2	3
 
 static void Op30(void)							// BMI
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.cc & FLAG_N)
 		HANDLE_BRANCH_TAKEN(m)
@@ -1234,7 +1234,7 @@ static void Op30(void)							// BMI
 
 static void OpD0(void)							// BNE
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.cc & FLAG_Z))
 		HANDLE_BRANCH_TAKEN(m)
@@ -1243,7 +1243,7 @@ static void OpD0(void)							// BNE
 
 static void Op10(void)							// BPL
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.cc & FLAG_N))
 		HANDLE_BRANCH_TAKEN(m)
@@ -1252,7 +1252,7 @@ static void Op10(void)							// BPL
 
 static void Op80(void)							// BRA
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 	HANDLE_BRANCH_TAKEN(m)
 //	regs.pc += m;
 }
@@ -1282,7 +1282,7 @@ BVS	Relative	BVS Oper	70	2	2
 
 static void Op50(void)							// BVC
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (!(regs.cc & FLAG_V))
 		HANDLE_BRANCH_TAKEN(m)
@@ -1291,7 +1291,7 @@ static void Op50(void)							// BVC
 
 static void Op70(void)							// BVS
 {
-	int16 m = (int16)(int8)READ_IMM;
+	int16_t m = (int16_t)(int8_t)READ_IMM;
 
 	if (regs.cc & FLAG_V)
 		HANDLE_BRANCH_TAKEN(m)
@@ -1375,60 +1375,60 @@ Compare sets flags as if a subtraction had been carried out. If the value in the
 */
 
 #define OP_CMP_HANDLER(m) \
-	uint8 result = regs.a - (m); \
+	uint8_t result = regs.a - (m); \
 	SET_ZNC_CMP(m, regs.a, result)
 
 static void OpC9(void)							// CMP #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpC5(void)							// CMP ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpD5(void)							// CMP ZP, X
 {
-	uint8 m = READ_ZP_X;
+	uint8_t m = READ_ZP_X;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpCD(void)							// CMP ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpDD(void)							// CMP ABS, X
 {
-	uint8 m = READ_ABS_X;
+	uint8_t m = READ_ABS_X;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpD9(void)							// CMP ABS, Y
 {
-	uint8 m = READ_ABS_Y;
+	uint8_t m = READ_ABS_Y;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpC1(void)							// CMP (ZP, X)
 {
-	uint8 m = READ_IND_ZP_X;
+	uint8_t m = READ_IND_ZP_X;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpD1(void)							// CMP (ZP), Y
 {
-	uint8 m = READ_IND_ZP_Y;
+	uint8_t m = READ_IND_ZP_Y;
 	OP_CMP_HANDLER(m);
 }
 
 static void OpD2(void)							// CMP (ZP)
 {
-	uint8 m = READ_IND_ZP;
+	uint8_t m = READ_IND_ZP;
 	OP_CMP_HANDLER(m);
 }
 
@@ -1441,24 +1441,24 @@ Absolute		CPX Abs		EC	3	4
 // CPX opcodes
 
 #define OP_CPX_HANDLER(m) \
-	uint8 result = regs.x - (m); \
+	uint8_t result = regs.x - (m); \
 	SET_ZNC_CMP(m, regs.x, result)
 
 static void OpE0(void)							// CPX #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_CPX_HANDLER(m);
 }
 
 static void OpE4(void)							// CPX ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_CPX_HANDLER(m);
 }
 
 static void OpEC(void)							// CPX ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_CPX_HANDLER(m);
 }
 
@@ -1471,24 +1471,24 @@ Absolute		CPY Abs		CC	3	4
 // CPY opcodes
 
 #define OP_CPY_HANDLER(m) \
-	uint8 result = regs.y - (m); \
+	uint8_t result = regs.y - (m); \
 	SET_ZNC_CMP(m, regs.y, result)
 
 static void OpC0(void)							// CPY #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_CPY_HANDLER(m);
 }
 
 static void OpC4(void)							// CPY ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_CPY_HANDLER(m);
 }
 
 static void OpCC(void)							// CPY ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_CPY_HANDLER(m);
 }
 
@@ -1517,7 +1517,7 @@ Absolute,X		DEC Abs,X	DE	3	7
 
 static void OpC6(void)							// DEC ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_DEC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1525,7 +1525,7 @@ static void OpC6(void)							// DEC ZP
 
 static void OpD6(void)							// DEC ZP, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_X_WB(m);
 	OP_DEC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1533,7 +1533,7 @@ static void OpD6(void)							// DEC ZP, X
 
 static void OpCE(void)							// DEC ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_DEC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1541,7 +1541,7 @@ static void OpCE(void)							// DEC ABS
 
 static void OpDE(void)							// DEC ABS, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_X_WB(m);
 	OP_DEC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1601,55 +1601,55 @@ Absolute,Y		EOR Abs,Y	59	3	4
 
 static void Op49(void)							// EOR #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op45(void)							// EOR ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op55(void)							// EOR ZP, X
 {
-	uint8 m = READ_ZP_X;
+	uint8_t m = READ_ZP_X;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op4D(void)							// EOR ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op5D(void)							// EOR ABS, X
 {
-	uint8 m = READ_ABS_X;
+	uint8_t m = READ_ABS_X;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op59(void)							// EOR ABS, Y
 {
-	uint8 m = READ_ABS_Y;
+	uint8_t m = READ_ABS_Y;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op41(void)							// EOR (ZP, X)
 {
-	uint8 m = READ_IND_ZP_X;
+	uint8_t m = READ_IND_ZP_X;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op51(void)							// EOR (ZP), Y
 {
-	uint8 m = READ_IND_ZP_Y;
+	uint8_t m = READ_IND_ZP_Y;
 	OP_EOR_HANDLER(m);
 }
 
 static void Op52(void)							// EOR (ZP)
 {
-	uint8 m = READ_IND_ZP;
+	uint8_t m = READ_IND_ZP;
 	OP_EOR_HANDLER(m);
 }
 
@@ -1678,7 +1678,7 @@ Absolute,X		INC Abs,X	FE	3	7
 
 static void OpE6(void)							// INC ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_INC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1686,7 +1686,7 @@ static void OpE6(void)							// INC ZP
 
 static void OpF6(void)							// INC ZP, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_X_WB(m);
 	OP_INC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1694,7 +1694,7 @@ static void OpF6(void)							// INC ZP, X
 
 static void OpEE(void)							// INC ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_INC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1702,7 +1702,7 @@ static void OpEE(void)							// INC ABS
 
 static void OpFE(void)							// INC ABS, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_X_WB(m);
 	OP_INC_HANDLER(m);
 	WRITE_BACK(m);
@@ -1743,7 +1743,7 @@ static void Op4C(void)							// JMP ABS
 
 static void Op6C(void)							// JMP (ABS)
 {
-//	uint16 addr = RdMemW(regs.pc);
+//	uint16_t addr = RdMemW(regs.pc);
 //#ifdef __DEBUG__
 //WriteLog("\n[JMP ABS]: addr fetched = %04X, bytes at %04X = %02X %02X (RdMemw=%04X)\n",
 //	addr, addr, regs.RdMem(addr), regs.RdMem(addr+1), RdMemW(addr));
@@ -1764,7 +1764,7 @@ JSR	Absolute	JSR Abs		20	3	6
 //This is not jumping to the correct address... !!! FIX !!! [DONE]
 static void Op20(void)							// JSR
 {
-	uint16 addr = RdMemW(regs.pc);
+	uint16_t addr = RdMemW(regs.pc);
 	regs.pc++;									// Since it pushes return address - 1...
 	regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);
 	regs.WrMem(0x0100 + regs.sp--, regs.pc & 0xFF);
@@ -1791,55 +1791,55 @@ Absolute,Y		LDA Abs,Y	B9	3	4
 
 static void OpA9(void)							// LDA #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpA5(void)							// LDA ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpB5(void)							// LDA ZP, X
 {
-	uint8 m = READ_ZP_X;
+	uint8_t m = READ_ZP_X;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpAD(void)							// LDA ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpBD(void)							// LDA ABS, X
 {
-	uint8 m = READ_ABS_X;
+	uint8_t m = READ_ABS_X;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpB9(void)							// LDA ABS, Y
 {
-	uint8 m = READ_ABS_Y;
+	uint8_t m = READ_ABS_Y;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpA1(void)							// LDA (ZP, X)
 {
-	uint8 m = READ_IND_ZP_X;
+	uint8_t m = READ_IND_ZP_X;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpB1(void)							// LDA (ZP), Y
 {
-	uint8 m = READ_IND_ZP_Y;
+	uint8_t m = READ_IND_ZP_Y;
 	OP_LDA_HANDLER(m);
 }
 
 static void OpB2(void)							// LDA (ZP)
 {
-	uint8 m = READ_IND_ZP;
+	uint8_t m = READ_IND_ZP;
 	OP_LDA_HANDLER(m);
 }
 
@@ -1859,31 +1859,31 @@ Absolute,Y		LDX Abs,Y	BE	3	4
 
 static void OpA2(void)							// LDX #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_LDX_HANDLER(m);
 }
 
 static void OpA6(void)							// LDX ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_LDX_HANDLER(m);
 }
 
 static void OpB6(void)							// LDX ZP, Y
 {
-	uint8 m = READ_ZP_Y;
+	uint8_t m = READ_ZP_Y;
 	OP_LDX_HANDLER(m);
 }
 
 static void OpAE(void)							// LDX ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_LDX_HANDLER(m);
 }
 
 static void OpBE(void)							// LDX ABS, Y
 {
-	uint8 m = READ_ABS_Y;
+	uint8_t m = READ_ABS_Y;
 	OP_LDX_HANDLER(m);
 }
 
@@ -1903,31 +1903,31 @@ Absolute,Y		LDY Abs,X	BC	3	4
 
 static void OpA0(void)							// LDY #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_LDY_HANDLER(m);
 }
 
 static void OpA4(void)							// LDY ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_LDY_HANDLER(m);
 }
 
 static void OpB4(void)							// LDY ZP, X
 {
-	uint8 m = READ_ZP_X;
+	uint8_t m = READ_ZP_X;
 	OP_LDY_HANDLER(m);
 }
 
 static void OpAC(void)							// LDY ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_LDY_HANDLER(m);
 }
 
 static void OpBC(void)							// LDY ABS, X
 {
-	uint8 m = READ_ABS_X;
+	uint8_t m = READ_ABS_X;
 	OP_LDY_HANDLER(m);
 }
 
@@ -1953,7 +1953,7 @@ static void Op4A(void)							// LSR A
 
 static void Op46(void)							// LSR ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_LSR_HANDLER(m);
 	WRITE_BACK(m);
@@ -1961,7 +1961,7 @@ static void Op46(void)							// LSR ZP
 
 static void Op56(void)							// LSR ZP, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_X_WB(m);
 	OP_LSR_HANDLER(m);
 	WRITE_BACK(m);
@@ -1969,7 +1969,7 @@ static void Op56(void)							// LSR ZP, X
 
 static void Op4E(void)							// LSR ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_LSR_HANDLER(m);
 	WRITE_BACK(m);
@@ -1977,7 +1977,7 @@ static void Op4E(void)							// LSR ABS
 
 static void Op5E(void)							// LSR ABS, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_X_WB(m);
 	OP_LSR_HANDLER(m);
 	WRITE_BACK(m);
@@ -2011,55 +2011,55 @@ Absolute,Y		ORA Abs,Y	19	3	4
 
 static void Op09(void)							// ORA #
 {
-	uint8 m = READ_IMM;
+	uint8_t m = READ_IMM;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op05(void)							// ORA ZP
 {
-	uint8 m = READ_ZP;
+	uint8_t m = READ_ZP;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op15(void)							// ORA ZP, X
 {
-	uint8 m = READ_ZP_X;
+	uint8_t m = READ_ZP_X;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op0D(void)							// ORA ABS
 {
-	uint8 m = READ_ABS;
+	uint8_t m = READ_ABS;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op1D(void)							// ORA ABS, X
 {
-	uint8 m = READ_ABS_X;
+	uint8_t m = READ_ABS_X;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op19(void)							// ORA ABS, Y
 {
-	uint8 m = READ_ABS_Y;
+	uint8_t m = READ_ABS_Y;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op01(void)							// ORA (ZP, X)
 {
-	uint8 m = READ_IND_ZP_X;
+	uint8_t m = READ_IND_ZP_X;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op11(void)							// ORA (ZP), Y
 {
-	uint8 m = READ_IND_ZP_Y;
+	uint8_t m = READ_IND_ZP_Y;
 	OP_ORA_HANDLER(m);
 }
 
 static void Op12(void)							// ORA (ZP)
 {
-	uint8 m = READ_IND_ZP;
+	uint8_t m = READ_IND_ZP;
 	OP_ORA_HANDLER(m);
 }
 
@@ -2143,7 +2143,7 @@ The bit set and clear instructions have the form xyyy0111, where x is 0 to clear
 
 static void Op07(void)							// RMB0 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0xFE;
 	WRITE_BACK(m);
@@ -2151,7 +2151,7 @@ static void Op07(void)							// RMB0 ZP
 
 static void Op17(void)							// RMB1 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0xFD;
 	WRITE_BACK(m);
@@ -2159,7 +2159,7 @@ static void Op17(void)							// RMB1 ZP
 
 static void Op27(void)							// RMB2 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0xFB;
 	WRITE_BACK(m);
@@ -2167,7 +2167,7 @@ static void Op27(void)							// RMB2 ZP
 
 static void Op37(void)							// RMB3 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0xF7;
 	WRITE_BACK(m);
@@ -2175,7 +2175,7 @@ static void Op37(void)							// RMB3 ZP
 
 static void Op47(void)							// RMB4 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0xEF;
 	WRITE_BACK(m);
@@ -2183,7 +2183,7 @@ static void Op47(void)							// RMB4 ZP
 
 static void Op57(void)							// RMB5 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0xDF;
 	WRITE_BACK(m);
@@ -2191,7 +2191,7 @@ static void Op57(void)							// RMB5 ZP
 
 static void Op67(void)							// RMB6 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0xBF;
 	WRITE_BACK(m);
@@ -2199,7 +2199,7 @@ static void Op67(void)							// RMB6 ZP
 
 static void Op77(void)							// RMB7 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m &= 0x7F;
 	WRITE_BACK(m);
@@ -2216,7 +2216,7 @@ Absolute,X		ROL Abs,X	3E	3	7
 // ROL opcodes
 
 #define OP_ROL_HANDLER(m) \
-	uint8 tmp = regs.cc & 0x01; \
+	uint8_t tmp = regs.cc & 0x01; \
 	regs.cc = ((m) & 0x80 ? regs.cc | FLAG_C : regs.cc & ~FLAG_C); \
 	(m) = ((m) << 1) | tmp; \
 	SET_ZN((m))
@@ -2228,7 +2228,7 @@ static void Op2A(void)							// ROL A
 
 static void Op26(void)							// ROL ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_ROL_HANDLER(m);
 	WRITE_BACK(m);
@@ -2236,7 +2236,7 @@ static void Op26(void)							// ROL ZP
 
 static void Op36(void)							// ROL ZP, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_X_WB(m);
 	OP_ROL_HANDLER(m);
 	WRITE_BACK(m);
@@ -2244,7 +2244,7 @@ static void Op36(void)							// ROL ZP, X
 
 static void Op2E(void)							// ROL ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_ROL_HANDLER(m);
 	WRITE_BACK(m);
@@ -2252,7 +2252,7 @@ static void Op2E(void)							// ROL ABS
 
 static void Op3E(void)							// ROL ABS, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_X_WB(m);
 	OP_ROL_HANDLER(m);
 	WRITE_BACK(m);
@@ -2269,7 +2269,7 @@ Absolute,X		ROR Abs,X	7E	3	7
 // ROR opcodes
 
 #define OP_ROR_HANDLER(m) \
-	uint8 tmp = (regs.cc & 0x01) << 7; \
+	uint8_t tmp = (regs.cc & 0x01) << 7; \
 	regs.cc = ((m) & 0x01 ? regs.cc | FLAG_C : regs.cc & ~FLAG_C); \
 	(m) = ((m) >> 1) | tmp; \
 	SET_ZN((m))
@@ -2281,7 +2281,7 @@ static void Op6A(void)							// ROR A
 
 static void Op66(void)							// ROR ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_ROR_HANDLER(m);
 	WRITE_BACK(m);
@@ -2289,7 +2289,7 @@ static void Op66(void)							// ROR ZP
 
 static void Op76(void)							// ROR ZP, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_X_WB(m);
 	OP_ROR_HANDLER(m);
 	WRITE_BACK(m);
@@ -2297,7 +2297,7 @@ static void Op76(void)							// ROR ZP, X
 
 static void Op6E(void)							// ROR ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_ROR_HANDLER(m);
 	WRITE_BACK(m);
@@ -2305,7 +2305,7 @@ static void Op6E(void)							// ROR ABS
 
 static void Op7E(void)							// ROR ABS, X
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_X_WB(m);
 	OP_ROR_HANDLER(m);
 	WRITE_BACK(m);
@@ -2322,7 +2322,7 @@ static void Op40(void)							// RTI
 //I can't find *any* verification that this is the case.
 //	regs.cc &= ~FLAG_I;
 	regs.pc = regs.RdMem(0x0100 + ++regs.sp);
-	regs.pc |= (uint16)(regs.RdMem(0x0100 + ++regs.sp)) << 8;
+	regs.pc |= (uint16_t)(regs.RdMem(0x0100 + ++regs.sp)) << 8;
 }
 
 /*
@@ -2332,7 +2332,7 @@ RTS	Implied		RTS			60	1	6
 static void Op60(void)							// RTS
 {
 	regs.pc = regs.RdMem(0x0100 + ++regs.sp);
-	regs.pc |= (uint16)(regs.RdMem(0x0100 + ++regs.sp)) << 8;
+	regs.pc |= (uint16_t)(regs.RdMem(0x0100 + ++regs.sp)) << 8;
 	regs.pc++;									// Since it pushes return address - 1...
 //printf("*** RTS: PC = $%04X, SP= $1%02X\n", regs.pc, regs.sp);
 //fflush(stdout);
@@ -2355,7 +2355,7 @@ Absolute,Y		SBC Abs,Y	F9	3	4
 //This is non-optimal, but it works--optimize later. :-)
 //This is correct except for the BCD handling... !!! FIX !!! [Possibly DONE]
 #define OP_SBC_HANDLER(m) \
-	uint16 sum = (uint16)regs.a - (m) - (uint16)((regs.cc & FLAG_C) ^ 0x01); \
+	uint16_t sum = (uint16_t)regs.a - (m) - (uint16_t)((regs.cc & FLAG_C) ^ 0x01); \
 \
 	if (regs.cc & FLAG_D) \
 	{ \
@@ -2385,55 +2385,55 @@ Fixed. :-)
 
 static void OpE9(void)							// SBC #
 {
-	uint16 m = READ_IMM;
+	uint16_t m = READ_IMM;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpE5(void)							// SBC ZP
 {
-	uint16 m = READ_ZP;
+	uint16_t m = READ_ZP;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpF5(void)							// SBC ZP, X
 {
-	uint16 m = READ_ZP_X;
+	uint16_t m = READ_ZP_X;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpED(void)							// SBC ABS
 {
-	uint16 m = READ_ABS;
+	uint16_t m = READ_ABS;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpFD(void)							// SBC ABS, X
 {
-	uint16 m = READ_ABS_X;
+	uint16_t m = READ_ABS_X;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpF9(void)							// SBC ABS, Y
 {
-	uint16 m = READ_ABS_Y;
+	uint16_t m = READ_ABS_Y;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpE1(void)							// SBC (ZP, X)
 {
-	uint16 m = READ_IND_ZP_X;
+	uint16_t m = READ_IND_ZP_X;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpF1(void)							// SBC (ZP), Y
 {
-	uint16 m = READ_IND_ZP_Y;
+	uint16_t m = READ_IND_ZP_Y;
 	OP_SBC_HANDLER(m);
 }
 
 static void OpF2(void)							// SBC (ZP)
 {
-	uint16 m = READ_IND_ZP;
+	uint16_t m = READ_IND_ZP;
 	OP_SBC_HANDLER(m);
 }
 
@@ -2476,7 +2476,7 @@ The bit set and clear instructions have the form xyyy0111, where x is 0 to clear
 
 static void Op87(void)							// SMB0 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x01;
 	WRITE_BACK(m);
@@ -2484,7 +2484,7 @@ static void Op87(void)							// SMB0 ZP
 
 static void Op97(void)							// SMB1 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x02;
 	WRITE_BACK(m);
@@ -2492,7 +2492,7 @@ static void Op97(void)							// SMB1 ZP
 
 static void OpA7(void)							// SMB2 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x04;
 	WRITE_BACK(m);
@@ -2500,7 +2500,7 @@ static void OpA7(void)							// SMB2 ZP
 
 static void OpB7(void)							// SMB3 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x08;
 	WRITE_BACK(m);
@@ -2508,7 +2508,7 @@ static void OpB7(void)							// SMB3 ZP
 
 static void OpC7(void)							// SMB4 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x10;
 	WRITE_BACK(m);
@@ -2516,7 +2516,7 @@ static void OpC7(void)							// SMB4 ZP
 
 static void OpD7(void)							// SMB5 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x20;
 	WRITE_BACK(m);
@@ -2524,7 +2524,7 @@ static void OpD7(void)							// SMB5 ZP
 
 static void OpE7(void)							// SMB6 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x40;
 	WRITE_BACK(m);
@@ -2532,7 +2532,7 @@ static void OpE7(void)							// SMB6 ZP
 
 static void OpF7(void)							// SMB7 ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	m |= 0x80;
 	WRITE_BACK(m);
@@ -2699,7 +2699,7 @@ Absolute		TRB Abs		1C	3	6
 
 static void Op14(void)							// TRB ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_TRB_HANDLER(m);
 	WRITE_BACK(m);
@@ -2707,7 +2707,7 @@ static void Op14(void)							// TRB ZP
 
 static void Op1C(void)							// TRB ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_TRB_HANDLER(m);
 	WRITE_BACK(m);
@@ -2726,7 +2726,7 @@ Absolute		TSB Abs		0C	3	6
 
 static void Op04(void)							// TSB ZP
 {
-	uint8 m;
+	uint8_t m;
 	READ_ZP_WB(m);
 	OP_TSB_HANDLER(m);
 	WRITE_BACK(m);
@@ -2734,7 +2734,7 @@ static void Op04(void)							// TSB ZP
 
 static void Op0C(void)							// TSB ABS
 {
-	uint8 m;
+	uint8_t m;
 	READ_ABS_WB(m);
 	OP_TSB_HANDLER(m);
 	WRITE_BACK(m);
@@ -2810,11 +2810,11 @@ void (* exec_op[256])() = {
 //
 // Internal "memcpy" (so we don't have to link with any external libraries!)
 //
-static void myMemcpy(void * dst, void * src, uint32 size)
+static void myMemcpy(void * dst, void * src, uint32_t size)
 {
-	uint8 * d = (uint8 *)dst, * s = (uint8 *)src;
+	uint8_t * d = (uint8_t *)dst, * s = (uint8_t *)src;
 
-	for(uint32 i=0; i<size; i++)
+	for(uint32_t i=0; i<size; i++)
 		d[i] = s[i];
 }
 
@@ -2847,12 +2847,12 @@ bool dumpDis = false;
 
 //Note: could enforce regs.clock to zero on starting the CPU with an Init() function...
 //bleh.
-//static uint32 limit = 0;
+//static uint32_t limit = 0;
 
 //
 // Function to execute 65C02 for "cycles" cycles
 //
-void Execute65C02(V65C02REGS * context, uint32 cycles)
+void Execute65C02(V65C02REGS * context, uint32_t cycles)
 {
 	myMemcpy(&regs, context, sizeof(V65C02REGS));
 
@@ -2864,7 +2864,7 @@ void Execute65C02(V65C02REGS * context, uint32 cycles)
 /*
 	// This isn't as accurate as subtracting out cycles from regs.clock...
 	// Unless limit is a static variable, adding cycles to it each time through...
-	uint32 limit = regs.clock + cycles;
+	uint32_t limit = regs.clock + cycles;
 	while (regs.clock < limit)
 */
 // but have wraparound to deal with. :-/
@@ -2874,7 +2874,7 @@ Let's see...
 	if (regs.clock + cycles > 0xFFFFFFFF)
 		wraparound = true;
 */
-	uint64 endCycles = regs.clock + (uint64)cycles;
+	uint64_t endCycles = regs.clock + (uint64_t)cycles;
 
 	while (regs.clock < endCycles)
 	{
@@ -2928,7 +2928,7 @@ if (regs.pc == 0x2000)
 if (dumpDis)
 	Decode65C02(regs.pc);
 #endif
-		uint8 opcode = regs.RdMem(regs.pc++);
+		uint8_t opcode = regs.RdMem(regs.pc++);
 
 //if (!(regs.cpuFlags & V65C02_STATE_ILLEGAL_INST))
 //instCount[opcode]++;
@@ -3030,7 +3030,7 @@ WriteLog("\n*** IRQ ***\n\n");
 //
 // Get the clock of the currently executing CPU
 //
-uint64 GetCurrentV65C02Clock(void)
+uint64_t GetCurrentV65C02Clock(void)
 {
 	return regs.clock;
 }

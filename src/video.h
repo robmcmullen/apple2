@@ -5,8 +5,7 @@
 #ifndef __VIDEO_H__
 #define __VIDEO_H__
 
-#include <SDL.h>							// For SDL_Surface
-#include "types.h"							// For uint32
+#include <stdint.h>							// For uint32_t
 
 //#define VIRTUAL_SCREEN_WIDTH		280
 #define VIRTUAL_SCREEN_WIDTH		560
@@ -15,19 +14,13 @@
 
 bool InitVideo(void);
 void VideoDone(void);
-//void RenderBackbuffer(void);
 void RenderScreenBuffer(void);
-void FlipMainScreen(void);
-//void ResizeScreen(uint32 width, uint32 height);
-//uint32 GetSDLScreenPitch(void);
-//void ToggleFullscreen(void);
+void ToggleFullScreen(void);
 
 // Exported crap
 
-//extern uint32 scrBuffer[VIRTUAL_SCREEN_WIDTH * VIRTUAL_SCREEN_HEIGHT];
-extern uint32 * scrBuffer;
-extern uint32 * mainScrBuffer;
-extern SDL_Surface * surface;
-extern SDL_Surface * mainSurface;
+extern uint32_t scrBuffer[];
+extern uint32_t mainScrBuffer[];
 
 #endif	// __VIDEO_H__
+

@@ -43,7 +43,7 @@
 // NOTE: FG/BG colors are hard-wired
 //
 
-Window::Window(uint32 x/*= 0*/, uint32 y/*= 0*/, uint32 w/*= 0*/, uint32 h/*= 0*/,
+Window::Window(uint32_t x/*= 0*/, uint32_t y/*= 0*/, uint32_t w/*= 0*/, uint32_t h/*= 0*/,
 	void (* f)(Element *)/*= NULL*/):
 	Element(x, y, w, h, 0x4D, 0xFF, 0x84, 0xFF, 0x1F, 0x84, 0x84, 0xFF), handler(f),
 	cbWidth((closeBox[0] << 8) | closeBox[1]), cbHeight((closeBox[2] << 8) | closeBox[3]),
@@ -67,7 +67,7 @@ Window::~Window()
 #ifdef DESTRUCTOR_TESTING
 printf("Inside ~Window()...\n");
 #endif
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		if (list[i])
 			delete list[i];
 
@@ -76,9 +76,9 @@ printf("Inside ~Window()...\n");
 	SDL_FreeSurface(cbHover);
 }
 
-void Window::HandleKey(SDLKey key)
+void Window::HandleKey(SDL_Scancode key)
 {
-	if (key == SDLK_ESCAPE)
+	if (key == SDL_SCANCODE_ESCAPE)
 	{
 		SDL_Event event;
 		event.type = SDL_USEREVENT, event.user.code = WINDOW_CLOSE;
@@ -86,28 +86,28 @@ void Window::HandleKey(SDLKey key)
 	}
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->HandleKey(key);
 }
 
-void Window::HandleMouseMove(uint32 x, uint32 y)
+void Window::HandleMouseMove(uint32_t x, uint32_t y)
 {
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseMove(x - extents.x, y - extents.y);
 }
 
-void Window::HandleMouseButton(uint32 x, uint32 y, bool mouseDown)
+void Window::HandleMouseButton(uint32_t x, uint32_t y, bool mouseDown)
 {
 #if 1
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
 #else //? This works in draggablewindow2...
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 	{
 		// Make coords relative to upper right corner of this window...
 		list[i]->HandleMouseButton(x - extents.x, y - extents.y, mouseDown);
@@ -127,7 +127,7 @@ void Window::Draw(void)
 		SDL_FillRect(screen, &(*i), bgColor);
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw();
 #else
 	if (drawBackground)
@@ -140,7 +140,7 @@ void Window::Draw(void)
 		RestoreScreenFromBackstore();
 
 	// Handle the items this window contains...
-	for(uint32 i=0; i<list.size(); i++)
+	for(uint32_t i=0; i<list.size(); i++)
 		list[i]->Draw();
 #endif
 

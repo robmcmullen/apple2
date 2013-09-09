@@ -12,7 +12,6 @@ ifeq "$(OSTYPE)" "msys"							# Win32
 
 SYSTYPE    = __GCCWIN32__
 EXESUFFIX  = .exe
-GLLIB      = -lopengl32
 ICON       = obj/icon.o
 SDLLIBTYPE = --libs
 MSG        = Win32 on MinGW
@@ -23,7 +22,6 @@ ifeq "darwin" "$(findstring darwin,$(OSTYPE))"	# Should catch both 'darwin' and 
 
 SYSTYPE    = __GCCUNIX__ -D_OSX_
 EXESUFFIX  =
-GLLIB      =
 ICON       =
 SDLLIBTYPE = --static-libs
 MSG        = Mac OS X
@@ -32,7 +30,6 @@ else											# *nix
 
 SYSTYPE    = __GCCUNIX__
 EXESUFFIX  =
-GLLIB      = -lGL
 ICON       =
 SDLLIBTYPE = --libs
 MSG        = generic Unix/Linux
@@ -45,28 +42,28 @@ LD         = gcc
 TARGET     = apple2
 
 # Note that we use optimization level 2 instead of 3--3 doesn't seem to gain much over 2
-#CFLAGS   = -MMD -Wall -Wno-switch -O2 -D$(SYSTYPE) -ffast-math -fomit-frame-pointer `sdl-config --cflags`
+#CFLAGS   = -MMD -Wall -Wno-switch -O2 -D$(SYSTYPE) -ffast-math -fomit-frame-pointer `sdl2-config --cflags`
 #CPPFLAGS = -MMD -Wall -Wno-switch -Wno-non-virtual-dtor -O2 -D$(SYSTYPE) \
 # No optimization and w/gcov flags, so that we get an accurate picture from gcov
 #CFLAGS   = -MMD -Wall -Wno-switch -D$(SYSTYPE) \
-#		-ffast-math -fomit-frame-pointer `sdl-config --cflags` -fprofile-arcs -ftest-coverage
+#		-ffast-math -fomit-frame-pointer `sdl2-config --cflags` -fprofile-arcs -ftest-coverage
 #CPPFLAGS = -MMD -Wall -Wno-switch -Wno-non-virtual-dtor -D$(SYSTYPE) \
-#		-ffast-math -fomit-frame-pointer `sdl-config --cflags` -fprofile-arcs -ftest-coverage
+#		-ffast-math -fomit-frame-pointer `sdl2-config --cflags` -fprofile-arcs -ftest-coverage
 # No optimization for profiling with gprof...
 CFLAGS   = -MMD -Wall -Wno-switch -D$(SYSTYPE) \
-		-ffast-math `sdl-config --cflags` -pg -g
+		-ffast-math `sdl2-config --cflags` -pg -g
 CPPFLAGS = -MMD -Wall -Wno-switch -Wno-non-virtual-dtor -D$(SYSTYPE) \
-		-ffast-math `sdl-config --cflags` -pg -g
-#		-fomit-frame-pointer `sdl-config --cflags` -g
-#		-fomit-frame-pointer `sdl-config --cflags` -DLOG_UNMAPPED_MEMORY_ACCESSES
+		-ffast-math `sdl2-config --cflags` -pg -g
+#		-fomit-frame-pointer `sdl2-config --cflags` -g
+#		-fomit-frame-pointer `sdl2-config --cflags` -DLOG_UNMAPPED_MEMORY_ACCESSES
 
 LDFLAGS =
 
-#LIBS = -L/usr/local/lib -L/usr/lib `sdl-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB)
+#LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB)
 # Link in the gcov library (for profiling purposes)
-#LIBS = -L/usr/local/lib -L/usr/lib `sdl-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -lgcov
+#LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -lgcov
 # Link in the gprof lib
-LIBS = -L/usr/local/lib -L/usr/lib `sdl-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -pg
+LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -pg
 
 INCS = -I. -I./src -I/usr/local/include -I/usr/include
 
@@ -89,7 +86,6 @@ OBJS = \
 	obj/floppy.o          \
 	obj/log.o             \
 	obj/sdlemu_config.o   \
-	obj/sdlemu_opengl.o   \
 	obj/settings.o        \
 	obj/sound.o           \
 	obj/timing.o          \
@@ -107,11 +103,11 @@ all: checkenv message obj $(TARGET)$(EXESUFFIX)
 checkenv:
 	@echo
 	@echo -en "\033[01;33m***\033[00;32m Checking compilation environment... \033[00m"
-ifeq "" "$(shell which sdl-config)"
+ifeq "" "$(shell which sdl2-config)"
 	@echo
 	@echo
-	@echo -e "\033[01;33mIt seems that you don't have the SDL development libraries installed.
-	@echo -e "have installed them, make sure that the sdl-config file is somewhere in your"
+	@echo -e "\033[01;33mIt seems that you don't have the SDL 2 development libraries installed.
+	@echo -e "have installed them, make sure that the sdl2-config file is somewhere in your"
 	@echo -e "path and is executable.\033[00m"
 	@echo
 #Is there a better way to break out of the makefile?
@@ -165,3 +161,4 @@ $(TARGET)$(EXESUFFIX): $(OBJS)
 # The "-" in front in there just in case they haven't been created yet
 
 -include obj/*.d
+

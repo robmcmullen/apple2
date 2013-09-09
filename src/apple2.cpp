@@ -31,7 +31,7 @@
 
 #include "apple2.h"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <fstream>
 #include <string>
 #include <iomanip>
@@ -64,36 +64,36 @@
 
 // Global variables
 
-uint8 ram[0x10000], rom[0x10000];				// RAM & ROM spaces
-uint8 ram2[0x10000];
-uint8 diskRom[0x100];							// Disk ROM space
+uint8_t ram[0x10000], rom[0x10000];				// RAM & ROM spaces
+uint8_t ram2[0x10000];
+uint8_t diskRom[0x100];							// Disk ROM space
 V65C02REGS mainCPU;								// v65C02 execution context
-uint8 appleType = APPLE_TYPE_II;
+uint8_t appleType = APPLE_TYPE_II;
 FloppyDrive floppyDrive;
 
 // Local variables
 
-static uint8 lastKeyPressed = 0;
+static uint8_t lastKeyPressed = 0;
 static bool keyDown = false;
 
 //static FloppyDrive floppyDrive;
 
 enum { LC_BANK_1, LC_BANK_2 };
 
-static uint8 visibleBank = LC_BANK_1;
+static uint8_t visibleBank = LC_BANK_1;
 static bool readRAM = false;
 static bool writeRAM = false;
 
 static bool running = true;						// Machine running state flag...
-static uint32 startTicks;
+static uint32_t startTicks;
 
 static GUI * gui = NULL;
 
 // Local functions (technically, they're global...)
 
-bool LoadImg(char * filename, uint8 * ram, int size);
-uint8 RdMem(uint16 addr);
-void WrMem(uint16 addr, uint8 b);
+bool LoadImg(char * filename, uint8_t * ram, int size);
+uint8_t RdMem(uint16_t addr);
+void WrMem(uint16_t addr, uint8_t b);
 static void SaveApple2State(const char * filename);
 static bool LoadApple2State(const char * filename);
 
@@ -139,7 +139,7 @@ WriteLog("CPU: SDL_SemWait(mainSem);\n");
 #endif
 SDL_SemWait(mainSem);
 
-		uint32 cycles = 17066;
+		uint32_t cycles = 17066;
 #ifdef CPU_THREAD_OVERFLOW_COMPENSATION
 // ODD! It's closer *without* this overflow compensation. ??? WHY ???
 		overflow += 0.666666667;
@@ -241,9 +241,9 @@ $C0EE - Disk set read mode
 // V65C02 read/write memory functions
 //
 
-uint8 RdMem(uint16 addr)
+uint8_t RdMem(uint16_t addr)
 {
-	uint8 b;
+	uint8_t b;
 
 #if 0
 if (addr >= 0xC000 && addr <= 0xC0FF)
@@ -263,7 +263,7 @@ if (addr >= 0xC080 && addr <= 0xC08F)
 //This is bogus: keyDown is set to false, so return val NEVER is set...
 //Fixed...
 //Also, this is IIe/IIc only...!
-		uint8 retVal = lastKeyPressed | (keyDown ? 0x80 : 0x00);
+		uint8_t retVal = lastKeyPressed | (keyDown ? 0x80 : 0x00);
 		keyDown = false;
 		return retVal;
 	}
@@ -569,7 +569,7 @@ APPENDIX F Assembly Language Program Listings
 	13	DDRB2	EQU	$C482		;DATA DIRECTION REGISTER (B)
 	14	DDRA2	EQU	$C483		;DATA DIRECTION REGISTER (A)
 */
-void WrMem(uint16 addr, uint8 b)
+void WrMem(uint16_t addr, uint8_t b)
 {
 //temp...
 //extern V6809REGS regs;
@@ -839,7 +839,7 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 //
 // Load a file into RAM/ROM image space
 //
-bool LoadImg(char * filename, uint8 * ram, int size)
+bool LoadImg(char * filename, uint8_t * ram, int size)
 {
 	FILE * fp = fopen(filename, "rb");
 
@@ -862,9 +862,9 @@ static bool LoadApple2State(const char * filename)
 }
 
 #ifdef CPU_CLOCK_CHECKING
-uint8 counter = 0;
-uint32 totalCPU = 0;
-uint64 lastClock = 0;
+uint8_t counter = 0;
+uint32_t totalCPU = 0;
+uint64_t lastClock = 0;
 #endif
 //
 // Main loop
@@ -961,10 +961,12 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 
 	WriteLog("About to initialize audio...\n");
 	SoundInit();
-	SDL_EnableUNICODE(1);						// Needed to do key translation shit
+//nope	SDL_EnableUNICODE(1);						// Needed to do key translation shit
 
 //	gui = new GUI(surface);						// Set up the GUI system object...
-	gui = new GUI(mainSurface);					// Set up the GUI system object...
+//	gui = new GUI(mainSurface);					// Set up the GUI system object...
+// SDL 2... this will likely cause Apple 2 to crash
+//	gui = new GUI(NULL);					// Set up the GUI system object...
 #if 0
 	gui->AddMenuTitle("Apple2");
 	gui->AddMenuItem("Test!", TestWindow/*, hotkey*/);
@@ -983,7 +985,7 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 
 #ifdef THREADED_65C02
 	cpuCond = SDL_CreateCond();
-	cpuThread = SDL_CreateThread(CPUThreadFunc, NULL);
+	cpuThread = SDL_CreateThread(CPUThreadFunc, NULL, NULL);
 //Hmm... CPU does POST (+1), wait, then WAIT (-1)
 	mainSem = SDL_CreateSemaphore(1);
 //	SDL_sem * mainMutex = SDL_CreateMutex();
@@ -1118,21 +1120,25 @@ static void FrameCallback(void)
 	{
 		switch (event.type)
 		{
-		case SDL_KEYDOWN:
-			if (event.key.keysym.unicode != 0)
-			{
+		case SDL_TEXTINPUT:
+//			if (event.key.keysym.unicode != 0)
+//			{
 //Need to do some key translation here, and screen out non-apple keys as well...
-				if (event.key.keysym.sym == SDLK_TAB)	// Prelim key screening...
-					break;
+//			if (event.key.keysym.sym == SDLK_TAB)	// Prelim key screening...
+			if (event.edit.text[0] == '\t')	// Prelim key screening...
+				break;
 
-				lastKeyPressed = event.key.keysym.unicode;
-				keyDown = true;
-				//kludge: should have a caps lock thingy here...
-				//or all uppercase for ][+...
-				if (lastKeyPressed >= 'a' && lastKeyPressed <='z')
-					lastKeyPressed &= 0xDF;		// Convert to upper case...
-			}
+//				lastKeyPressed = event.key.keysym.unicode;
+			lastKeyPressed = event.edit.text[0];
+			keyDown = true;
+			//kludge: should have a caps lock thingy here...
+			//or all uppercase for ][+...
+			if (lastKeyPressed >= 'a' && lastKeyPressed <='z')
+				lastKeyPressed &= 0xDF;		// Convert to upper case...
+//			}
 
+			break;
+		case SDL_KEYDOWN:
 			// CTRL+RESET key emulation (mapped to CTRL+`)
 // This doesn't work...
 //			if (event.key.keysym.sym == SDLK_BREAK && (event.key.keysym.mod & KMOD_CTRL))
@@ -1146,12 +1152,14 @@ static void FrameCallback(void)
 				lastKeyPressed = 0x15, keyDown = true;
 			else if (event.key.keysym.sym == SDLK_LEFT)
 				lastKeyPressed = 0x08, keyDown = true;
+			else if (event.key.keysym.sym == SDLK_RETURN)
+				lastKeyPressed = 0x0D, keyDown = true;
 
 			// Use ALT+Q to exit, as well as the usual window decoration method
 			if (event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_ALT))
 				running = false;
 
-			if (event.key.keysym.sym == SDLK_F12)
+			if (event.key.keysym.sym == SDLK_F11)
 				dumpDis = !dumpDis;				// Toggle the disassembly process
 //			else if (event.key.keysym.sym == SDLK_F11)
 //				floppyDrive.LoadImage("./disks/bt1_char.dsk");//Kludge to load char disk...
@@ -1196,6 +1204,23 @@ else if (event.key.keysym.sym == SDLK_F10)
 				SpawnMessage("Volume: %s", volStr);
 			}
 
+			static bool fullscreenDebounce = false;
+
+			if (event.key.keysym.sym == SDLK_F12)
+			{
+				if (!fullscreenDebounce)
+				{
+					ToggleFullScreen();
+					fullscreenDebounce = true;
+				}
+			}
+//			else
+
+			break;
+		case SDL_KEYUP:
+			if (event.key.keysym.sym == SDLK_F12)
+				fullscreenDebounce = false;
+
 			break;
 		case SDL_QUIT:
 			running = false;
@@ -1211,10 +1236,10 @@ else if (event.key.keysym.sym == SDLK_F10)
 counter++;
 if (counter == 60)
 {
-	uint64 clock = GetCurrentV65C02Clock();
-//totalCPU += (uint32)(clock - lastClock);
+	uint64_t clock = GetCurrentV65C02Clock();
+//totalCPU += (uint32_t)(clock - lastClock);
 
-	printf("Executed %u cycles...\n", (uint32)(clock - lastClock));
+	printf("Executed %u cycles...\n", (uint32_t)(clock - lastClock));
 	lastClock = clock;
 //	totalCPU = 0;
 	counter = 0;
@@ -1254,7 +1279,7 @@ One way would be to use a fractional accumulator, then subtract 1 every
 time it overflows. Like so:
 
 double overflow = 0;
-uint32 time = 20;
+uint32_t time = 20;
 while (!done)
 {
 	Execute6808(&soundCPU, time);

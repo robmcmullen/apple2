@@ -16,12 +16,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "types.h"
+#include <stdint.h>
 
 #define MAX_LOG_SIZE		10000000				// Maximum size of log file (10 MB)
 
 static FILE * log_stream = NULL;
-static uint32 logSize = 0;
+static uint32_t logSize = 0;
 
 bool InitLog(const char * path)
 {

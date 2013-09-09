@@ -20,7 +20,7 @@ extern V65C02REGS mainCPU;//Hm. Shouldn't we pass this shit in? ANSWER: YES. !!!
 
 // Private globals variables
 
-static uint8 op_mat[256] = {
+static uint8_t op_mat[256] = {
 	14, 6,  0,  0,  2,  2,  2,  2,  14, 1,  14, 0,  8,  8,  8,  13,
 	13, 7,  5,  0,  2,  3,  3,  2,  14, 10, 14, 0,  8,  9,  9,  13,
 	8,  6,  0,  0,  2,  2,  2,  2,  14, 1,  14, 0,  8,  8,  8,  13,
@@ -38,7 +38,7 @@ static uint8 op_mat[256] = {
 	1,  6,  0,  0,  2,  2,  2,  2,  14, 1,  14, 0,  8,  8,  8,  13,
 	13, 7,  5,  0,  0,  3,  3,  2,  14, 10, 14, 0,  0,  9,  9,  13  };
 
-static uint8 mnemonics[256][6] = {
+static uint8_t mnemonics[256][6] = {
 	"BRK  ","ORA  ","???  ","???  ","TSB  ","ORA  ","ASL  ","RMB0 ",
 	"PHP  ","ORA  ","ASL  ","???  ","TSB  ","ORA  ","ASL  ","BBR0 ",
 	"BPL  ","ORA  ","ORA  ","???  ","TRB  ","ORA  ","ASL  ","RMB1 ",
@@ -75,15 +75,15 @@ static uint8 mnemonics[256][6] = {
 //
 // Display bytes in mem in hex
 //
-static void DisplayBytes(uint16 src, uint32 dst)
+static void DisplayBytes(uint16_t src, uint32_t dst)
 {
 	WriteLog("%04X: ", src);
-	uint8 cnt = 0;										// Init counter...
+	uint8_t cnt = 0;										// Init counter...
 
 	if (src > dst)
 		dst += 0x10000;									// That should fix the FFFF bug...
 
-	for(uint32 i=src; i<dst; i++)
+	for(uint32_t i=src; i<dst; i++)
 	{
 		WriteLog("%02X ", mainCPU.RdMem(i));
 		cnt++;											// Bump counter...
@@ -96,7 +96,7 @@ static void DisplayBytes(uint16 src, uint32 dst)
 //
 // Decode a 65C02 instruction
 //
-int Decode65C02(uint16 pc)
+int Decode65C02(uint16_t pc)
 {
 /*
  0) illegal
@@ -117,8 +117,8 @@ int Decode65C02(uint16 pc)
 */
 	char outbuf[80];
 
-	uint16 addr = pc;
-	uint8 opcode = mainCPU.RdMem(addr++);				// Get the opcode
+	uint16_t addr = pc;
+	uint8_t opcode = mainCPU.RdMem(addr++);				// Get the opcode
 
 	switch (op_mat[opcode])								// Decode the addressing mode...
 	{
@@ -162,8 +162,8 @@ int Decode65C02(uint16 pc)
 		sprintf(outbuf, "%s ($%04X,X)", mnemonics[opcode], mainCPU.RdMem(addr++) | (mainCPU.RdMem(addr++) << 8));
 		break;
 	case 13:											// Relative
-//		sprintf(outbuf, "%s $%04X", mnemonics[opcode], ++addr + (int16)(int8)mainCPU.RdMem(addr));
-		sprintf(outbuf, "%s $%04X", mnemonics[opcode], addr + (int16)((int8)mainCPU.RdMem(addr)) + 1);
+//		sprintf(outbuf, "%s $%04X", mnemonics[opcode], ++addr + (int16_t)(int8_t)mainCPU.RdMem(addr));
+		sprintf(outbuf, "%s $%04X", mnemonics[opcode], addr + (int16_t)((int8_t)mainCPU.RdMem(addr)) + 1);
 		addr++;
 		break;
 	case 14:											// Inherent
