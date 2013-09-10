@@ -75,6 +75,8 @@ FloppyDrive floppyDrive;
 
 static uint8_t lastKeyPressed = 0;
 static bool keyDown = false;
+static bool openAppleDown = false;
+static bool closedAppleDown = false;
 
 //static FloppyDrive floppyDrive;
 
@@ -322,6 +324,16 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	{
 		hiRes = true;
 	}
+	else if (addr == 0xC061)				// Read $C061
+	{
+		// Open Apple key (or push button 0)
+		return (openAppleDown ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC062)				// Read $C062
+	{
+		// Open Apple key (or push button 0)
+		return (closedAppleDown ? 0x80 : 0x00);
+	}
 
 //Note that this is a kludge: The $D000-$DFFF 4K space is shared (since $C000-$CFFF is
 //memory mapped) between TWO banks, and that that $E000-$FFFF RAM space is a single bank.
@@ -459,9 +471,6 @@ WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
 	else if (addr == 0xC0EC)
 	{
 		return floppyDrive.ReadWrite();
-//Hm, some stuff is looking at the return value. Dunno what it *should* be...
-// OK, it's from the ReadWrite routine...
-//return 0xFF;
 	}
 	else if (addr == 0xC0ED)
 	{
@@ -1155,20 +1164,29 @@ static void FrameCallback(void)
 				lastKeyPressed = 0x08, keyDown = true;
 			else if (event.key.keysym.sym == SDLK_RETURN)
 				lastKeyPressed = 0x0D, keyDown = true;
+			else if (event.key.keysym.sym == SDLK_ESCAPE)
+				lastKeyPressed = 0x1B, keyDown = true;
 
 			// Fix CTRL+key combo...
 			if (event.key.keysym.mod & KMOD_CTRL)
 			{
 				if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
-//				{
+				{
 					lastKeyPressed = (event.key.keysym.sym - SDLK_a) + 1;
+					keyDown = true;
 //printf("Key combo pressed: CTRL+%c\n", lastKeyPressed + 0x40);
-//				}
+				}
 			}
 
 			// Use ALT+Q to exit, as well as the usual window decoration method
 			if (event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_ALT))
 				running = false;
+
+			// Paddle buttons 0 & 1
+			if (event.key.keysym.sym == SDLK_INSERT)
+				openAppleDown = true;
+			if (event.key.keysym.sym == SDLK_PAGEUP)
+				closedAppleDown = true;
 
 			if (event.key.keysym.sym == SDLK_F11)
 				dumpDis = !dumpDis;				// Toggle the disassembly process
@@ -1231,6 +1249,15 @@ else if (event.key.keysym.sym == SDLK_F10)
 		case SDL_KEYUP:
 			if (event.key.keysym.sym == SDLK_F12)
 				fullscreenDebounce = false;
+
+			// Paddle buttons 0 & 1
+			if (event.key.keysym.sym == SDLK_INSERT)
+				openAppleDown = false;
+			if (event.key.keysym.sym == SDLK_PAGEUP)
+				closedAppleDown = false;
+
+//			if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
+//				keyDown = false;
 
 			break;
 		case SDL_QUIT:

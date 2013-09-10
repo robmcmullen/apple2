@@ -3,3 +3,5 @@ apple2.log
 disks/
 gmon.out
 obj/
+bugs/
+reference/

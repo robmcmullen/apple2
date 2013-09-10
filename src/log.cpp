@@ -57,15 +57,15 @@ void WriteLog(const char * text, ...)
 
 	va_start(arg, text);
 	logSize += vfprintf(log_stream, text, arg);
+	va_end(arg);
+
+	fflush(log_stream);					// Make sure that text is written!
 
 	if (logSize > MAX_LOG_SIZE)
 	{
-		fflush(log_stream);
 		fclose(log_stream);
+		log_stream = NULL;
 		logDone = true;
 	}
-
-	va_end(arg);
-	fflush(log_stream);					// Make sure that text is written!
 }
 
