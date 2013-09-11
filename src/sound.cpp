@@ -61,6 +61,7 @@
 // Local variables
 
 static SDL_AudioSpec desired, obtained;
+static SDL_AudioDeviceID device;
 static bool soundInitialized = false;
 static bool speakerState = false;
 static int16_t soundBuffer[SOUND_BUFFER_SIZE];
@@ -70,7 +71,7 @@ static SDL_cond * conditional = NULL;
 static SDL_mutex * mutex = NULL;
 static SDL_mutex * mutex2 = NULL;
 static int16_t sample;
-static uint8_t ampPtr = 14;						// Start with -16 - +16
+static uint8_t ampPtr = 12;						// Start with -2047 - +2047
 static int16_t amplitude[17] = { 0, 1, 2, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047,
 	4095, 8191, 16383, 32767 };
 #ifdef WRITE_OUT_WAVE
@@ -81,6 +82,7 @@ static FILE * fp = NULL;
 
 static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length);
 
+
 //
 // Initialize the SDL sound system
 //
@@ -90,20 +92,16 @@ void SoundInit(void)
 // To weed out problems for now...
 return;
 #endif
-
+	SDL_zero(desired);
 	desired.freq = SAMPLE_RATE;					// SDL will do conversion on the fly, if it can't get the exact rate. Nice!
-//	desired.format = AUDIO_S8;					// This uses the native endian (for portability)...
 	desired.format = AUDIO_S16SYS;				// This uses the native endian (for portability)...
 	desired.channels = 1;
-//	desired.samples = 4096;						// Let's try a 4K buffer (can always go lower)
-//	desired.samples = 2048;						// Let's try a 2K buffer (can always go lower)
-//	desired.samples = 1024;						// Let's try a 1K buffer (can always go lower)
 	desired.samples = 512;						// Let's try a 1/2K buffer (can always go lower)
 	desired.callback = SDLSoundCallback;
 
-//	if (SDL_OpenAudio(&desired, NULL) < 0)		// NULL means SDL guarantees what we want
-//When doing it this way, we need to check to see if we got what we asked for...
-	if (SDL_OpenAudio(&desired, &obtained) < 0)
+	device = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, 0);
+
+	if (device == 0)
 	{
 		WriteLog("Sound: Failed to initialize SDL sound.\n");
 		return;
@@ -116,7 +114,7 @@ return;
 	lastToggleCycles = 0;
 	sample = desired.silence;	// ? wilwok ? yes
 
-	SDL_PauseAudio(false);						// Start playback!
+	SDL_PauseAudioDevice(device, 0);			// Start playback!
 	soundInitialized = true;
 	WriteLog("Sound: Successfully initialized.\n");
 
@@ -125,6 +123,7 @@ return;
 #endif
 }
 
+
 //
 // Close down the SDL sound subsystem
 //
@@ -132,8 +131,10 @@ void SoundDone(void)
 {
 	if (soundInitialized)
 	{
-		SDL_PauseAudio(true);
-		SDL_CloseAudio();
+//		SDL_PauseAudio(true);
+		SDL_PauseAudioDevice(device, 1);
+//		SDL_CloseAudio();
+		SDL_CloseAudioDevice(device);
 		SDL_DestroyCond(conditional);
 		SDL_DestroyMutex(mutex);
 		SDL_DestroyMutex(mutex2);
@@ -145,11 +146,13 @@ void SoundDone(void)
 	}
 }
 
+
 //
 // Sound card callback handler
 //
-static void SDLSoundCallback(void * userdata, Uint8 * buffer8, int length8)
+static void SDLSoundCallback(void * /*userdata*/, Uint8 * buffer8, int length8)
 {
+//WriteLog("SDLSoundCallback(): begin (soundBufferPos=%i)\n", soundBufferPos);
 	// The sound buffer should only starve when starting which will cause it to
 	// lag behind the emulation at most by around 1 frame...
 	// (Actually, this should never happen since we fill the buffer beforehand.)
@@ -159,12 +162,14 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer8, int length8)
 
 	// Let's try using a mutex for shared resource consumption...
 //Actually, I think Lock/UnlockAudio() does this already...
+//WriteLog("SDLSoundCallback(): SDL_mutexP(mutex2)\n");
 	SDL_mutexP(mutex2);
 
 	// Recast this as a 16-bit type...
 	int16_t * buffer = (int16_t *)buffer8;
 	uint32_t length = (uint32_t)length8 / 2;
 
+//WriteLog("SDLSoundCallback(): filling buffer...\n");
 	if (soundBufferPos < length)				// The sound buffer is starved...
 	{
 		for(uint32_t i=0; i<soundBufferPos; i++)
@@ -173,7 +178,8 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer8, int length8)
 		// Fill buffer with last value
 //		memset(buffer + soundBufferPos, (uint8_t)sample, length - soundBufferPos);
 		for(uint32_t i=soundBufferPos; i<length; i++)
-			buffer[i] = (uint16_t)sample;
+			buffer[i] = sample;
+
 		soundBufferPos = 0;						// Reset soundBufferPos to start of buffer...
 	}
 	else
@@ -182,6 +188,7 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer8, int length8)
 //		memcpy(buffer, soundBuffer, length);
 		for(uint32_t i=0; i<length; i++)
 			buffer[i] = soundBuffer[i];
+
 		soundBufferPos -= length;
 
 		// Move current buffer down to start
@@ -190,10 +197,36 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer8, int length8)
 	}
 
 	// Free the mutex...
+//WriteLog("SDLSoundCallback(): SDL_mutexV(mutex2)\n");
 	SDL_mutexV(mutex2);
 	// Wake up any threads waiting for the buffer to drain...
 	SDL_CondSignal(conditional);
+//WriteLog("SDLSoundCallback(): end\n");
 }
+
+
+// This is called by the main CPU thread every ~21.333 cycles.
+void WriteSampleToBuffer(void)
+{
+//WriteLog("WriteSampleToBuffer(): SDL_mutexP(mutex2)\n");
+	SDL_mutexP(mutex2);
+
+	// This should almost never happen, but...
+	while (soundBufferPos >= (SOUND_BUFFER_SIZE - 1))
+	{
+//WriteLog("WriteSampleToBuffer(): Waiting for sound thread. soundBufferPos=%i, SOUNDBUFFERSIZE-1=%i\n", soundBufferPos, SOUND_BUFFER_SIZE-1);
+		SDL_mutexV(mutex2);	// Release it so sound thread can get it,
+		SDL_mutexP(mutex);	// Must lock the mutex for the cond to work properly...
+		SDL_CondWait(conditional, mutex);	// Sleep/wait for the sound thread
+		SDL_mutexV(mutex);	// Must unlock the mutex for the cond to work properly...
+		SDL_mutexP(mutex2);	// Re-lock it until we're done with it...
+	}
+
+	soundBuffer[soundBufferPos++] = sample;
+//WriteLog("WriteSampleToBuffer(): SDL_mutexV(mutex2)\n");
+	SDL_mutexV(mutex2);
+}
+
 
 // Need some interface functions here to take care of flipping the
 // waveform at the correct time in the sound stream...
@@ -222,6 +255,7 @@ void HandleBuffer(uint64_t elapsedCycles)
 	// Step 3: Make sure there's room for it
 	// We need to lock since we touch both soundBuffer and soundBufferPos
 	SDL_mutexP(mutex2);
+
 	while ((soundBufferPos + currentPos) > (SOUND_BUFFER_SIZE - 1))
 	{
 		SDL_mutexV(mutex2);						// Release it so sound thread can get it,
@@ -240,7 +274,7 @@ void HandleBuffer(uint64_t elapsedCycles)
 #endif
 	// Backfill with current toggle state
 	while (soundBufferPos < currentPos)
-		soundBuffer[soundBufferPos++] = (uint16_t)sample;
+		soundBuffer[soundBufferPos++] = sample;
 
 #ifdef WRITE_OUT_WAVE
 	fwrite(&soundBuffer[sbpSave], sizeof(int16_t), currentPos - sbpSave, fp);
@@ -250,15 +284,17 @@ void HandleBuffer(uint64_t elapsedCycles)
 	lastToggleCycles = elapsedCycles;
 }
 
+
 void ToggleSpeaker(uint64_t elapsedCycles)
 {
 	if (!soundInitialized)
 		return;
 
-	HandleBuffer(elapsedCycles);
+//	HandleBuffer(elapsedCycles);
 	speakerState = !speakerState;
 	sample = (speakerState ? amplitude[ampPtr] : -amplitude[ampPtr]);
 }
+
 
 void AdjustLastToggleCycles(uint64_t elapsedCycles)
 {
@@ -292,19 +328,21 @@ in ToggleSpeaker(), and backfill only without toggling.
 	HandleBuffer(elapsedCycles);
 }
 
+
 void VolumeUp(void)
 {
-	// Currently set for 8-bit samples
-	// Now 16
+	// Currently set for 16-bit samples
 	if (ampPtr < 16)
 		ampPtr++;
 }
+
 
 void VolumeDown(void)
 {
 	if (ampPtr > 0)
 		ampPtr--;
 }
+
 
 uint8_t GetVolume(void)
 {

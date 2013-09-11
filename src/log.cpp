@@ -23,7 +23,6 @@
 
 static FILE * log_stream = NULL;
 static uint32_t logSize = 0;
-static bool logDone = false;
 
 
 bool InitLog(const char * path)
@@ -50,7 +49,7 @@ void LogDone(void)
 //
 void WriteLog(const char * text, ...)
 {
-	if (!log_stream || logDone)
+	if (!log_stream)
 		return;
 
 	va_list arg;
@@ -65,7 +64,6 @@ void WriteLog(const char * text, ...)
 	{
 		fclose(log_stream);
 		log_stream = NULL;
-		logDone = true;
 	}
 }
 

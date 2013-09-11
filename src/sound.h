@@ -18,6 +18,7 @@
 void SoundInit(void);
 void SoundDone(void);
 void ToggleSpeaker(uint64_t elapsedCycles);
+void WriteSampleToBuffer(void);
 //void AddToSoundTimeBase(uint64_t cycles);
 void AdjustLastToggleCycles(uint64_t elapsedCycles);
 void VolumeUp(void);

@@ -113,6 +113,7 @@ static SDL_sem * mainSem = NULL;
 static bool cpuFinished = false;
 static bool cpuSleep = false;
 
+
 // Let's try a thread...
 /*
 Here's how it works: Execute 1 frame's worth, then sleep.
@@ -141,6 +142,9 @@ WriteLog("CPU: SDL_SemWait(mainSem);\n");
 #endif
 SDL_SemWait(mainSem);
 
+// There are exactly 800 slices of 21.333 cycles per frame, so it works out
+// evenly.
+#if 0
 		uint32_t cycles = 17066;
 #ifdef CPU_THREAD_OVERFLOW_COMPENSATION
 // ODD! It's closer *without* this overflow compensation. ??? WHY ???
@@ -164,6 +168,26 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 WriteLog("CPU: AdjustLastToggleCycles(mainCPU.clock);\n");
 #endif
 		AdjustLastToggleCycles(mainCPU.clock);
+#else
+#ifdef THREAD_DEBUGGING
+WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
+#endif
+		for(int i=0; i<800; i++)
+		{
+			uint32_t cycles = 21;
+			overflow += 0.333333334;
+
+			if (overflow > 1.0)
+			{
+				cycles++;
+				overflow -= 1.0;
+			}
+
+			Execute65C02(&mainCPU, cycles);
+			WriteSampleToBuffer();
+		}
+#endif
+
 
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
@@ -202,6 +226,7 @@ WriteLog("CPU: SDL_mutexV(cpuMutex);\n");
 }
 #endif
 
+
 // Test GUI function
 
 Element * TestWindow(void)
@@ -212,6 +237,7 @@ Element * TestWindow(void)
 	return win;
 }
 
+
 Element * QuitEmulator(void)
 {
 	gui->Stop();
@@ -219,6 +245,7 @@ Element * QuitEmulator(void)
 
 	return NULL;
 }
+
 
 /*
  Small Apple II memory map:
@@ -845,6 +872,7 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 	ram[addr] = b;
 }
 
+
 //
 // Load a file into RAM/ROM image space
 //
@@ -861,14 +889,17 @@ bool LoadImg(char * filename, uint8_t * ram, int size)
 	return true;
 }
 
+
 static void SaveApple2State(const char * filename)
 {
 }
+
 
 static bool LoadApple2State(const char * filename)
 {
 	return false;
 }
+
 
 #ifdef CPU_CLOCK_CHECKING
 uint8_t counter = 0;
@@ -996,9 +1027,9 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 
 #ifdef THREADED_65C02
 	cpuCond = SDL_CreateCond();
+	mainSem = SDL_CreateSemaphore(1);
 	cpuThread = SDL_CreateThread(CPUThreadFunc, NULL, NULL);
 //Hmm... CPU does POST (+1), wait, then WAIT (-1)
-	mainSem = SDL_CreateSemaphore(1);
 //	SDL_sem * mainMutex = SDL_CreateMutex();
 #endif
 
@@ -1067,6 +1098,7 @@ floppyDrive.SaveImage();
 
 	return 0;
 }
+
 
 /*
 Apple II keycodes
@@ -1300,11 +1332,13 @@ if (counter == 60)
 #endif
 }
 
+
 static void BlinkTimer(void)
 {
 	flash = !flash;
 	SetCallbackTime(BlinkTimer, 250000);		// Set up blinking at 1/4 sec intervals
 }
+
 
 /*
 Next problem is this: How to have events occur and synchronize with the rest

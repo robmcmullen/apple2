@@ -2807,6 +2807,7 @@ void (* exec_op[256])() = {
 	OpF0, OpF1, OpF2, Op__, Op__, OpF5, OpF6, OpF7, OpF8, OpF9, OpFA, Op__, Op__, OpFD, OpFE, OpFF
 };
 
+
 //
 // Internal "memcpy" (so we don't have to link with any external libraries!)
 //
@@ -3019,13 +3020,9 @@ WriteLog("\n*** IRQ ***\n\n");
 		}
 	}
 
-//This is a lame way of doing it, but in the end the simplest--however, it destroys any
-//record of elasped CPU time. Not sure that it's important to keep track, but there it is.
-// Now we use a 64-bit integer, so it won't wrap for about 500 millenia. ;-)
-//	regs.clock -= cycles;
-
 	myMemcpy(context, &regs, sizeof(V65C02REGS));
 }
+
 
 //
 // Get the clock of the currently executing CPU
@@ -3034,3 +3031,4 @@ uint64_t GetCurrentV65C02Clock(void)
 {
 	return regs.clock;
 }
+
