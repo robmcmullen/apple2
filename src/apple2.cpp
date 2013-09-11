@@ -188,6 +188,7 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 		}
 #endif
 
+WriteLog("CPUThread: Supposedly end of frame...\n");
 
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
@@ -1155,6 +1156,8 @@ Z		$DA	$9A	$DA	$9A
 ESC		$9B	$9B	$9B	$9B		No xlation
 
 */
+static uint64_t lastCPUCycles = 0;
+static uint32_t frameCount = 0;
 static void FrameCallback(void)
 {
 	SDL_Event event;
@@ -1297,7 +1300,7 @@ else if (event.key.keysym.sym == SDLK_F10)
 		}
 	}
 
-#warning "!!! Taking MAJOR time hit with the video frame rendering !!!"
+//#warning "!!! Taking MAJOR time hit with the video frame rendering !!!"
 	RenderVideoFrame();
 	SetCallbackTime(FrameCallback, 16666.66666667);
 
@@ -1321,10 +1324,26 @@ if (counter == 60)
 //Actually, slows things down too much...
 //SDL_Delay(10);
 //	while (SDL_GetTicks() - startTicks < 16);	// Wait for next frame...
-	while (SDL_GetTicks() - startTicks < 16)
+
+// This is the problem: If you set the interval to 16, it runs faster than
+// 1/60s per frame. If you set it to 17, it runs slower. What we need is to
+// have it do 16 for one frame, then 17 for two others. Then it should average
+// out to 1/60s per frame every 3 frames.
+	frameCount = (frameCount + 1) % 3;
+
+	uint32_t waitFrameTime = 17 - (frameCount == 0 ? 1 : 0);
+
+	while (SDL_GetTicks() - startTicks < waitFrameTime)
 		SDL_Delay(1);							// Wait for next frame...
 
 	startTicks = SDL_GetTicks();
+#if 1
+	uint64_t cpuCycles = GetCurrentV65C02Clock();
+	uint32_t cyclesBurned = (uint32_t)(cpuCycles - lastCPUCycles);
+	WriteLog("FrameCallback: used %i cycles\n", cyclesBurned);
+	lastCPUCycles = cpuCycles;
+#endif
+
 //let's wait, then signal...
 //works longer, but then still falls behind...
 #ifdef THREADED_65C02

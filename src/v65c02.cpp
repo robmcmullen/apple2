@@ -2850,6 +2850,9 @@ bool dumpDis = false;
 //bleh.
 //static uint32_t limit = 0;
 
+// This should be in the regs struct, in case we have multiple CPUs...
+#warning "!!! Move overflow into regs struct !!!"
+static uint64_t overflow = 0;
 //
 // Function to execute 65C02 for "cycles" cycles
 //
@@ -2875,7 +2878,7 @@ Let's see...
 	if (regs.clock + cycles > 0xFFFFFFFF)
 		wraparound = true;
 */
-	uint64_t endCycles = regs.clock + (uint64_t)cycles;
+	uint64_t endCycles = regs.clock + (uint64_t)cycles - overflow;
 
 	while (regs.clock < endCycles)
 	{
@@ -3019,6 +3022,12 @@ WriteLog("\n*** IRQ ***\n\n");
 			}
 		}
 	}
+
+	// If we went longer than the passed in cycles, make a note of it so we can
+	// subtract it out from a subsequent run. It's guaranteed to be positive,
+	// because the condition that exits the main loop above is written such
+	// that regs.clock has to be larger than endCycles to exit from it.
+	overflow = regs.clock - endCycles;
 
 	myMemcpy(context, &regs, sizeof(V65C02REGS));
 }
