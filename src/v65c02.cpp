@@ -2844,7 +2844,13 @@ FBEF: 60        602  RTS2B    RTS
 //int instCount[256];
 #ifdef __DEBUG__
 bool dumpDis = false;
+//bool dumpDis = true;
 #endif
+
+/*
+On //e, $FCAA is the delay routine. (seems to not have changed from ][+)
+*/
+
 
 //Note: could enforce regs.clock to zero on starting the CPU with an Init() function...
 //bleh.
@@ -2899,6 +2905,47 @@ if (regs.pc == 0x444E)
 }//*/
 #endif
 
+#if 0
+/*if (regs.pc == 0x0801)
+{
+	WriteLog("\n*** DISK BOOT subroutine...\n\n");
+	dumpDis = true;
+}//*/
+if (regs.pc == 0xE000)
+{
+#if 0
+	WriteLog("\n*** Dump of $E000 routine ***\n\n");
+
+	for(uint32_t addr=0xE000; addr<0xF000;)
+	{
+		addr += Decode65C02(addr);
+		WriteLog("\n");
+	}
+#endif
+	WriteLog("\n*** DISK part II subroutine...\n\n");
+	dumpDis = true;
+}//*/
+if (regs.pc == 0xD000)
+{
+	WriteLog("\n*** CUSTOM DISK READ subroutine...\n\n");
+	dumpDis = false;
+}//*/
+if (regs.pc == 0xD1BE)
+{
+//	WriteLog("\n*** DISK part II subroutine...\n\n");
+	dumpDis = true;
+}//*/
+if (regs.pc == 0xD200)
+{
+	WriteLog("\n*** CUSTOM SCREEN subroutine...\n\n");
+	dumpDis = false;
+}//*/
+if (regs.pc == 0xD269)
+{
+//	WriteLog("\n*** DISK part II subroutine...\n\n");
+	dumpDis = true;
+}//*/
+#endif
 #ifdef __DEBUGMON__
 //WAIT is commented out here because it's called by BELL1...
 if (regs.pc == 0xFCA8)

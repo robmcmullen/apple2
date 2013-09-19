@@ -62,12 +62,13 @@
 
 // Global variables
 
-bool flash;
-bool textMode;
-bool mixedMode;
-bool displayPage2;
-bool hiRes;
-bool alternateCharset;
+bool flash = false;
+bool textMode = true;
+bool mixedMode = false;
+bool displayPage2 = false;
+bool hiRes = false;
+bool alternateCharset = false;
+bool col80Mode = false;
 //void SpawnMessage(const char * text, ...);
 
 // Local variables
@@ -228,6 +229,7 @@ uint16_t appleHiresToMono[0x200] = {
 
 //static uint8_t blurTable[0x800][8];				// Color TV blur table
 static uint8_t blurTable[0x80][8];				// Color TV blur table
+static uint8_t mirrorTable[0x100];
 static uint32_t * palette = (uint32_t *)altColors;
 enum { ST_FIRST_ENTRY = 0, ST_COLOR_TV = 0, ST_WHITE_MONO, ST_GREEN_MONO, ST_LAST_ENTRY };
 static uint8_t screenType = ST_COLOR_TV;
@@ -235,9 +237,12 @@ static uint8_t screenType = ST_COLOR_TV;
 // Local functions
 
 static void Render40ColumnTextLine(uint8_t line);
+static void Render80ColumnTextLine(uint8_t line);
 static void Render40ColumnText(void);
+static void Render80ColumnText(void);
 static void RenderLoRes(uint16_t toLine = 24);
 static void RenderHiRes(uint16_t toLine = 192);
+static void RenderDHiRes(uint16_t toLine = 192);
 
 
 void SetupBlurTable(void)
@@ -294,6 +299,18 @@ void SetupBlurTable(void)
 		}
 	}
 #endif
+
+	for(int i=0; i<256; i++)
+	{
+		mirrorTable[i] = ((i & 0x01) << 7)
+			| ((i & 0x02) << 5)
+			| ((i & 0x04) << 3)
+			| ((i & 0x08) << 1)
+			| ((i & 0x10) >> 1)
+			| ((i & 0x20) >> 3)
+			| ((i & 0x40) >> 5)
+			| ((i & 0x80) >> 7);
+	}
 }
 
 
@@ -425,10 +442,9 @@ static void Render40ColumnTextLine(uint8_t line)
 			{
 				uint32_t pixel = 0xFF000000;
 
-				if (!alternateCharset)
+				if (alternateCharset)
 				{
 					if (textChar[((chr & 0x3F) * 56) + cx + (cy * 7)])
-//						pixel = 0xFFFFFFFF;
 						pixel = pixelOn;
 
 					if (chr < 0x80)
@@ -440,12 +456,9 @@ static void Render40ColumnTextLine(uint8_t line)
 				else
 				{
 					if (textChar2e[(chr * 56) + cx + (cy * 7)])
-//						pixel = 0xFFFFFFFF;
 						pixel = pixelOn;
 				}
 
-//				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8) + (cx * 2) + 0 + (cy * VIRTUAL_SCREEN_WIDTH)] = pixel;
-//				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8) + (cx * 2) + 1 + (cy * VIRTUAL_SCREEN_WIDTH)] = pixel;
 				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 0 + (cy * VIRTUAL_SCREEN_WIDTH * 2)] = pixel;
 				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 1 + (cy * VIRTUAL_SCREEN_WIDTH * 2)] = pixel;
 
@@ -454,9 +467,68 @@ static void Render40ColumnTextLine(uint8_t line)
 					pixel = 0xFF000000;
 
 				{
-				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 0 + (((cy * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = pixel;
-				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 1 + (((cy * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = pixel;
+					scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 0 + (((cy * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = pixel;
+					scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 1 + (((cy * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = pixel;
 				}
+			}
+		}
+	}
+}
+
+
+static void Render80ColumnTextLine(uint8_t line)
+{
+	uint32_t pixelOn = (screenType == ST_GREEN_MONO ? 0xFF61FF61 : 0xFFFFFFFF);
+
+	for(int x=0; x<80; x++)
+	{
+#if 0
+// This is wrong; it should grab from the alt bank if Page2 is set, not main RAM @ $0
+		uint8_t chr = ram[lineAddrLoRes[line] + (displayPage2 ? 0x0400 : 0x0000) + x];
+
+		if (x > 39)
+			chr = ram2[lineAddrLoRes[line] + (displayPage2 ? 0x0400 : 0x0000) + x - 40];
+#else
+		uint8_t chr;
+
+		if (x & 0x01)
+			chr = ram[lineAddrLoRes[line] + (x >> 1)];
+		else
+			chr = ram2[lineAddrLoRes[line] + (x >> 1)];	
+#endif
+
+		// Render character at (x, y)
+
+		for(int cy=0; cy<8; cy++)
+		{
+			for(int cx=0; cx<7; cx++)
+			{
+				uint32_t pixel = 0xFF000000;
+
+				if (alternateCharset)
+				{
+					if (textChar[((chr & 0x3F) * 56) + cx + (cy * 7)])
+						pixel = pixelOn;
+
+					if (chr < 0x80)
+						pixel = pixel ^ (screenType == ST_GREEN_MONO ? 0x0061FF61 : 0x00FFFFFF);
+
+					if ((chr & 0xC0) == 0x40 && flash)
+						pixel = 0xFF000000;
+				}
+				else
+				{
+					if (textChar2e[(chr * 56) + cx + (cy * 7)])
+						pixel = pixelOn;
+				}
+
+				scrBuffer[(x * 7) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + cx + (cy * 2 * VIRTUAL_SCREEN_WIDTH)] = pixel;
+
+				// QnD method to get blank alternate lines in text mode
+				if (screenType == ST_GREEN_MONO)
+					pixel = 0xFF000000;
+
+				scrBuffer[(x * 7) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + cx + (((cy * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = pixel;
 			}
 		}
 	}
@@ -467,6 +539,13 @@ static void Render40ColumnText(void)
 {
 	for(uint8_t line=0; line<24; line++)
 		Render40ColumnTextLine(line);
+}
+
+
+static void Render80ColumnText(void)
+{
+	for(uint8_t line=0; line<24; line++)
+		Render80ColumnTextLine(line);
 }
 
 
@@ -716,6 +795,75 @@ static void RenderHiRes(uint16_t toLine/*= 192*/)
 }
 
 
+static void RenderDHiRes(uint16_t toLine/*= 192*/)
+{
+// NOTE: Not endian safe. !!! FIX !!! [DONE]
+#if 0
+	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
+#else
+// Now it is. Now roll this fix into all the other places... !!! FIX !!!
+// The colors are set in the 8-bit array as R G B A
+	uint8_t monoColors[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0x61, 0xFF };
+	uint32_t * colorPtr = (uint32_t *)monoColors;
+	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? colorPtr[0] : colorPtr[1]);
+#endif
+
+	for(uint16_t y=0; y<toLine; y++)
+	{
+		uint16_t previousLoPixel = 0;
+		uint32_t previous3bits = 0;
+
+		for(uint16_t x=0; x<40; x+=2)
+		{
+			uint8_t screenByte = ram[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x];
+			uint32_t pixels = (mirrorTable[screenByte & 0x7F]) << 14;
+			screenByte = ram[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x + 1];
+			pixels = pixels | (mirrorTable[screenByte & 0x7F]);
+			screenByte = ram2[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x];
+			pixels = pixels | ((mirrorTable[screenByte & 0x7F]) << 21);
+			screenByte = ram2[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x + 1];
+			pixels = pixels | ((mirrorTable[screenByte & 0x7F]) << 7);
+			pixels = previous3bits | (pixels >> 1);
+
+			// We now have 28 pixels (expanded from 14) in word: mask is $0F FF FF FF
+			// 0ppp 1111 1111 1111 1111 1111 1111 1111
+			// 31   27   23   19   15   11   7    3  0
+
+			if (screenType == ST_COLOR_TV)
+			{
+				for(uint8_t i=0; i<7; i++)
+				{
+					uint8_t bitPat = (pixels & 0x7F000000) >> 24;
+					pixels <<= 4;
+
+					for(uint8_t j=0; j<4; j++)
+					{
+						uint8_t color = blurTable[bitPat][j];
+						scrBuffer[(x * 14) + (i * 4) + j + (((y * 2) + 0) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
+						scrBuffer[(x * 14) + (i * 4) + j + (((y * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
+					}
+				}
+
+				previous3bits = pixels & 0x70000000;
+			}
+			else
+			{
+				for(int j=0; j<28; j++)
+				{
+					scrBuffer[(x * 14) + j + (((y * 2) + 0) * VIRTUAL_SCREEN_WIDTH)] = (pixels & 0x08000000 ? pixelOn : 0xFF000000);
+
+					if (screenType == ST_GREEN_MONO)
+						pixels &= 0x07FFFFFF;
+
+					scrBuffer[(x * 14) + j + (((y * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = (pixels & 0x08000000 ? pixelOn : 0xFF000000);
+					pixels <<= 1;
+				}
+			}
+		}
+	}
+}
+
+
 void RenderVideoFrame(void)
 {
 //temp...
@@ -726,7 +874,10 @@ return;//*/
 	if (textMode)
 	{
 		// There's prolly more to it than this (like 80 column text), but this'll have to do for now...
-		Render40ColumnText();
+		if (!col80Mode)
+			Render40ColumnText();
+		else
+			Render80ColumnText();
 	}
 	else
 	{
@@ -751,7 +902,9 @@ return;//*/
 		}
 		else
 		{
-			if (hiRes)
+			if (dhires)
+				RenderDHiRes();
+			else if (hiRes)
 				RenderHiRes();
 			else
 				RenderLoRes();

@@ -13,6 +13,7 @@ extern bool mixedMode;
 extern bool displayPage2;
 extern bool hiRes;
 extern bool alternateCharset;
+extern bool col80Mode;
 
 // Functions (exported)
 

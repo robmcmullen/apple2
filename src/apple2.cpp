@@ -58,17 +58,18 @@
 
 #define THREADED_65C02
 #define CPU_THREAD_OVERFLOW_COMPENSATION
-//#define DEBUG_LC
+#define DEBUG_LC
 //#define CPU_CLOCK_CHECKING
-#define THREAD_DEBUGGING
+//#define THREAD_DEBUGGING
+#define SOFT_SWITCH_DEBUGGING
 
 // Global variables
 
 uint8_t ram[0x10000], rom[0x10000];				// RAM & ROM spaces
-uint8_t ram2[0x10000];
+uint8_t ram2[0x10000];							// Auxillary RAM
 uint8_t diskRom[0x100];							// Disk ROM space
 V65C02REGS mainCPU;								// v65C02 execution context
-uint8_t appleType = APPLE_TYPE_II;
+uint8_t appleType = APPLE_TYPE_IIE;
 FloppyDrive floppyDrive;
 
 // Local variables
@@ -77,6 +78,15 @@ static uint8_t lastKeyPressed = 0;
 static bool keyDown = false;
 static bool openAppleDown = false;
 static bool closedAppleDown = false;
+static bool store80Mode = false;
+static bool vbl = false;
+static bool slotCXROM = false;
+static bool slotC3ROM = false;
+static bool ramrd = false;
+static bool ramwrt = false;
+static bool altzp = false;
+static bool ioudis = true;
+bool dhires = false;
 
 //static FloppyDrive floppyDrive;
 
@@ -113,6 +123,8 @@ static SDL_sem * mainSem = NULL;
 static bool cpuFinished = false;
 static bool cpuSleep = false;
 
+
+// NB: Apple //e Manual sez 6502 is running @ 1,022,727 Hz
 
 // Let's try a thread...
 /*
@@ -188,7 +200,7 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 		}
 #endif
 
-WriteLog("CPUThread: Supposedly end of frame...\n");
+//WriteLog("CPUThread: Supposedly end of frame...\n");
 
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
@@ -288,7 +300,8 @@ if (addr >= 0xC080 && addr <= 0xC08F)
 	{
 		return lastKeyPressed | (keyDown ? 0x80 : 0x00);
 	}
-	else if ((addr & 0xFFF0) == 0xC010)		// Read $C010-$C01F
+//	else if ((addr & 0xFFF8) == 0xC010)		// Read $C010-$C01F
+	else if (addr == 0xC010)
 	{
 //This is bogus: keyDown is set to false, so return val NEVER is set...
 //Fixed...
@@ -296,6 +309,112 @@ if (addr >= 0xC080 && addr <= 0xC08F)
 		uint8_t retVal = lastKeyPressed | (keyDown ? 0x80 : 0x00);
 		keyDown = false;
 		return retVal;
+	}
+	// These are //e locations
+	else if (addr == 0xC011)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RDBANK2 (read)\n");
+#endif
+		return (visibleBank == LC_BANK_2 ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC012)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RDLCRAM (read)\n");
+#endif
+		return (readRAM ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC013)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RAMRD (read)\n");
+#endif
+		return (ramrd ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC014)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RAMWRT (read)\n");
+#endif
+		return (ramwrt ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC015)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("SLOTCXROM (read)\n");
+#endif
+		return (slotCXROM ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC016)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("ALTZP (read)\n");
+#endif
+		return (altzp ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC017)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("SLOTC3ROM (read)\n");
+#endif
+		return (slotC3ROM ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC018)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("80STORE (read)\n");
+#endif
+		return (store80Mode ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC019)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("VBL (read)\n");
+#endif
+		return (vbl ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC01A)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("TEXT (read)\n");
+#endif
+		return (textMode ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC01B)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("MIXED (read)\n");
+#endif
+		return (mixedMode ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC01C)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("PAGE2 (read)\n");
+#endif
+		return (displayPage2 ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC01D)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("HIRES (read)\n");
+#endif
+		return (hiRes ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC01E)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("ALTCHARSET (read)\n");
+#endif
+		return (alternateCharset ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC01F)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("80COL (read)\n");
+#endif
+		return (col80Mode ? 0x80 : 0x00);
 	}
 	else if ((addr & 0xFFF0) == 0xC030)		// Read $C030-$C03F
 	{
@@ -322,35 +441,75 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	}
 	else if (addr == 0xC050)				// Read $C050
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("TEXT off (read)\n");
+#endif
 		textMode = false;
 	}
 	else if (addr == 0xC051)				// Read $C051
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("TEXT on (read)\n");
+#endif
 		textMode = true;
 	}
 	else if (addr == 0xC052)				// Read $C052
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("MIXED off (read)\n");
+#endif
 		mixedMode = false;
 	}
 	else if (addr == 0xC053)				// Read $C053
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("MIXED on (read)\n");
+#endif
 		mixedMode = true;
 	}
 	else if (addr == 0xC054)				// Read $C054
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("PAGE2 off (read)\n");
+#endif
 		displayPage2 = false;
 	}
 	else if (addr == 0xC055)				// Read $C055
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("PAGE2 on (read)\n");
+#endif
 		displayPage2 = true;
 	}
 	else if (addr == 0xC056)				// Read $C056
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("HIRES off (read)\n");
+#endif
 		hiRes = false;
 	}
 	else if (addr == 0xC057)				// Read $C057
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("HIRES on (read)\n");
+#endif
 		hiRes = true;
+	}
+	else if (addr == 0xC05E)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("DHIRES on (read)\n");
+#endif
+		if (ioudis)
+			dhires = true;
+	}
+	else if (addr == 0xC05F)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("DHIRES off (read)\n");
+#endif
+		if (ioudis)
+			dhires = false;
 	}
 	else if (addr == 0xC061)				// Read $C061
 	{
@@ -361,6 +520,40 @@ deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer 
 	{
 		// Open Apple key (or push button 0)
 		return (closedAppleDown ? 0x80 : 0x00);
+	}
+	// The way the paddles work is that a strobe is written (or read) to $C070,
+	// then software counts down the time that it takes for the paddle outputs
+	// to have bit 7 return to 0. If there are no paddles connected, bit 7
+	// stays at 1.
+	else if (addr == 0xC064)	// Paddles 0-3
+	{
+		return 0xFF;
+	}
+	else if (addr == 0xC065)
+	{
+		return 0xFF;
+	}
+	else if (addr == 0xC066)
+	{
+		return 0xFF;
+	}
+	else if (addr == 0xC067)
+	{
+		return 0xFF;
+	}
+	else if (addr == 0xC07E)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("IOUDIS (read)\n");
+#endif
+		return (ioudis ? 0x80 : 0x00);
+	}
+	else if (addr == 0xC07F)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("DHIRES (read)\n");
+#endif
+		return (dhires ? 0x80 : 0x00);
 	}
 
 //Note that this is a kludge: The $D000-$DFFF 4K space is shared (since $C000-$CFFF is
@@ -520,62 +713,107 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 	showpath = true;
 #endif
 //This sux...
-	if (addr >= 0xC100 && addr <= 0xCFFF)	// The $C000-$CFFF block is *never* RAM
-#ifdef LC_DEBUGGING
+	if (addr >= 0xC100 && addr <= 0xC7FF)	// The $C000-$CFFF block is *never* RAM
 	{
-#endif
-		b = rom[addr];
+// Looks like the ][e ref manual got this one wrong: slotCXROM set should mean
+// use internal ROM, NOT slot ROM. :-/
+// (fixed now, by setting the switch correctly in the write mem section :-P)
+		if (!slotCXROM)
+//		if (slotCXROM)
+			b = rom[addr];
+		else
+		{
+			if (addr >= 0xC100 && addr <= 0xC1FF)
+				b = parallelROM[addr & 0xFF];
+			else if (addr >= 0xC600 && addr <= 0xC6FF)
+				b = diskROM[addr & 0xFF];
+			else if (addr >= 0xC300 && addr <= 0xC3FF && !slotC3ROM)
+				b = rom[addr];
+			else
+				b = 0xFF;
+//				b = rom[addr];
+		}
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from $C100-$CFFF block...\n");
-	}
 #endif
+	}
+	else if (addr >= 0xC800 && addr <= 0xCFFF)	// 2K peripheral or OS ROM
+	{
+		b = rom[addr];
+	}
 	else if (addr >= 0xD000)
 	{
 		if (readRAM)
 		{
 			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
 #ifdef LC_DEBUGGING
-	{
+			{
 #endif
 				b = ram[addr - 0x1000];
+//				b = (ramrd ? ram2[addr - 0x1000] : ram[addr - 0x1000]);
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from LC bank #1 (ram[addr - 0x1000])...\n");
-	}
+			}
 #endif
 			else
 #ifdef LC_DEBUGGING
-	{
+			{
 #endif
 				b = ram[addr];
+//				b = (ramrd ? ram2[addr] : ram[addr]);
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from LC bank #2 (ram[addr])...\n");
-	}
+			}
 #endif
 		}
 		else
 #ifdef LC_DEBUGGING
-	{
+		{
 #endif
 			b = rom[addr];
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from LC ROM (rom[addr])...\n");
-	}
+		}
 #endif
 	}
 	else
-#ifdef LC_DEBUGGING
 	{
+#if 1
+		// Check for 80STORE mode (STORE80 takes precedence over RAMRD/WRT)...
+		if ((((addr >= 0x0400) && (addr <= 0x07FF)) || ((addr >= 0x2000) && (addr <= 0x3FFF))) && store80Mode)
+		{
+			if (displayPage2)
+				b = ram2[addr];
+			else
+				b = ram[addr];
+
+			return b;
+		}
+
+		// Finally, check for auxillary/altzp write switches
 #endif
-		b = ram[addr];
+		if (addr < 0x0200)
+			b = (altzp ? ram2[addr] : ram[addr]);
+		else
+			b = (ramrd ? ram2[addr] : ram[addr]);
+//		if (ramrd)
+//			b = ram2[addr];
+//		else
+//		{
+//			if (altzp)
+//				b = ram2[addr];
+//			else
+//				b = ram[addr];
+//		}
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from ram[addr]...\n");
-	}
 #endif
+	}
 
 #ifdef LC_DEBUGGING
 if (addr >= 0xD000 && addr <= 0xD00F)
@@ -687,12 +925,117 @@ SET80VID = $C00D ;enable 80-column display mode (WR-only)
 CLRALTCH = $C00E ;use main char set- norm LC, Flash UC (WR-only)
 SETALTCH = $C00F ;use alt char set- norm inverse, LC; no Flash (WR-only)
 */
-	if (addr == 0xC00E)
+	if (addr == 0xC000)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("80STORE off (write)\n");
+#endif
+		store80Mode = false;
+	}
+	else if (addr == 0xC001)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("80STORE on (write)\n");
+#endif
+		store80Mode = true;
+	}
+	else if (addr == 0xC002)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RAMRD off (write)\n");
+#endif
+		ramrd = false;
+	}
+	else if (addr == 0xC003)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RAMRD on (write)\n");
+#endif
+		ramrd = true;
+	}
+	else if (addr == 0xC004)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RAMWRT off (write)\n");
+#endif
+		ramwrt = false;
+	}
+	else if (addr == 0xC005)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("RAMWRT on (write)\n");
+#endif
+		ramwrt = true;
+	}
+	else if (addr == 0xC006)
+	{
+		// This is the only soft switch that breaks the usual convention.
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("SLOTCXROM on (write)\n");
+#endif
+		slotCXROM = true;
+	}
+	else if (addr == 0xC007)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("SLOTCXROM off (write)\n");
+#endif
+		slotCXROM = false;
+	}
+	else if (addr == 0xC008)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("ALTZP off (write)\n");
+#endif
+		altzp = false;
+	}
+	else if (addr == 0xC009)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("ALTZP on (write)\n");
+#endif
+		altzp = true;
+	}
+	else if (addr == 0xC00A)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("SLOTC3ROM off (write)\n");
+#endif
+		slotC3ROM = false;
+	}
+	else if (addr == 0xC00B)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("SLOTC3ROM on (write)\n");
+#endif
+		slotC3ROM = true;
+	}
+	else if (addr == 0xC00C)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("80COL off (write)\n");
+#endif
+		col80Mode = false;
+	}
+	else if (addr == 0xC00D)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("80COL on (write)\n");
+#endif
+		col80Mode = true;
+	}
+	else if (addr == 0xC00E)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("ALTCHARSET off (write)\n");
+#endif
 		alternateCharset = false;
 	}
 	else if (addr == 0xC00F)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("ALTCHARSET on (write)\n");
+#endif
 		alternateCharset = true;
 	}
 	else if ((addr & 0xFFF0) == 0xC010)		// Keyboard strobe
@@ -704,35 +1047,94 @@ SETALTCH = $C00F ;use alt char set- norm inverse, LC; no Flash (WR-only)
 	}
 	else if (addr == 0xC050)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("TEXT off (write)\n");
+#endif
 		textMode = false;
 	}
 	else if (addr == 0xC051)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("TEXT on (write)\n");
+#endif
 		textMode = true;
 	}
 	else if (addr == 0xC052)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("MIXED off (write)\n");
+#endif
 		mixedMode = false;
 	}
 	else if (addr == 0xC053)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("MIXED on (write)\n");
+#endif
 		mixedMode = true;
 	}
 	else if (addr == 0xC054)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("PAGE2 off (write)\n");
+#endif
 		displayPage2 = false;
 	}
 	else if (addr == 0xC055)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("PAGE2 on (write)\n");
+#endif
 		displayPage2 = true;
 	}
 	else if (addr == 0xC056)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("HIRES off (write)\n");
+#endif
 		hiRes = false;
 	}
 	else if (addr == 0xC057)
 	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("HIRES on (write)\n");
+#endif
 		hiRes = true;
+	}
+	else if (addr == 0xC05E)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("DHIRES on (write)\n");
+#endif
+		if (ioudis)
+			dhires = true;
+
+//static int goDumpDis = 0;
+//goDumpDis++;
+//if (goDumpDis == 2)
+//	dumpDis = true;
+	}
+	else if (addr == 0xC05F)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("DHIRES off (write)\n");
+#endif
+		if (ioudis)
+			dhires = false;
+	}
+	else if (addr == 0xC07E)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("IOUDIS on (write)\n");
+#endif
+		ioudis = true;
+	}
+	else if (addr == 0xC07F)
+	{
+#ifdef SOFT_SWITCH_DEBUGGING
+WriteLog("IOUDIS off (write)\n");
+#endif
+		ioudis = false;
 	}
 	else if ((addr & 0xFFFB) == 0xC080)
 	{
@@ -861,16 +1263,70 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 	{
 		if (writeRAM)
 		{
+#if 1
 			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
 				ram[addr - 0x1000] = b;
 			else
 				ram[addr] = b;
+#else
+			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
+			{
+				if (ramwrt)
+					ram2[addr - 0x1000] = b;
+				else
+					ram[addr - 0x1000] = b;
+			}
+			else
+			{
+				if (ramwrt)
+					ram2[addr] = b;
+				else
+					ram[addr] = b;
+			}
+#endif
 		}
 
 		return;
 	}
 
-	ram[addr] = b;
+	// Check for 80STORE mode (STORE80 takes precedence over RAMRD/WRT)...
+	if ((((addr >= 0x0400) && (addr <= 0x07FF)) || ((addr >= 0x2000) && (addr <= 0x3FFF))) && store80Mode)
+	{
+		if (displayPage2)
+			ram2[addr] = b;
+		else
+			ram[addr] = b;
+
+		return;
+	}
+
+	// Finally, check for auxillary/altzp write switches
+#if 0
+	if (ramwrt)
+		ram2[addr] = b;
+	else
+	{
+		if (altzp)
+			ram2[addr] = b;
+		else
+			ram[addr] = b;
+	}
+#else
+	if (addr < 0x0200)
+	{
+		if (altzp)
+			ram2[addr] = b;
+		else
+			ram[addr] = b;
+	}
+	else
+	{
+		if (ramwrt)
+			ram2[addr] = b;
+		else
+			ram[addr] = b;
+	}
+#endif
 }
 
 
@@ -928,7 +1384,9 @@ int main(int /*argc*/, char * /*argv*/[])
 	mainCPU.WrMem = WrMem;
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
-	if (!LoadImg(settings.BIOSPath, rom + 0xD000, 0x3000))
+//	alternateCharset = true;
+//	if (!LoadImg(settings.BIOSPath, rom + 0xD000, 0x3000))
+	if (!LoadImg(settings.BIOSPath, rom + 0xC000, 0x4000))
 	{
 		WriteLog("Could not open file '%s'!\n", settings.BIOSPath);
 		return -1;
@@ -948,7 +1406,7 @@ int main(int /*argc*/, char * /*argv*/[])
 
 //Kill the DOS ROM in slot 6 for now...
 //not
-	memcpy(rom + 0xC600, diskROM, 0x100);
+//	memcpy(rom + 0xC600, diskROM, 0x100);
 //	memcpy(rom + 0xC700, diskROM, 0x100);	// Slot 7???
 
 	WriteLog("About to initialize video...\n");
@@ -1156,7 +1614,7 @@ Z		$DA	$9A	$DA	$9A
 ESC		$9B	$9B	$9B	$9B		No xlation
 
 */
-static uint64_t lastCPUCycles = 0;
+//static uint64_t lastCPUCycles = 0;
 static uint32_t frameCount = 0;
 static void FrameCallback(void)
 {
@@ -1179,8 +1637,8 @@ static void FrameCallback(void)
 
 			//kludge: should have a caps lock thingy here...
 			//or all uppercase for ][+...
-			if (lastKeyPressed >= 'a' && lastKeyPressed <='z')
-				lastKeyPressed &= 0xDF;		// Convert to upper case...
+//			if (lastKeyPressed >= 'a' && lastKeyPressed <='z')
+//				lastKeyPressed &= 0xDF;		// Convert to upper case...
 
 			break;
 		case SDL_KEYDOWN:
@@ -1197,10 +1655,16 @@ static void FrameCallback(void)
 				lastKeyPressed = 0x15, keyDown = true;
 			else if (event.key.keysym.sym == SDLK_LEFT)
 				lastKeyPressed = 0x08, keyDown = true;
+			else if (event.key.keysym.sym == SDLK_UP)
+				lastKeyPressed = 0x0B, keyDown = true;
+			else if (event.key.keysym.sym == SDLK_DOWN)
+				lastKeyPressed = 0x0A, keyDown = true;
 			else if (event.key.keysym.sym == SDLK_RETURN)
 				lastKeyPressed = 0x0D, keyDown = true;
 			else if (event.key.keysym.sym == SDLK_ESCAPE)
 				lastKeyPressed = 0x1B, keyDown = true;
+			else if (event.key.keysym.sym == SDLK_BACKSPACE)
+				lastKeyPressed = 0x7F, keyDown = true;
 
 			// Fix CTRL+key combo...
 			if (event.key.keysym.mod & KMOD_CTRL)
@@ -1337,7 +1801,7 @@ if (counter == 60)
 		SDL_Delay(1);							// Wait for next frame...
 
 	startTicks = SDL_GetTicks();
-#if 1
+#if 0
 	uint64_t cpuCycles = GetCurrentV65C02Clock();
 	uint32_t cyclesBurned = (uint32_t)(cpuCycles - lastCPUCycles);
 	WriteLog("FrameCallback: used %i cycles\n", cyclesBurned);
