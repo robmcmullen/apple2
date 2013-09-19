@@ -750,8 +750,8 @@ if (showpath)
 #ifdef LC_DEBUGGING
 			{
 #endif
-				b = ram[addr - 0x1000];
-//				b = (ramrd ? ram2[addr - 0x1000] : ram[addr - 0x1000]);
+//				b = ram[addr - 0x1000];
+				b = (altzp ? ram2[addr - 0x1000] : ram[addr - 0x1000]);
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from LC bank #1 (ram[addr - 0x1000])...\n");
@@ -761,8 +761,8 @@ if (showpath)
 #ifdef LC_DEBUGGING
 			{
 #endif
-				b = ram[addr];
-//				b = (ramrd ? ram2[addr] : ram[addr]);
+//				b = ram[addr];
+				b = (altzp ? ram2[addr] : ram[addr]);
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from LC bank #2 (ram[addr])...\n");
@@ -782,7 +782,6 @@ if (showpath)
 	}
 	else
 	{
-#if 1
 		// Check for 80STORE mode (STORE80 takes precedence over RAMRD/WRT)...
 		if ((((addr >= 0x0400) && (addr <= 0x07FF)) || ((addr >= 0x2000) && (addr <= 0x3FFF))) && store80Mode)
 		{
@@ -795,20 +794,10 @@ if (showpath)
 		}
 
 		// Finally, check for auxillary/altzp write switches
-#endif
 		if (addr < 0x0200)
 			b = (altzp ? ram2[addr] : ram[addr]);
 		else
 			b = (ramrd ? ram2[addr] : ram[addr]);
-//		if (ramrd)
-//			b = ram2[addr];
-//		else
-//		{
-//			if (altzp)
-//				b = ram2[addr];
-//			else
-//				b = ram[addr];
-//		}
 #ifdef LC_DEBUGGING
 if (showpath)
 	WriteLog("b is from ram[addr]...\n");
@@ -1263,7 +1252,7 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 	{
 		if (writeRAM)
 		{
-#if 1
+#if 0
 			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
 				ram[addr - 0x1000] = b;
 			else
@@ -1271,14 +1260,14 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 #else
 			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
 			{
-				if (ramwrt)
+				if (altzp)
 					ram2[addr - 0x1000] = b;
 				else
 					ram[addr - 0x1000] = b;
 			}
 			else
 			{
-				if (ramwrt)
+				if (altzp)
 					ram2[addr] = b;
 				else
 					ram[addr] = b;
@@ -1313,6 +1302,7 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 	}
 #else
 	if (addr < 0x0200)
+//	if (addr < 0x0200 || addr >= 0xD000)
 	{
 		if (altzp)
 			ram2[addr] = b;

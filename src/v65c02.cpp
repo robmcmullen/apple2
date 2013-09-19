@@ -2946,6 +2946,21 @@ if (regs.pc == 0xD269)
 	dumpDis = true;
 }//*/
 #endif
+//if (regs.pc == 0xE08E)
+/*if (regs.pc == 0xAD33)
+{
+	WriteLog("\n*** After loader ***\n\n");
+	dumpDis = true;
+}//*/
+/*if (regs.pc == 0x0418)
+{
+	WriteLog("\n*** CUSTOM DISK READ subroutine...\n\n");
+	dumpDis = false;
+}
+if (regs.pc == 0x0)
+{
+	dumpDis = true;
+}//*/
 #ifdef __DEBUGMON__
 //WAIT is commented out here because it's called by BELL1...
 if (regs.pc == 0xFCA8)

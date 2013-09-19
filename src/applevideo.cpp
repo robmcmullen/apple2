@@ -797,21 +797,15 @@ static void RenderHiRes(uint16_t toLine/*= 192*/)
 
 static void RenderDHiRes(uint16_t toLine/*= 192*/)
 {
-// NOTE: Not endian safe. !!! FIX !!! [DONE]
-#if 0
-	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
-#else
 // Now it is. Now roll this fix into all the other places... !!! FIX !!!
 // The colors are set in the 8-bit array as R G B A
 	uint8_t monoColors[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0x61, 0xFF, 0x61, 0xFF };
 	uint32_t * colorPtr = (uint32_t *)monoColors;
 	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? colorPtr[0] : colorPtr[1]);
-#endif
 
 	for(uint16_t y=0; y<toLine; y++)
 	{
-		uint16_t previousLoPixel = 0;
-		uint32_t previous3bits = 0;
+		uint32_t previous4bits = 0;
 
 		for(uint16_t x=0; x<40; x+=2)
 		{
@@ -823,7 +817,7 @@ static void RenderDHiRes(uint16_t toLine/*= 192*/)
 			pixels = pixels | ((mirrorTable[screenByte & 0x7F]) << 21);
 			screenByte = ram2[lineAddrHiRes[y] + (displayPage2 ? 0x2000 : 0x0000) + x + 1];
 			pixels = pixels | ((mirrorTable[screenByte & 0x7F]) << 7);
-			pixels = previous3bits | (pixels >> 1);
+			pixels = previous4bits | (pixels >> 1);
 
 			// We now have 28 pixels (expanded from 14) in word: mask is $0F FF FF FF
 			// 0ppp 1111 1111 1111 1111 1111 1111 1111
@@ -833,18 +827,18 @@ static void RenderDHiRes(uint16_t toLine/*= 192*/)
 			{
 				for(uint8_t i=0; i<7; i++)
 				{
-					uint8_t bitPat = (pixels & 0x7F000000) >> 24;
+					uint8_t bitPat = (pixels & 0xFE000000) >> 25;
 					pixels <<= 4;
 
 					for(uint8_t j=0; j<4; j++)
 					{
-						uint8_t color = blurTable[bitPat][j];
-						scrBuffer[(x * 14) + (i * 4) + j + (((y * 2) + 0) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
-						scrBuffer[(x * 14) + (i * 4) + j + (((y * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = palette[color];
+ 						uint32_t color = palette[blurTable[bitPat][j]];
+						scrBuffer[(x * 14) + (i * 4) + j + (((y * 2) + 0) * VIRTUAL_SCREEN_WIDTH)] = color;
+						scrBuffer[(x * 14) + (i * 4) + j + (((y * 2) + 1) * VIRTUAL_SCREEN_WIDTH)] = color;
 					}
 				}
 
-				previous3bits = pixels & 0x70000000;
+				previous4bits = pixels & 0xF0000000;
 			}
 			else
 			{
