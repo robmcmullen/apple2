@@ -416,7 +416,8 @@ static void DrawString2(uint32_t x, uint32_t y, uint32_t color)
 					uint32_t bBlue  = (eBlue  * invTrans + nBlue  * trans) / 255;
 
 //THIS IS NOT ENDIAN SAFE
-					*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = 0xFF000000 | (bBlue << 16) | (bGreen << 8) | bRed;
+//NB: Setting the alpha channel here does nothing.
+					*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = 0x7F000000 | (bBlue << 16) | (bGreen << 8) | bRed;
 				}
 			}
 		}

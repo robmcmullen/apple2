@@ -1142,7 +1142,6 @@ static void Op90(void)							// BCC
 
 	if (!(regs.cc & FLAG_C))
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 static void OpB0(void)							// BCS
@@ -1151,7 +1150,6 @@ static void OpB0(void)							// BCS
 
 	if (regs.cc & FLAG_C)
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 static void OpF0(void)							// BEQ
@@ -1160,7 +1158,6 @@ static void OpF0(void)							// BEQ
 
 	if (regs.cc & FLAG_Z)
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 /*
@@ -2606,7 +2603,9 @@ static void Op86(void)
 
 static void Op96(void)
 {
-	regs.WrMem(EA_ZP_X, regs.x);
+// BUG!!! [FIXED]
+//WAS:	regs.WrMem(EA_ZP_X, regs.x);
+	regs.WrMem(EA_ZP_Y, regs.x);
 }
 
 static void Op8E(void)
@@ -2855,10 +2854,16 @@ On //e, $FCAA is the delay routine. (seems to not have changed from ][+)
 //Note: could enforce regs.clock to zero on starting the CPU with an Init() function...
 //bleh.
 //static uint32_t limit = 0;
+// Or, we could just say that initializing the CPU struct is the responsibility
+// of the caller. :-)
 
-// This should be in the regs struct, in case we have multiple CPUs...
-#warning "!!! Move overflow into regs struct !!!"
-static uint64_t overflow = 0;
+#define DO_BACKTRACE
+#ifdef DO_BACKTRACE
+#define BACKTRACE_SIZE 16384
+uint32_t btQueuePtr = 0;
+V65C02REGS btQueue[BACKTRACE_SIZE];
+uint8_t btQueueInst[BACKTRACE_SIZE][4];
+#endif
 //
 // Function to execute 65C02 for "cycles" cycles
 //
@@ -2867,24 +2872,7 @@ void Execute65C02(V65C02REGS * context, uint32_t cycles)
 	myMemcpy(&regs, context, sizeof(V65C02REGS));
 
 	// Execute here...
-// NOTE: There *must* be some way of doing this without requiring the caller to subtract out
-//       the previous run's cycles. !!! FIX !!!
-// Could try:
-//	while (regs.clock < regs.clock + cycles) <-- won't work
-/*
-	// This isn't as accurate as subtracting out cycles from regs.clock...
-	// Unless limit is a static variable, adding cycles to it each time through...
-	uint32_t limit = regs.clock + cycles;
-	while (regs.clock < limit)
-*/
-// but have wraparound to deal with. :-/
-/*
-Let's see...
-
-	if (regs.clock + cycles > 0xFFFFFFFF)
-		wraparound = true;
-*/
-	uint64_t endCycles = regs.clock + (uint64_t)cycles - overflow;
+	uint64_t endCycles = regs.clock + (uint64_t)cycles - regs.overflow;
 
 	while (regs.clock < endCycles)
 	{
@@ -2904,6 +2892,10 @@ if (regs.pc == 0x444E)
 	dumpDis = false;
 }//*/
 #endif
+/*if (regs.pc == 0xBF4C)
+{
+	dumpDis = true;
+}//*/
 
 #if 0
 /*if (regs.pc == 0x0801)
@@ -2991,8 +2983,12 @@ if (regs.pc == 0x2000)
 #endif
 
 #ifdef __DEBUG__
+static char disbuf[80];
 if (dumpDis)
-	Decode65C02(regs.pc);
+{
+	Decode65C02(disbuf, regs.pc);
+	WriteLog("%s", disbuf);
+}
 #endif
 		uint8_t opcode = regs.RdMem(regs.pc++);
 
@@ -3089,7 +3085,7 @@ WriteLog("\n*** IRQ ***\n\n");
 	// subtract it out from a subsequent run. It's guaranteed to be positive,
 	// because the condition that exits the main loop above is written such
 	// that regs.clock has to be larger than endCycles to exit from it.
-	overflow = regs.clock - endCycles;
+	regs.overflow = regs.clock - endCycles;
 
 	myMemcpy(context, &regs, sizeof(V65C02REGS));
 }

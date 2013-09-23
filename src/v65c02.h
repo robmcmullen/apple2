@@ -42,6 +42,7 @@ struct V65C02REGS
 	uint8_t (* RdMem)(uint16_t);		// Address of BYTE read routine
 	void (* WrMem)(uint16_t, uint8_t);	// Address of BYTE write routine
 	uint16_t cpuFlags;				// v65C02 IRQ/RESET flags
+	uint64_t overflow;				// # of cycles we went over last time through
 };
 
 // Global variables (exported)

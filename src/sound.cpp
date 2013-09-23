@@ -147,6 +147,20 @@ void SoundDone(void)
 }
 
 
+void SoundPause(void)
+{
+	if (soundInitialized)
+		SDL_PauseAudioDevice(device, 1);
+}
+
+
+void SoundResume(void)
+{
+	if (soundInitialized)
+		SDL_PauseAudioDevice(device, 0);
+}
+
+
 //
 // Sound card callback handler
 //

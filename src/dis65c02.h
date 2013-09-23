@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 
-int Decode65C02(uint16_t pc);
+int Decode65C02(char * outbuf, uint16_t pc);
 
 #endif	// __DIS65C02_H__
+

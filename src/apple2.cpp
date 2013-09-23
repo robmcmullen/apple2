@@ -98,6 +98,7 @@ static bool writeRAM = false;
 
 static bool running = true;						// Machine running state flag...
 static uint32_t startTicks;
+static bool pauseMode = false;
 
 static GUI * gui = NULL;
 
@@ -372,6 +373,8 @@ WriteLog("80STORE (read)\n");
 #ifdef SOFT_SWITCH_DEBUGGING
 WriteLog("VBL (read)\n");
 #endif
+// NB: The doco suggests that this signal goes LOW when in the VBI.
+// Which means that we need to control this by counting lines somewhere.
 		return (vbl ? 0x80 : 0x00);
 	}
 	else if (addr == 0xC01A)
@@ -782,6 +785,8 @@ if (showpath)
 	}
 	else
 	{
+// 80STORE only works for WRITING, not READING!
+#if 0
 		// Check for 80STORE mode (STORE80 takes precedence over RAMRD/WRT)...
 		if ((((addr >= 0x0400) && (addr <= 0x07FF)) || ((addr >= 0x2000) && (addr <= 0x3FFF))) && store80Mode)
 		{
@@ -792,6 +797,7 @@ if (showpath)
 
 			return b;
 		}
+#endif
 
 		// Finally, check for auxillary/altzp write switches
 		if (addr < 0x0200)
@@ -1304,6 +1310,12 @@ if (addr >= 0xD000 && addr <= 0xD00F)
 	if (addr < 0x0200)
 //	if (addr < 0x0200 || addr >= 0xD000)
 	{
+#if 0
+if (addr == 0x38)
+	WriteLog("Write $38: $%02X\n", b);
+else if (addr == 0x39)
+	WriteLog("Write $39: $%02X\n", b);
+#endif
 		if (altzp)
 			ram2[addr] = b;
 		else
@@ -1363,7 +1375,6 @@ int main(int /*argc*/, char * /*argv*/[])
 	srand(time(NULL));									// Initialize RNG
 
 	// Zero out memory
-//Need to bankify this stuff for the IIe emulation...
 	memset(ram, 0, 0x10000);
 	memset(rom, 0, 0x10000);
 	memset(ram2, 0, 0x10000);
@@ -1671,6 +1682,22 @@ static void FrameCallback(void)
 			if (event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_ALT))
 				running = false;
 
+			if (event.key.keysym.sym == SDLK_PAUSE)
+			{
+				pauseMode = !pauseMode;
+
+				if (pauseMode)
+				{
+					SoundPause();
+					SpawnMessage("*** PAUSED ***");
+				}
+				else
+				{
+					SoundResume();
+					SpawnMessage("*** RESUME ***");
+				}
+			}
+
 			// Paddle buttons 0 & 1
 			if (event.key.keysym.sym == SDLK_INSERT)
 				openAppleDown = true;
@@ -1801,7 +1828,8 @@ if (counter == 60)
 //let's wait, then signal...
 //works longer, but then still falls behind...
 #ifdef THREADED_65C02
-	SDL_CondSignal(cpuCond);//OK, let the CPU go another frame...
+	if (!pauseMode)
+		SDL_CondSignal(cpuCond);//OK, let the CPU go another frame...
 #endif
 }
 
