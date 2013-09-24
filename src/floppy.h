@@ -14,7 +14,7 @@
 #endif
 #include <stdint.h>
 
-enum { DT_UNKNOWN, DT_DOS33, DT_PRODOS, DT_NYBBLE };
+enum { DT_UNKNOWN, DT_DOS33, DT_DOS33_HDR, DT_PRODOS, DT_NYBBLE };
 
 class FloppyDrive
 {

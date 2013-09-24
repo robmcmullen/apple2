@@ -198,6 +198,9 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 
 			Execute65C02(&mainCPU, cycles);
 			WriteSampleToBuffer();
+
+			// Dunno if this is correct (seems to be close enough)...
+			vbl = (i < 670 ? true : false);
 		}
 #endif
 
@@ -421,24 +424,7 @@ WriteLog("80COL (read)\n");
 	}
 	else if ((addr & 0xFFF0) == 0xC030)		// Read $C030-$C03F
 	{
-/*
-This is problematic, mainly because the v65C02 removes actual cycles run after each call.
-Therefore, we don't really have a reliable method of sending a timestamp to the sound routine.
-How to fix?
-
-What we need to send is a delta T value but related to the IRQ buffer routine. E.g., if the buffer
-hasn't had any changes in it then we just fill it with the last sample value and are done. Then
-we need to adjust our delta T accordingly. What we could do is keep a running total of time since the
-last change and adjust it accordingly, i.e., whenever a sound IRQ happens.
-How to keep track?
-
-Have deltaT somewhere. Then, whenever there's a toggle, backfill buffer with last spkr state and reset
-deltaT to zero. In the sound IRQ, if deltaT > buffer size, then subtract buffer size from deltaT. (?)
-
-
-
-*/
-		ToggleSpeaker(GetCurrentV65C02Clock());
+		ToggleSpeaker();
 //should it return something else here???
 		return 0x00;
 	}
@@ -1039,6 +1025,13 @@ WriteLog("ALTCHARSET on (write)\n");
 //is immediately preceded by a read leaving it in the same state it was...
 //But leaving this out seems to fuck up the key handling of some games...
 		keyDown = false;
+	}
+	else if ((addr & 0xFFF0) == 0xC030)		// Read $C030-$C03F
+	{
+//Likewise, the speaker is supposed to do nothing if you write to it, and
+//for the same reason. But without this, you get no sound in David's
+//Midnight Magic...
+		ToggleSpeaker();
 	}
 	else if (addr == 0xC050)
 	{
