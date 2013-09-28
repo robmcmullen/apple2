@@ -1,7 +1,7 @@
 //
 // 65C02 disassembler
 //
-// by James L. Hammons
+// by James Hammons
 // (c) 2005 Underground Software
 //
 

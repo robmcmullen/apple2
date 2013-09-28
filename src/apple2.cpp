@@ -1,7 +1,7 @@
 //
 // Apple 2 SDL Portable Apple Emulator
 //
-// by James L. Hammons
+// by James Hammons
 // (C) 2005 Underground Software
 //
 // Loosely based on AppleWin by Tom Charlesworth which was based on AppleWin by
@@ -9,7 +9,7 @@
 // also derived from ApplePC. Too bad it was closed source--it could have been
 // *the* premier Apple II emulator out there.
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------
@@ -17,6 +17,7 @@
 // JLH  11/18/2005  Wired up graphic soft switches
 // JLH  12/02/2005  Setup timer subsystem for more accurate time keeping
 // JLH  12/12/2005  Added preliminary state saving support
+// JLH  09/24/2013  Added //e support
 //
 
 // STILL TO DO:
@@ -25,7 +26,7 @@
 // - GUI goodies
 // - Weed out unneeded functions [DONE]
 // - Disk I/O [DONE]
-// - 128K IIe related stuff
+// - 128K IIe related stuff [DONE]
 // - State loading/saving
 //
 
@@ -48,6 +49,7 @@
 #include "timing.h"
 #include "floppy.h"
 #include "firmware.h"
+#include "mmu.h"
 
 #include "gui/gui.h"
 #include "gui/window.h"
@@ -67,25 +69,25 @@
 
 uint8_t ram[0x10000], rom[0x10000];				// RAM & ROM spaces
 uint8_t ram2[0x10000];							// Auxillary RAM
-uint8_t diskRom[0x100];							// Disk ROM space
+//uint8_t diskRom[0x100];							// Disk ROM space
 V65C02REGS mainCPU;								// v65C02 execution context
 uint8_t appleType = APPLE_TYPE_IIE;
 FloppyDrive floppyDrive;
 
 // Local variables
 
-static uint8_t lastKeyPressed = 0;
-static bool keyDown = false;
-static bool openAppleDown = false;
-static bool closedAppleDown = false;
-static bool store80Mode = false;
-static bool vbl = false;
-static bool slotCXROM = false;
-static bool slotC3ROM = false;
-static bool ramrd = false;
-static bool ramwrt = false;
-static bool altzp = false;
-static bool ioudis = true;
+uint8_t lastKeyPressed = 0;
+bool keyDown = false;
+bool openAppleDown = false;
+bool closedAppleDown = false;
+bool store80Mode = false;
+bool vbl = false;
+bool slotCXROM = false;
+bool slotC3ROM = false;
+bool ramrd = false;
+bool ramwrt = false;
+bool altzp = false;
+bool ioudis = true;
 bool dhires = false;
 
 //static FloppyDrive floppyDrive;
@@ -123,7 +125,6 @@ static SDL_cond * cpuCond = NULL;
 static SDL_sem * mainSem = NULL;
 static bool cpuFinished = false;
 static bool cpuSleep = false;
-
 
 // NB: Apple //e Manual sez 6502 is running @ 1,022,727 Hz
 
@@ -204,32 +205,20 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 		}
 #endif
 
-//WriteLog("CPUThread: Supposedly end of frame...\n");
-
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
 #endif
 		SDL_mutexP(cpuMutex);
-#if 0
-		if (SDL_CondWait(cpuCond, cpuMutex) != 0)
-		{
-			printf("SDL_CondWait != 0! (Error: '%s')\n", SDL_GetError());
-			exit(-1);
-		}
-#else
 // increment mainSem...
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_SemPost(mainSem);\n");
 #endif
-SDL_SemPost(mainSem);
-//		SDL_CondSignal(mainCond);	// In case something is waiting on us...
-
+		SDL_SemPost(mainSem);
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_CondWait(cpuCond, cpuMutex);\n");
 #endif
 		SDL_CondWait(cpuCond, cpuMutex);
 
-#endif
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_mutexV(cpuMutex);\n");
 #endif
@@ -1235,15 +1224,7 @@ WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
 	{
 		floppyDrive.SetWriteMode();
 	}
-//Still need to add missing I/O switches here...
 
-//DEEE: BD 10 BF       LDA   $BF10,X    [PC=DEF1, SP=01F4, CC=--.B-IZ-, A=00, X=0C, Y=07]
-#if 0
-if (addr >= 0xD000 && addr <= 0xD00F)
-{
-	WriteLog("*** Write to $%04X: $%02X (writeRAM=%s, PC=%04X, ram$D000=%02X)\n", addr, b, (writeRAM ? "T" : "F"), mainCPU.pc, ram[0xC000]);
-}
-#endif
 	if (addr >= 0xC000 && addr <= 0xCFFF)
 		return;	// Protect LC bank #1 from being written to!
 
@@ -1372,10 +1353,18 @@ int main(int /*argc*/, char * /*argv*/[])
 	memset(rom, 0, 0x10000);
 	memset(ram2, 0, 0x10000);
 
+#if 1
+	// Set up MMU
+	SetupAddressMap();
+
 	// Set up V65C02 execution context
 	memset(&mainCPU, 0, sizeof(V65C02REGS));
+	mainCPU.RdMem = AppleReadMem;
+	mainCPU.WrMem = AppleWriteMem;
+#else
 	mainCPU.RdMem = RdMem;
 	mainCPU.WrMem = WrMem;
+#endif
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
 //	alternateCharset = true;
@@ -1618,6 +1607,7 @@ static void FrameCallback(void)
 	{
 		switch (event.type)
 		{
+// Problem with using SDL_TEXTINPUT is that it causes key delay. :-/
 		case SDL_TEXTINPUT:
 //Need to do some key translation here, and screen out non-apple keys as well...
 //(really, could do it all in SDL_KEYDOWN, would just have to get symbols &

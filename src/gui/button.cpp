@@ -2,9 +2,9 @@
 // BUTTON.CPP
 //
 // Graphical User Interface button class
-// by James L. Hammons
+// by James Hammons
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------

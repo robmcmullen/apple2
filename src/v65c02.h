@@ -1,7 +1,7 @@
 //
 // Virtual 65C02 Header file
 //
-// by James L. Hammons
+// by James Hammons
 // (c) 2005 Underground Software
 //
 

@@ -2,9 +2,9 @@
 // DRAGGABLEWINDOW2.CPP
 //
 // Graphical User Interface draggable window class
-// by James L. Hammons
+// by James Hammons
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------

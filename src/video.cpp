@@ -1,9 +1,9 @@
 //
 // VIDEO.CPP: SDL/local hardware specific video routines
 //
-// by James L. Hammons
+// by James Hammons
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------

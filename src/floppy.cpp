@@ -1,10 +1,10 @@
 //
 // Apple 2 floppy disk support
 //
-// by James L. Hammons
+// by James Hammons
 // (c) 2005 Underground Software
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------

@@ -1,10 +1,10 @@
 //
 // SETTINGS.CPP: Game configuration loading/saving support
 //
-// by James L. Hammons
+// by James Hammons
 // (C) 2005 Underground Software
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------

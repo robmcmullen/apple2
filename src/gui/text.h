@@ -1,7 +1,7 @@
 //
 // Static text class
 //
-// by James L. Hammons
+// by James Hammons
 //
 
 #ifndef __TEXT_H__

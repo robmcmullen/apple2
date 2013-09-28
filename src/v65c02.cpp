@@ -1,10 +1,10 @@
 //
 // Virtual 65C02 Emulator v1.0
 //
-// by James L. Hammons
+// by James Hammons
 // (c) 2005 Underground Software
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------
@@ -1260,6 +1260,16 @@ BRK	Implied		BRK			00	1	7
 
 static void Op00(void)							// BRK
 {
+//#ifdef __DEBUG__
+#if 1
+WriteLog("\n*** BRK ***\n\n");
+WriteLog(" [PC=%04X, SP=%04X, CC=%s%s.%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
+	regs.pc, 0x0100 + regs.sp,
+	(regs.cc & FLAG_N ? "N" : "-"), (regs.cc & FLAG_V ? "V" : "-"),
+	(regs.cc & FLAG_B ? "B" : "-"), (regs.cc & FLAG_D ? "D" : "-"),
+	(regs.cc & FLAG_I ? "I" : "-"), (regs.cc & FLAG_Z ? "Z" : "-"),
+	(regs.cc & FLAG_C ? "C" : "-"), regs.a, regs.x, regs.y);
+#endif
 	regs.cc |= FLAG_B;							// Set B
 	regs.pc++;									// RTI comes back to the instruction one byte after the BRK
 	regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);	// Save PC and CC
@@ -2892,7 +2902,13 @@ if (regs.pc == 0x444E)
 	dumpDis = false;
 }//*/
 #endif
-/*if (regs.pc == 0xBF4C)
+/*if (regs.pc >= 0xC600 && regs.pc <=0xC6FF)
+{
+	dumpDis = true;
+}
+else
+	dumpDis = false;//*/
+/*if (regs.pc == 0xE039)
 {
 	dumpDis = true;
 }//*/

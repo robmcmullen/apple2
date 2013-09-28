@@ -1,7 +1,7 @@
 //
 // Static text class
 //
-// by James L. Hammons
+// by James Hammons
 //
 
 #include "text.h"

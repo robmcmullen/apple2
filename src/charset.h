@@ -1,7 +1,7 @@
 //
 // The Apple II/IIe video generator character set
 //
-// by James L. Hammons
+// by James Hammons
 // (C) 2005 Underground Software
 //
 // While we could pack things into bytes, it doesn't cost too much to have everything

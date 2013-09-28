@@ -1,7 +1,7 @@
 #
 # Unified Makefile for Apple 2 SDL
 #
-# by James L. Hammons
+# by James Hammons
 # (C) 2005 Underground Software
 # This software is licensed under the GPL v2
 #
@@ -83,8 +83,10 @@ OBJS = \
 	obj/applevideo.o      \
 	obj/ay8910.o          \
 	obj/dis65c02.o        \
+	obj/firmware.o        \
 	obj/floppy.o          \
 	obj/log.o             \
+	obj/mmu.o             \
 	obj/sdlemu_config.o   \
 	obj/settings.o        \
 	obj/sound.o           \

@@ -1,7 +1,7 @@
 //
 // SOUND.H
 //
-// by James L. Hammons
+// by James Hammons
 // (C) 2004 Underground Software
 //
 

@@ -3,10 +3,10 @@
 //
 // All the video modes that a real Apple 2 supports are handled here
 //
-// by James L. Hammons
+// by James Hammons
 // (c) 2005 Underground Software
 //
-// JLH = James L. Hammons <jlhamm@acm.org>
+// JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
 // ---  ----------  ------------------------------------------------------------
