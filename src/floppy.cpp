@@ -237,31 +237,41 @@ void FloppyDrive::DetectImageType(const char * filename, uint8_t driveNum)
 WriteLog("FLOPPY: Found extension [%s]...\n", ext);
 
 //Apparently .dsk can house either DOS order OR PRODOS order... !!! FIX !!!
-//[DONE, see below why we don't need it]
 		if (strcasecmp(ext, ".po") == 0)
 			diskType[driveNum] = DT_PRODOS;
 		else if ((strcasecmp(ext, ".do") == 0) || (strcasecmp(ext, ".dsk") == 0))
 		{
+			// We assume this, but check for a PRODOS fingerprint. Trust, but
+			// verify. ;-)
 			diskType[driveNum] = DT_DOS33;
-//WriteLog("Detected DOS 3.3 disk!\n");
-/*
-This doesn't seem to be accurate... Maybe it's just a ProDOS disk in a DOS33 order...
-That would seem to be the case--just because it's a ProDOS disk doesn't mean anything
-WRT to the disk image itself.
-			// This could really be a ProDOS order disk with a .dsk extension, so let's see...
-			char fingerprint[3][4] = {
-				{ 0x04, 0x00, 0x00, 0x00 },		// @ $500
-				{ 0x03, 0x00, 0x05, 0x00 },		// @ $700
-				{ 0x02, 0x00, 0x04, 0x00 } };	// @ $900
 
-			if ((strcmp((char *)(disk[driveNum] + 0x500), fingerprint[0]) == 0)
-				&& (strcmp((char *)(disk[driveNum] + 0x700), fingerprint[1]) == 0)
-				&& (strcmp((char *)(disk[driveNum] + 0x900), fingerprint[2]) == 0))
+			uint8_t fingerprint[4][4] = {
+				{ 0x00, 0x00, 0x03, 0x00 },		// @ $400
+				{ 0x02, 0x00, 0x04, 0x00 },		// @ $600
+				{ 0x03, 0x00, 0x05, 0x00 },		// @ $800
+				{ 0x04, 0x00, 0x00, 0x00 }		// @ $A00
+			};
+
+			bool foundProdos = true;
+
+			for(uint32_t i=0; i<4; i++)
+			{
+				for(uint32_t j=0; j<4; j++)
+				{
+					if (disk[driveNum][0x400 + (i * 0x200) + j] != fingerprint[i][j])
+					{
+						foundProdos = false;
+						break;
+					}
+				}
+			}
+
+			if (foundProdos)
 				diskType[driveNum] = DT_PRODOS;
-//*/
 		}
 
 // Actually, it just might matter WRT to nybblyzing/denybblyzing
+// (and, it does... :-P)
 		NybblizeImage(driveNum);
 	}
 	else if (diskSize[driveNum] == 143488)

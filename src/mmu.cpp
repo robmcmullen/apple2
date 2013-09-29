@@ -347,15 +347,15 @@ WriteLog("Setting 80STORE to %s...\n", (store80Mode ? "ON" : "off"));
 	{
 		mainMemoryTextR = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
-		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
-		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
 	}
 	else
 	{
 		mainMemoryTextR = (ramwrt ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (ramwrt ? &ram2[0x0400] : &ram[0x0400]);
-		mainMemoryHGRR = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
-		mainMemoryHGRW = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRR = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRW = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
 	}
 }
 
@@ -364,12 +364,12 @@ void SwitchRAMRD(uint16_t address, uint8_t)
 {
 	ramrd = (bool)(address & 0x01);
 	mainMemoryR = (ramrd ? &ram2[0x0200] : &ram[0x0200]);
+	mainMemoryHGRR = (ramrd ? &ram2[0x2000] : &ram[0x2000]);
 
 	if (store80Mode)
 		return;
 
 	mainMemoryTextR = (ramrd ? &ram2[0x0400] : &ram[0x0400]);
-	mainMemoryHGRR = (ramrd ? &ram2[0x2000] : &ram[0x2000]);
 }
 
 
@@ -377,18 +377,18 @@ void SwitchRAMWRT(uint16_t address, uint8_t)
 {
 	ramwrt = (bool)(address & 0x01);
 	mainMemoryW = (ramwrt ?  &ram2[0x0200] : &ram[0x0200]);
+	mainMemoryHGRW = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
 
 	if (store80Mode)
 		return;
 
 	mainMemoryTextW = (ramwrt ? &ram2[0x0400] : &ram[0x0400]);
-	mainMemoryHGRW = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
 }
 
 
 void SwitchSLOTCXROM(uint16_t address, uint8_t)
 {
-WriteLog("Setting SLOTCXROM to %s...\n", ((address & 0x01) ^ 0x01 ? "ON" : "off"));
+//WriteLog("Setting SLOTCXROM to %s...\n", ((address & 0x01) ^ 0x01 ? "ON" : "off"));
 	// This is the only soft switch that breaks the usual convention.
 	slotCXROM = !((bool)(address & 0x01));
 //	slot3Memory = (slotCXROM ? &rom[0] : &rom[0xC300]);
@@ -408,7 +408,7 @@ void SwitchALTZP(uint16_t address, uint8_t)
 void SwitchSLOTC3ROM(uint16_t address, uint8_t)
 {
 //dumpDis = true;
-WriteLog("Setting SLOTC3ROM to %s...\n", (address & 0x01 ? "ON" : "off"));
+//WriteLog("Setting SLOTC3ROM to %s...\n", (address & 0x01 ? "ON" : "off"));
 	slotC3ROM = (bool)(address & 0x01);
 //	slotC3ROM = false;
 // Seems the h/w forces this with an 80 column card in slot 3...
@@ -642,6 +642,7 @@ WriteLog("SwitchLC: Read/write bank 2\n");
 
 uint8_t SwitchTEXTR(uint16_t address)
 {
+WriteLog("Setting TEXT to %s...\n", (address & 0x01 ? "ON" : "off"));
 	textMode = (bool)(address & 0x01);
 	return 0;
 }
@@ -649,12 +650,14 @@ uint8_t SwitchTEXTR(uint16_t address)
 
 void SwitchTEXTW(uint16_t address, uint8_t)
 {
+WriteLog("Setting TEXT to %s...\n", (address & 0x01 ? "ON" : "off"));
 	textMode = (bool)(address & 0x01);
 }
 
 
 uint8_t SwitchMIXEDR(uint16_t address)
 {
+WriteLog("Setting MIXED to %s...\n", (address & 0x01 ? "ON" : "off"));
 	mixedMode = (bool)(address & 0x01);
 	return 0;
 }
@@ -662,20 +665,22 @@ uint8_t SwitchMIXEDR(uint16_t address)
 
 void SwitchMIXEDW(uint16_t address, uint8_t)
 {
+WriteLog("Setting MIXED to %s...\n", (address & 0x01 ? "ON" : "off"));
 	mixedMode = (bool)(address & 0x01);
 }
 
 
 uint8_t SwitchPAGE2R(uint16_t address)
 {
+WriteLog("Setting PAGE2 to %s...\n", (address & 0x01 ? "ON" : "off"));
 	displayPage2 = (bool)(address & 0x01);
 
 	if (store80Mode)
 	{
 		mainMemoryTextR = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
-		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
-		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
 	}
 
 	return 0;
@@ -684,20 +689,22 @@ uint8_t SwitchPAGE2R(uint16_t address)
 
 void SwitchPAGE2W(uint16_t address, uint8_t)
 {
+WriteLog("Setting PAGE2 to %s...\n", (address & 0x01 ? "ON" : "off"));
 	displayPage2 = (bool)(address & 0x01);
 
 	if (store80Mode)
 	{
 		mainMemoryTextR = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
-		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
-		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
+//		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
 	}
 }
 
 
 uint8_t SwitchHIRESR(uint16_t address)
 {
+WriteLog("Setting HIRES to %s...\n", (address & 0x01 ? "ON" : "off"));
 	hiRes = (bool)(address & 0x01);
 	return 0;
 }
@@ -705,6 +712,7 @@ uint8_t SwitchHIRESR(uint16_t address)
 
 void SwitchHIRESW(uint16_t address, uint8_t)
 {
+WriteLog("Setting HIRES to %s...\n", (address & 0x01 ? "ON" : "off"));
 	hiRes = (bool)(address & 0x01);
 }
 
