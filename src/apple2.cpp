@@ -1531,7 +1531,8 @@ SDL_DestroySemaphore(mainSem);
 		// Save state here...
 		SaveApple2State(settings.autoStatePath);
 	}
-floppyDrive.SaveImage();
+floppyDrive.SaveImage(0);
+floppyDrive.SaveImage(1);
 
 	SoundDone();
 	VideoDone();

@@ -118,6 +118,7 @@ bool FloppyDrive::LoadImage(const char * filename, uint8_t driveNum/*= 0*/)
 
 bool FloppyDrive::SaveImage(uint8_t driveNum/*= 0*/)
 {
+	// Various sanity checks...
 	if (driveNum > 1)
 	{
 		WriteLog("FLOPPY: Attempted to save image to drive #%u!\n", driveNum);
@@ -136,11 +137,13 @@ bool FloppyDrive::SaveImage(uint8_t driveNum/*= 0*/)
 		return false;
 	}
 
+	// Handle nybbylization, if necessary
 	if (diskType[driveNum] == DT_NYBBLE)
 		memcpy(disk[driveNum], nybblizedImage[driveNum], 232960);
 	else
 		DenybblizeImage(driveNum);
 
+	// Finally, write the damn image
 	FILE * fp = fopen(imageName[driveNum], "wb");
 
 	if (fp == NULL)
