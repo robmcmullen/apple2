@@ -90,19 +90,13 @@ bool altzp = false;
 bool ioudis = true;
 bool dhires = false;
 
-//static FloppyDrive floppyDrive;
-
-enum { LC_BANK_1, LC_BANK_2 };
-
-static uint8_t visibleBank = LC_BANK_1;
-static bool readRAM = false;
-static bool writeRAM = false;
-
 static bool running = true;						// Machine running state flag...
 static uint32_t startTicks;
 static bool pauseMode = false;
-
-static GUI * gui = NULL;
+static bool fullscreenDebounce = false;
+static bool capsLock = false;
+static bool capsLockDebounce = false;
+//static GUI * gui = NULL;
 
 // Local functions (technically, they're global...)
 
@@ -233,6 +227,7 @@ WriteLog("CPU: SDL_mutexV(cpuMutex);\n");
 #endif
 
 
+#if 0
 // Test GUI function
 
 Element * TestWindow(void)
@@ -251,1059 +246,7 @@ Element * QuitEmulator(void)
 
 	return NULL;
 }
-
-
-/*
- Small Apple II memory map:
-
-$C010 - Clear bit 7 of keyboard data ($C000)
-$C030 - Toggle speaker diaphragm
-$C051 - Display text
-$C054 - Select page 1
-$C056 - Select lo-res
-$C058 - Set annuciator-0 output to 0
-$C05A - Set annuciator-0 output to 0
-$C05D - Set annuciator-0 output to 1
-$C05F - Set annuciator-0 output to 1
-$C0E0 - Disk control stepper ($C0E0-7)
-$C0E9 - Disk control motor (on)
-$C0EA - Disk enable (drive 1)
-$C0EC - Disk R/W
-$C0EE - Disk set read mode
-*/
-
-//
-// V65C02 read/write memory functions
-//
-
-uint8_t RdMem(uint16_t addr)
-{
-	uint8_t b;
-
-#if 0
-if (addr >= 0xC000 && addr <= 0xC0FF)
-	WriteLog("\n*** Read at I/O address %04X\n", addr);
 #endif
-#if 0
-if (addr >= 0xC080 && addr <= 0xC08F)
-	WriteLog("\n*** Read at I/O address %04X\n", addr);
-#endif
-
-	if ((addr & 0xFFF0) == 0xC000)			// Read $C000-$C00F
-	{
-		return lastKeyPressed | (keyDown ? 0x80 : 0x00);
-	}
-//	else if ((addr & 0xFFF8) == 0xC010)		// Read $C010-$C01F
-	else if (addr == 0xC010)
-	{
-//This is bogus: keyDown is set to false, so return val NEVER is set...
-//Fixed...
-//Also, this is IIe/IIc only...!
-		uint8_t retVal = lastKeyPressed | (keyDown ? 0x80 : 0x00);
-		keyDown = false;
-		return retVal;
-	}
-	// These are //e locations
-	else if (addr == 0xC011)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RDBANK2 (read)\n");
-#endif
-		return (visibleBank == LC_BANK_2 ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC012)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RDLCRAM (read)\n");
-#endif
-		return (readRAM ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC013)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RAMRD (read)\n");
-#endif
-		return (ramrd ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC014)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RAMWRT (read)\n");
-#endif
-		return (ramwrt ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC015)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("SLOTCXROM (read)\n");
-#endif
-		return (slotCXROM ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC016)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("ALTZP (read)\n");
-#endif
-		return (altzp ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC017)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("SLOTC3ROM (read)\n");
-#endif
-		return (slotC3ROM ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC018)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("80STORE (read)\n");
-#endif
-		return (store80Mode ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC019)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("VBL (read)\n");
-#endif
-// NB: The doco suggests that this signal goes LOW when in the VBI.
-// Which means that we need to control this by counting lines somewhere.
-		return (vbl ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC01A)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("TEXT (read)\n");
-#endif
-		return (textMode ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC01B)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("MIXED (read)\n");
-#endif
-		return (mixedMode ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC01C)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("PAGE2 (read)\n");
-#endif
-		return (displayPage2 ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC01D)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("HIRES (read)\n");
-#endif
-		return (hiRes ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC01E)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("ALTCHARSET (read)\n");
-#endif
-		return (alternateCharset ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC01F)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("80COL (read)\n");
-#endif
-		return (col80Mode ? 0x80 : 0x00);
-	}
-	else if ((addr & 0xFFF0) == 0xC030)		// Read $C030-$C03F
-	{
-		ToggleSpeaker();
-//should it return something else here???
-		return 0x00;
-	}
-	else if (addr == 0xC050)				// Read $C050
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("TEXT off (read)\n");
-#endif
-		textMode = false;
-	}
-	else if (addr == 0xC051)				// Read $C051
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("TEXT on (read)\n");
-#endif
-		textMode = true;
-	}
-	else if (addr == 0xC052)				// Read $C052
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("MIXED off (read)\n");
-#endif
-		mixedMode = false;
-	}
-	else if (addr == 0xC053)				// Read $C053
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("MIXED on (read)\n");
-#endif
-		mixedMode = true;
-	}
-	else if (addr == 0xC054)				// Read $C054
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("PAGE2 off (read)\n");
-#endif
-		displayPage2 = false;
-	}
-	else if (addr == 0xC055)				// Read $C055
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("PAGE2 on (read)\n");
-#endif
-		displayPage2 = true;
-	}
-	else if (addr == 0xC056)				// Read $C056
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("HIRES off (read)\n");
-#endif
-		hiRes = false;
-	}
-	else if (addr == 0xC057)				// Read $C057
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("HIRES on (read)\n");
-#endif
-		hiRes = true;
-	}
-	else if (addr == 0xC05E)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("DHIRES on (read)\n");
-#endif
-		if (ioudis)
-			dhires = true;
-	}
-	else if (addr == 0xC05F)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("DHIRES off (read)\n");
-#endif
-		if (ioudis)
-			dhires = false;
-	}
-	else if (addr == 0xC061)				// Read $C061
-	{
-		// Open Apple key (or push button 0)
-		return (openAppleDown ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC062)				// Read $C062
-	{
-		// Open Apple key (or push button 0)
-		return (closedAppleDown ? 0x80 : 0x00);
-	}
-	// The way the paddles work is that a strobe is written (or read) to $C070,
-	// then software counts down the time that it takes for the paddle outputs
-	// to have bit 7 return to 0. If there are no paddles connected, bit 7
-	// stays at 1.
-	else if (addr == 0xC064)	// Paddles 0-3
-	{
-		return 0xFF;
-	}
-	else if (addr == 0xC065)
-	{
-		return 0xFF;
-	}
-	else if (addr == 0xC066)
-	{
-		return 0xFF;
-	}
-	else if (addr == 0xC067)
-	{
-		return 0xFF;
-	}
-	else if (addr == 0xC07E)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("IOUDIS (read)\n");
-#endif
-		return (ioudis ? 0x80 : 0x00);
-	}
-	else if (addr == 0xC07F)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("DHIRES (read)\n");
-#endif
-		return (dhires ? 0x80 : 0x00);
-	}
-
-//Note that this is a kludge: The $D000-$DFFF 4K space is shared (since $C000-$CFFF is
-//memory mapped) between TWO banks, and that that $E000-$FFFF RAM space is a single bank.
-//[SHOULD BE FIXED NOW]
-//OK! This switch selects bank 2 of the 4K bank at $D000-$DFFF. One access makes it
-//visible, two makes it R/W.
-
-/*
-301  LDA $E000
-304  PHA
-305  LDA $C081
-308  PLA
-309  PHA
-30A  CMP $E000
-30D  BNE $332
-30F  LDA $C083
-312  LDA $C083
-315  LDA #$A5
-317  STA $D000
-31A  CMP $D000
-31D  BNE $332
-31F  LSR A
-320  STA $D000
-323  CMP $D000
-326  BNE $332
-328  LDA $C081
-32B  LDA $C081
-32E  LDA #$01
-330  BNE $334
-332  LDA #$00
-334  STA $300
-337  PLA
-338  CMP $E000
-33B  BEQ $340
-33D  LDA $C080
-340  RTS
-
-A = PEEK($C082)
-*/
-
-	else if ((addr & 0xFFFB) == 0xC080)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C080 49280 OECG R Read RAM bank 2; no write\n");
-#endif
-//$C080 49280              OECG  R   Read RAM bank 2; no write
-		visibleBank = LC_BANK_2;
-		readRAM = true;
-		writeRAM = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC081)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C081 49281 OECG RR Read ROM; write RAM bank 2\n");
-#endif
-//$C081 49281 ROMIN        OECG  RR  Read ROM; write RAM bank 2
-		visibleBank = LC_BANK_2;
-		readRAM = false;
-		writeRAM = true;
-	}
-	else if ((addr & 0xFFFB) == 0xC082)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C082 49282 OECG R Read ROM; no write\n");
-#endif
-//$C082 49282              OECG  R   Read ROM; no write
-		visibleBank = LC_BANK_2;
-		readRAM = false;
-		writeRAM = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC083)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C083 49283 OECG RR Read/Write RAM bank 2\n");
-#endif
-//$C083 49283 LCBANK2      OECG  RR  Read/write RAM bank 2
-		visibleBank = LC_BANK_2;
-		readRAM = true;
-		writeRAM = true;
-	}
-	else if ((addr & 0xFFFB) == 0xC088)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $%04X 49288 OECG R Read RAM bank 1; no write\n", addr);
-#endif
-//$C088 49288              OECG  R   Read RAM bank 1; no write
-		visibleBank = LC_BANK_1;
-		readRAM = true;
-		writeRAM = false;
-//Hm. Some stuff seems to want this.
-//nope, was looking at $C0E8... return 0xFF;
-	}
-	else if ((addr & 0xFFFB) == 0xC089)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C089 49289 OECG RR Read ROM; write RAM bank 1\n");
-#endif
-//$C089 49289              OECG  RR  Read ROM; write RAM bank 1
-		visibleBank = LC_BANK_1;
-		readRAM = false;
-		writeRAM = true;
-	}
-	else if ((addr & 0xFFFB) == 0xC08A)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C08A 49290 OECG R Read ROM; no write\n");
-#endif
-//$C08A 49290              OECG  R   Read ROM; no write
-		visibleBank = LC_BANK_1;
-		readRAM = false;
-		writeRAM = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC08B)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
-#endif
-//$C08B 49291              OECG  RR  Read/write RAM bank 1
-		visibleBank = LC_BANK_1;
-		readRAM = true;
-		writeRAM = true;
-	}
-	else if ((addr & 0xFFF8) == 0xC0E0)
-	{
-		floppyDrive.ControlStepper(addr & 0x07);
-	}
-	else if ((addr & 0xFFFE) == 0xC0E8)
-	{
-		floppyDrive.ControlMotor(addr & 0x01);
-	}
-	else if ((addr & 0xFFFE) == 0xC0EA)
-	{
-		floppyDrive.DriveEnable(addr & 0x01);
-	}
-	else if (addr == 0xC0EC)
-	{
-		return floppyDrive.ReadWrite();
-	}
-	else if (addr == 0xC0ED)
-	{
-		return floppyDrive.GetLatchValue();
-	}
-	else if (addr == 0xC0EE)
-	{
-		floppyDrive.SetReadMode();
-	}
-	else if (addr == 0xC0EF)
-	{
-		floppyDrive.SetWriteMode();
-	}
-
-//#define LC_DEBUGGING
-#ifdef LC_DEBUGGING
-bool showpath = false;
-if (addr >= 0xD000 && addr <= 0xD00F)
-	showpath = true;
-#endif
-//This sux...
-	if (addr >= 0xC100 && addr <= 0xC7FF)	// The $C000-$CFFF block is *never* RAM
-	{
-// Looks like the ][e ref manual got this one wrong: slotCXROM set should mean
-// use internal ROM, NOT slot ROM. :-/
-// (fixed now, by setting the switch correctly in the write mem section :-P)
-		if (!slotCXROM)
-//		if (slotCXROM)
-			b = rom[addr];
-		else
-		{
-			if (addr >= 0xC100 && addr <= 0xC1FF)
-				b = parallelROM[addr & 0xFF];
-			else if (addr >= 0xC600 && addr <= 0xC6FF)
-				b = diskROM[addr & 0xFF];
-			else if (addr >= 0xC300 && addr <= 0xC3FF && !slotC3ROM)
-				b = rom[addr];
-			else
-				b = 0xFF;
-//				b = rom[addr];
-		}
-#ifdef LC_DEBUGGING
-if (showpath)
-	WriteLog("b is from $C100-$CFFF block...\n");
-#endif
-	}
-	else if (addr >= 0xC800 && addr <= 0xCFFF)	// 2K peripheral or OS ROM
-	{
-		b = rom[addr];
-	}
-	else if (addr >= 0xD000)
-	{
-		if (readRAM)
-		{
-			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
-#ifdef LC_DEBUGGING
-			{
-#endif
-//				b = ram[addr - 0x1000];
-				b = (altzp ? ram2[addr - 0x1000] : ram[addr - 0x1000]);
-#ifdef LC_DEBUGGING
-if (showpath)
-	WriteLog("b is from LC bank #1 (ram[addr - 0x1000])...\n");
-			}
-#endif
-			else
-#ifdef LC_DEBUGGING
-			{
-#endif
-//				b = ram[addr];
-				b = (altzp ? ram2[addr] : ram[addr]);
-#ifdef LC_DEBUGGING
-if (showpath)
-	WriteLog("b is from LC bank #2 (ram[addr])...\n");
-			}
-#endif
-		}
-		else
-#ifdef LC_DEBUGGING
-		{
-#endif
-			b = rom[addr];
-#ifdef LC_DEBUGGING
-if (showpath)
-	WriteLog("b is from LC ROM (rom[addr])...\n");
-		}
-#endif
-	}
-	else
-	{
-// 80STORE only works for WRITING, not READING!
-#if 0
-		// Check for 80STORE mode (STORE80 takes precedence over RAMRD/WRT)...
-		if ((((addr >= 0x0400) && (addr <= 0x07FF)) || ((addr >= 0x2000) && (addr <= 0x3FFF))) && store80Mode)
-		{
-			if (displayPage2)
-				b = ram2[addr];
-			else
-				b = ram[addr];
-
-			return b;
-		}
-#endif
-
-		// Finally, check for auxillary/altzp write switches
-		if (addr < 0x0200)
-			b = (altzp ? ram2[addr] : ram[addr]);
-		else
-			b = (ramrd ? ram2[addr] : ram[addr]);
-#ifdef LC_DEBUGGING
-if (showpath)
-	WriteLog("b is from ram[addr]...\n");
-#endif
-	}
-
-#ifdef LC_DEBUGGING
-if (addr >= 0xD000 && addr <= 0xD00F)
-{
-	WriteLog("*** Read from $%04X: $%02X (readRAM=%s, PC=%04X, ram$D000=%02X)\n", addr, b, (readRAM ? "T" : "F"), mainCPU.pc, ram[0xC000]);
-}
-#endif
-
-	return b;
-}
-
-/*
-A-9 (Mockingboard)
-APPENDIX F Assembly Language Program Listings
-
-	1	*PRIMARY ROUTINES
-	2	*FOR SLOT 4
-	3	*
-	4			ORG	$9000
-	5	*				;ADDRESSES FOR FIRST 6522
-	6	ORB		EQU	$C400		;PORT B
-	7	ORA		EQU	$C401		;PORT A
-	8	DDRB		EQU	$C402		;DATA DIRECTION REGISTER (A)
-	9	DDRA		EQU	$C403		;DATA DIRECTION REGISTER (B)
-	10	*					;ADDRESSES FOR SECOND 6522
-	11	ORB2		EQU	$C480		;PORT B
-	12	ORA2		EQU	$C481		;PORT A
-	13	DDRB2	EQU	$C482		;DATA DIRECTION REGISTER (B)
-	14	DDRA2	EQU	$C483		;DATA DIRECTION REGISTER (A)
-*/
-void WrMem(uint16_t addr, uint8_t b)
-{
-//temp...
-//extern V6809REGS regs;
-//if (addr >= 0xC800 && addr <= 0xCBFE)
-//if (addr == 0xC80F || addr == 0xC80D)
-//	WriteLog("WrMem: Writing address %04X with %02X [PC=%04X, $CB00=%02X]\n", addr, b, regs.pc, gram[0xCB00]);//*/
-
-#if 0
-if (addr >= 0xC000 && addr <= 0xC0FF)
-	WriteLog("\n*** Write at I/O address %04X\n", addr);
-#endif
-/*
-Check the BIKO version on Asimov to see if it's been cracked or not...
-
-7F3D: 29 07          AND   #$07       [PC=7F3F, SP=01EA, CC=---B-I--, A=01, X=4B, Y=00]
-7F3F: C9 06          CMP   #$06       [PC=7F41, SP=01EA, CC=N--B-I--, A=01, X=4B, Y=00]
-7F41: 90 03          BCC   $7F46      [PC=7F46, SP=01EA, CC=N--B-I--, A=01, X=4B, Y=00]
-[7F43: 4C 83 7E      JMP   $7E83] <- Skipped over... (Prints "THANK YOU VERY MUCH!")
-7F46: AA             TAX              [PC=7F47, SP=01EA, CC=---B-I--, A=01, X=01, Y=00]
-
-; INX here *ensures* 1 - 6!!! BUG!!!
-; Or is it? Could this be part of a braindead copy protection scheme? It's
-; awfully close to NOP ($EA)...
-; Nothing else touches it once it's been written... Hmm...
-
-7F47: E8             INX              [PC=7F48, SP=01EA, CC=---B-I--, A=01, X=02, Y=00]
-7F48: F8             SED              [PC=7F49, SP=01EA, CC=---BDI--, A=01, X=02, Y=00]
-7F49: 18             CLC              [PC=7F4A, SP=01EA, CC=---BDI--, A=01, X=02, Y=00]
-7F4A: BD 15 4E       LDA   $4E15,X    [PC=7F4D, SP=01EA, CC=---BDI--, A=15, X=02, Y=00]
-
-; 4E13: 03 00
-; 4E15: 25 25 15 15 10 20
-; 4E1B: 03 41 99 99 01 00 12
-; 4E22: 99 70
-
-7F4D: 65 FC          ADC   $FC        [PC=7F4F, SP=01EA, CC=---BDI--, A=16, X=02, Y=00]
-7F4F: 65 FC          ADC   $FC        [PC=7F51, SP=01EA, CC=---BDI--, A=17, X=02, Y=00]
-7F51: 65 FC          ADC   $FC        [PC=7F53, SP=01EA, CC=---BDI--, A=18, X=02, Y=00]
-7F53: 65 FC          ADC   $FC        [PC=7F55, SP=01EA, CC=---BDI--, A=19, X=02, Y=00]
-
-; NO checking is done on the raised stat! Aarrrgggghhhhh!
-
-7F55: 9D 15 4E       STA   $4E15,X    [PC=7F58, SP=01EA, CC=---BDI--, A=19, X=02, Y=00]
-7F58: D8             CLD              [PC=7F59, SP=01EA, CC=---B-I--, A=19, X=02, Y=00]
-
-; Print "ALAKAZAM!" and so on...
-
-7F59: 20 2C 40       JSR   $402C      [PC=402C, SP=01E8, CC=---B-I--, A=19, X=02, Y=00]
-*/
-#if 0
-if (addr == 0x7F47)
-	WriteLog("\n*** Byte %02X written at address %04X\n", b, addr);
-#endif
-/*
-I think this is IIc/IIe only...
-
-CLR80STORE=$C000 ;80STORE Off- disable 80-column memory mapping (Write)
-SET80STORE=$C001 ;80STORE On- enable 80-column memory mapping (WR-only)
-
-CLRAUXRD = $C002 ;read from main 48K (WR-only)
-SETAUXRD = $C003 ;read from aux/alt 48K (WR-only)
-
-CLRAUXWR = $C004 ;write to main 48K (WR-only)
-SETAUXWR = $C005 ;write to aux/alt 48K (WR-only)
-
-CLRCXROM = $C006 ;use ROM on cards (WR-only)
-SETCXROM = $C007 ;use internal ROM (WR-only)
-
-CLRAUXZP = $C008 ;use main zero page, stack, & LC (WR-only)
-SETAUXZP = $C009 ;use alt zero page, stack, & LC (WR-only)
-
-CLRC3ROM = $C00A ;use internal Slot 3 ROM (WR-only)
-SETC3ROM = $C00B ;use external Slot 3 ROM (WR-only)
-
-CLR80VID = $C00C ;disable 80-column display mode (WR-only)
-SET80VID = $C00D ;enable 80-column display mode (WR-only)
-
-CLRALTCH = $C00E ;use main char set- norm LC, Flash UC (WR-only)
-SETALTCH = $C00F ;use alt char set- norm inverse, LC; no Flash (WR-only)
-*/
-	if (addr == 0xC000)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("80STORE off (write)\n");
-#endif
-		store80Mode = false;
-	}
-	else if (addr == 0xC001)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("80STORE on (write)\n");
-#endif
-		store80Mode = true;
-	}
-	else if (addr == 0xC002)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RAMRD off (write)\n");
-#endif
-		ramrd = false;
-	}
-	else if (addr == 0xC003)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RAMRD on (write)\n");
-#endif
-		ramrd = true;
-	}
-	else if (addr == 0xC004)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RAMWRT off (write)\n");
-#endif
-		ramwrt = false;
-	}
-	else if (addr == 0xC005)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("RAMWRT on (write)\n");
-#endif
-		ramwrt = true;
-	}
-	else if (addr == 0xC006)
-	{
-		// This is the only soft switch that breaks the usual convention.
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("SLOTCXROM on (write)\n");
-#endif
-		slotCXROM = true;
-	}
-	else if (addr == 0xC007)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("SLOTCXROM off (write)\n");
-#endif
-		slotCXROM = false;
-	}
-	else if (addr == 0xC008)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("ALTZP off (write)\n");
-#endif
-		altzp = false;
-	}
-	else if (addr == 0xC009)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("ALTZP on (write)\n");
-#endif
-		altzp = true;
-	}
-	else if (addr == 0xC00A)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("SLOTC3ROM off (write)\n");
-#endif
-		slotC3ROM = false;
-	}
-	else if (addr == 0xC00B)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("SLOTC3ROM on (write)\n");
-#endif
-		slotC3ROM = true;
-	}
-	else if (addr == 0xC00C)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("80COL off (write)\n");
-#endif
-		col80Mode = false;
-	}
-	else if (addr == 0xC00D)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("80COL on (write)\n");
-#endif
-		col80Mode = true;
-	}
-	else if (addr == 0xC00E)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("ALTCHARSET off (write)\n");
-#endif
-		alternateCharset = false;
-	}
-	else if (addr == 0xC00F)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("ALTCHARSET on (write)\n");
-#endif
-		alternateCharset = true;
-	}
-	else if ((addr & 0xFFF0) == 0xC010)		// Keyboard strobe
-	{
-//Actually, according to the A2 ref, this should do nothing since a write
-//is immediately preceded by a read leaving it in the same state it was...
-//But leaving this out seems to fuck up the key handling of some games...
-		keyDown = false;
-	}
-	else if ((addr & 0xFFF0) == 0xC030)		// Read $C030-$C03F
-	{
-//Likewise, the speaker is supposed to do nothing if you write to it, and
-//for the same reason. But without this, you get no sound in David's
-//Midnight Magic...
-		ToggleSpeaker();
-	}
-	else if (addr == 0xC050)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("TEXT off (write)\n");
-#endif
-		textMode = false;
-	}
-	else if (addr == 0xC051)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("TEXT on (write)\n");
-#endif
-		textMode = true;
-	}
-	else if (addr == 0xC052)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("MIXED off (write)\n");
-#endif
-		mixedMode = false;
-	}
-	else if (addr == 0xC053)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("MIXED on (write)\n");
-#endif
-		mixedMode = true;
-	}
-	else if (addr == 0xC054)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("PAGE2 off (write)\n");
-#endif
-		displayPage2 = false;
-	}
-	else if (addr == 0xC055)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("PAGE2 on (write)\n");
-#endif
-		displayPage2 = true;
-	}
-	else if (addr == 0xC056)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("HIRES off (write)\n");
-#endif
-		hiRes = false;
-	}
-	else if (addr == 0xC057)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("HIRES on (write)\n");
-#endif
-		hiRes = true;
-	}
-	else if (addr == 0xC05E)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("DHIRES on (write)\n");
-#endif
-		if (ioudis)
-			dhires = true;
-
-//static int goDumpDis = 0;
-//goDumpDis++;
-//if (goDumpDis == 2)
-//	dumpDis = true;
-	}
-	else if (addr == 0xC05F)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("DHIRES off (write)\n");
-#endif
-		if (ioudis)
-			dhires = false;
-	}
-	else if (addr == 0xC07E)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("IOUDIS on (write)\n");
-#endif
-		ioudis = true;
-	}
-	else if (addr == 0xC07F)
-	{
-#ifdef SOFT_SWITCH_DEBUGGING
-WriteLog("IOUDIS off (write)\n");
-#endif
-		ioudis = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC080)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C080 49280 OECG R Read RAM bank 2; no write\n");
-#endif
-//$C080 49280              OECG  R   Read RAM bank 2; no write
-		visibleBank = LC_BANK_2;
-		readRAM = true;
-		writeRAM = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC081)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C081 49281 OECG RR Read ROM; write RAM bank 2\n");
-#endif
-//$C081 49281 ROMIN        OECG  RR  Read ROM; write RAM bank 2
-		visibleBank = LC_BANK_2;
-		readRAM = false;
-		writeRAM = true;
-	}
-	else if ((addr & 0xFFFB) == 0xC082)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C082 49282 OECG R Read ROM; no write\n");
-#endif
-//$C082 49282              OECG  R   Read ROM; no write
-		visibleBank = LC_BANK_2;
-		readRAM = false;
-		writeRAM = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC083)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C083 49283 OECG RR Read/Write RAM bank 2\n");
-#endif
-//$C083 49283 LCBANK2      OECG  RR  Read/write RAM bank 2
-		visibleBank = LC_BANK_2;
-		readRAM = true;
-		writeRAM = true;
-	}
-	else if ((addr & 0xFFFB) == 0xC088)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C088 49288 OECG R Read RAM bank 1; no write\n");
-#endif
-//$C088 49288              OECG  R   Read RAM bank 1; no write
-		visibleBank = LC_BANK_1;
-		readRAM = true;
-		writeRAM = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC089)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C089 49289 OECG RR Read ROM; write RAM bank 1\n");
-#endif
-//$C089 49289              OECG  RR  Read ROM; write RAM bank 1
-		visibleBank = LC_BANK_1;
-		readRAM = false;
-		writeRAM = true;
-	}
-	else if ((addr & 0xFFFB) == 0xC08A)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C08A 49290 OECG R Read ROM; no write\n");
-#endif
-//$C08A 49290              OECG  R   Read ROM; no write
-		visibleBank = LC_BANK_1;
-		readRAM = false;
-		writeRAM = false;
-	}
-	else if ((addr & 0xFFFB) == 0xC08B)
-	{
-#ifdef DEBUG_LC
-WriteLog("LC(R): $C08B 49291 OECG RR Read/Write RAM bank 1\n");
-#endif
-//$C08B 49291              OECG  RR  Read/write RAM bank 1
-		visibleBank = LC_BANK_1;
-		readRAM = true;
-		writeRAM = true;
-	}
-//This is determined by which slot it is in--this assumes slot 6. !!! FIX !!!
-	else if ((addr & 0xFFF8) == 0xC0E0)
-	{
-		floppyDrive.ControlStepper(addr & 0x07);
-	}
-	else if ((addr & 0xFFFE) == 0xC0E8)
-	{
-		floppyDrive.ControlMotor(addr & 0x01);
-	}
-	else if ((addr & 0xFFFE) == 0xC0EA)
-	{
-		floppyDrive.DriveEnable(addr & 0x01);
-	}
-	else if (addr == 0xC0EC)
-	{
-//change this to Write()? (and the other to Read()?) Dunno. Seems to work OK, but still...
-//or DoIO
-		floppyDrive.ReadWrite();
-	}
-	else if (addr == 0xC0ED)
-	{
-		floppyDrive.SetLatchValue(b);
-	}
-	else if (addr == 0xC0EE)
-	{
-		floppyDrive.SetReadMode();
-	}
-	else if (addr == 0xC0EF)
-	{
-		floppyDrive.SetWriteMode();
-	}
-
-	if (addr >= 0xC000 && addr <= 0xCFFF)
-		return;	// Protect LC bank #1 from being written to!
-
-	if (addr >= 0xD000)
-	{
-		if (writeRAM)
-		{
-#if 0
-			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
-				ram[addr - 0x1000] = b;
-			else
-				ram[addr] = b;
-#else
-			if (addr <= 0xDFFF && visibleBank == LC_BANK_1)
-			{
-				if (altzp)
-					ram2[addr - 0x1000] = b;
-				else
-					ram[addr - 0x1000] = b;
-			}
-			else
-			{
-				if (altzp)
-					ram2[addr] = b;
-				else
-					ram[addr] = b;
-			}
-#endif
-		}
-
-		return;
-	}
-
-	// Check for 80STORE mode (STORE80 takes precedence over RAMRD/WRT)...
-	if ((((addr >= 0x0400) && (addr <= 0x07FF)) || ((addr >= 0x2000) && (addr <= 0x3FFF))) && store80Mode)
-	{
-		if (displayPage2)
-			ram2[addr] = b;
-		else
-			ram[addr] = b;
-
-		return;
-	}
-
-	// Finally, check for auxillary/altzp write switches
-#if 0
-	if (ramwrt)
-		ram2[addr] = b;
-	else
-	{
-		if (altzp)
-			ram2[addr] = b;
-		else
-			ram[addr] = b;
-	}
-#else
-	if (addr < 0x0200)
-//	if (addr < 0x0200 || addr >= 0xD000)
-	{
-#if 0
-if (addr == 0x38)
-	WriteLog("Write $38: $%02X\n", b);
-else if (addr == 0x39)
-	WriteLog("Write $39: $%02X\n", b);
-#endif
-		if (altzp)
-			ram2[addr] = b;
-		else
-			ram[addr] = b;
-	}
-	else
-	{
-		if (ramwrt)
-			ram2[addr] = b;
-		else
-			ram[addr] = b;
-	}
-#endif
-}
 
 
 //
@@ -1375,22 +318,10 @@ int main(int /*argc*/, char * /*argv*/[])
 		return -1;
 	}
 
-//This is now included...
-/*	if (!LoadImg(settings.diskPath, diskRom, 0x100))
-	{
-		WriteLog("Could not open file '%s'!\nDisk II will be unavailable!\n", settings.diskPath);
-//		return -1;
-	}//*/
-
 //Load up disk image from config file (for now)...
 	floppyDrive.LoadImage(settings.diskImagePath1, 0);
 	floppyDrive.LoadImage(settings.diskImagePath2, 1);
 //	floppyDrive.LoadImage("./disks/temp.nib", 1);	// Load temp .nib file into second drive...
-
-//Kill the DOS ROM in slot 6 for now...
-//not
-//	memcpy(rom + 0xC600, diskROM, 0x100);
-//	memcpy(rom + 0xC700, diskROM, 0x100);	// Slot 7???
 
 	WriteLog("About to initialize video...\n");
 
@@ -1399,6 +330,8 @@ int main(int /*argc*/, char * /*argv*/[])
 		std::cout << "Aborting!" << std::endl;
 		return -1;
 	}
+
+	GUI2::Init(sdlRenderer);
 
 	// Have to do this *after* video init but *before* sound init...!
 //Shouldn't be necessary since we're not doing emulation in the ISR...
@@ -1476,6 +409,7 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 #endif
 
 	WriteLog("Entering main loop...\n");
+
 	while (running)
 	{
 		double timeToNextEvent = GetTimeToNextEvent();
@@ -1492,9 +426,6 @@ memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
 totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
 #endif
 #endif
-		// Handle CPU time delta for sound...
-//Don't need this anymore now that we use absolute time...
-//		AddToSoundTimeBase(USEC_TO_M6502_CYCLES(timeToNextEvent));
 		HandleNextEvent();
 	}
 
@@ -1609,6 +540,7 @@ static void FrameCallback(void)
 		switch (event.type)
 		{
 // Problem with using SDL_TEXTINPUT is that it causes key delay. :-/
+#if 0
 		case SDL_TEXTINPUT:
 //Need to do some key translation here, and screen out non-apple keys as well...
 //(really, could do it all in SDL_KEYDOWN, would just have to get symbols &
@@ -1626,15 +558,23 @@ static void FrameCallback(void)
 //				lastKeyPressed &= 0xDF;		// Convert to upper case...
 
 			break;
+#endif
 		case SDL_KEYDOWN:
+			// Use ALT+Q to exit, as well as the usual window decoration method
+			if (event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_ALT))
+				running = false;
+
 			// CTRL+RESET key emulation (mapped to CTRL+`)
 // This doesn't work...
 //			if (event.key.keysym.sym == SDLK_BREAK && (event.key.keysym.mod & KMOD_CTRL))
 //			if (event.key.keysym.sym == SDLK_PAUSE && (event.key.keysym.mod & KMOD_CTRL))
 			if (event.key.keysym.sym == SDLK_BACKQUOTE && (event.key.keysym.mod & KMOD_CTRL))
+			{
 //NOTE that this shouldn't take place until the key is lifted... !!! FIX !!!
 //ALSO it seems to leave the machine in an inconsistent state vis-a-vis the language card...
 				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
+				break;
+			}
 
 			if (event.key.keysym.sym == SDLK_RIGHT)
 				lastKeyPressed = 0x15, keyDown = true;
@@ -1659,12 +599,168 @@ static void FrameCallback(void)
 					lastKeyPressed = (event.key.keysym.sym - SDLK_a) + 1;
 					keyDown = true;
 //printf("Key combo pressed: CTRL+%c\n", lastKeyPressed + 0x40);
+					break;
 				}
 			}
 
-			// Use ALT+Q to exit, as well as the usual window decoration method
-			if (event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_ALT))
-				running = false;
+#if 1
+			// Fix SHIFT+key combo...
+			if (event.key.keysym.mod & KMOD_SHIFT)
+			{
+				if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
+				{
+					lastKeyPressed = (event.key.keysym.sym - SDLK_a) + 0x41;
+					keyDown = true;
+//printf("Key combo pressed: CTRL+%c\n", lastKeyPressed + 0x40);
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_1)
+				{
+					lastKeyPressed = '!';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_2)
+				{
+					lastKeyPressed = '@';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_3)
+				{
+					lastKeyPressed = '#';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_3)
+				{
+					lastKeyPressed = '#';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_4)
+				{
+					lastKeyPressed = '$';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_5)
+				{
+					lastKeyPressed = '%';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_6)
+				{
+					lastKeyPressed = '^';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_7)
+				{
+					lastKeyPressed = '&';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_8)
+				{
+					lastKeyPressed = '*';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_9)
+				{
+					lastKeyPressed = '(';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_0)
+				{
+					lastKeyPressed = ')';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_MINUS)
+				{
+					lastKeyPressed = '_';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_EQUALS)
+				{
+					lastKeyPressed = '+';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_LEFTBRACKET)
+				{
+					lastKeyPressed = '{';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_RIGHTBRACKET)
+				{
+					lastKeyPressed = '}';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_BACKSLASH)
+				{
+					lastKeyPressed = '|';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_SEMICOLON)
+				{
+					lastKeyPressed = ':';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_QUOTE)
+				{
+					lastKeyPressed = '"';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_COMMA)
+				{
+					lastKeyPressed = '<';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_PERIOD)
+				{
+					lastKeyPressed = '>';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_SLASH)
+				{
+					lastKeyPressed = '?';
+					keyDown = true;
+					break;
+				}
+				else if (event.key.keysym.sym == SDLK_BACKQUOTE)
+				{
+					lastKeyPressed = '~';
+					keyDown = true;
+					break;
+				}
+			}
+#endif
+
+			// General keys...
+			if (event.key.keysym.sym >= SDLK_SPACE && event.key.keysym.sym <= SDLK_z)
+			{
+				lastKeyPressed = event.key.keysym.sym;
+				keyDown = true;
+
+				// Check for Caps Lock key...
+				if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z && capsLock)
+					lastKeyPressed -= 0x20;
+
+				break;
+			}
 
 			if (event.key.keysym.sym == SDLK_PAUSE)
 			{
@@ -1694,7 +790,7 @@ static void FrameCallback(void)
 //				floppyDrive.LoadImage("./disks/bt1_char.dsk");//Kludge to load char disk...
 else if (event.key.keysym.sym == SDLK_F9)
 {
-	floppyDrive.CreateBlankImage();
+	floppyDrive.CreateBlankImage(0);
 //	SpawnMessage("Image cleared...");
 }//*/
 else if (event.key.keysym.sym == SDLK_F10)
@@ -1708,11 +804,14 @@ else if (event.key.keysym.sym == SDLK_F10)
 			else if (event.key.keysym.sym == SDLK_F3)// Cycle through screen types
 				CycleScreenTypes();
 
+// GUI is no longer launched this way...
+#if 0
 //			if (event.key.keysym.sym == SDLK_F5)	// Temp GUI launch key
 			if (event.key.keysym.sym == SDLK_F1)	// GUI launch key
 //NOTE: Should parse the output to determine whether or not the user requested
 //      to quit completely... !!! FIX !!!
 				gui->Run();
+#endif
 
 			if (event.key.keysym.sym == SDLK_F5)
 			{
@@ -1733,8 +832,6 @@ else if (event.key.keysym.sym == SDLK_F10)
 				SpawnMessage("Volume: %s", volStr);
 			}
 
-			static bool fullscreenDebounce = false;
-
 			if (event.key.keysym.sym == SDLK_F12)
 			{
 				if (!fullscreenDebounce)
@@ -1743,12 +840,22 @@ else if (event.key.keysym.sym == SDLK_F10)
 					fullscreenDebounce = true;
 				}
 			}
-//			else
+
+			if (event.key.keysym.sym == SDLK_CAPSLOCK)
+			{
+				if (!capsLockDebounce)
+				{
+					capsLock = !capsLock;
+					capsLockDebounce = true;
+				}
+			}
 
 			break;
 		case SDL_KEYUP:
 			if (event.key.keysym.sym == SDLK_F12)
 				fullscreenDebounce = false;
+			if (event.key.keysym.sym == SDLK_CAPSLOCK)
+				capsLockDebounce = false;
 
 			// Paddle buttons 0 & 1
 			if (event.key.keysym.sym == SDLK_INSERT)
@@ -1760,6 +867,20 @@ else if (event.key.keysym.sym == SDLK_F10)
 //				keyDown = false;
 
 			break;
+		case SDL_MOUSEBUTTONDOWN:
+			GUI2::MouseDown(event.motion.x, event.motion.y, event.motion.state);
+			break;
+		case SDL_MOUSEBUTTONUP:
+			GUI2::MouseUp(event.motion.x, event.motion.y, event.motion.state);
+			break;
+		case SDL_MOUSEMOTION:
+			GUI2::MouseMove(event.motion.x, event.motion.y, event.motion.state);
+			break;
+		case SDL_WINDOWEVENT:
+			if (event.window.event == SDL_WINDOWEVENT_LEAVE)
+				GUI2::MouseMove(0, 0, 0);
+
+			break;
 		case SDL_QUIT:
 			running = false;
 		}
@@ -1767,6 +888,9 @@ else if (event.key.keysym.sym == SDLK_F10)
 
 //#warning "!!! Taking MAJOR time hit with the video frame rendering !!!"
 	RenderVideoFrame();
+	RenderScreenBuffer();
+	GUI2::Render(sdlRenderer);
+	SDL_RenderPresent(sdlRenderer);
 	SetCallbackTime(FrameCallback, 16666.66666667);
 
 #ifdef CPU_CLOCK_CHECKING

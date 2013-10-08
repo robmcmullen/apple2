@@ -479,3 +479,181 @@ void GUI::Stop(void)
 	exitGUI = true;
 }
 
+
+
+//
+// NEW GUI STARTS HERE
+//
+
+enum { SBS_SHOWING, SBS_HIDING, SBS_SHOWN, SBS_HIDDEN };
+
+
+SDL_Texture * GUI2::overlay = NULL;
+SDL_Rect GUI2::olSrc;
+SDL_Rect GUI2::olDst;
+bool GUI2::sidebarOut = false;
+int GUI2::sidebarState = SBS_HIDDEN;
+int32_t GUI2::dx = 0;
+
+
+GUI2::GUI2(void)
+{
+}
+
+
+GUI2::~GUI2(void)
+{
+}
+
+
+void GUI2::Init(SDL_Renderer * renderer)
+{
+	overlay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_STREAMING, 128, 256);
+
+	if (!overlay)
+	{
+		WriteLog("GUI: Could not create overlay!\n");
+		return;
+	}
+
+	if (SDL_SetTextureBlendMode(overlay, SDL_BLENDMODE_BLEND) == -1)
+		WriteLog("GUI: Could not set blend mode for overlay.\n");
+
+//	uint32_t * texturePointer = (uint32_t *)scrBuffer;
+	uint32_t texturePointer[128 * 256];
+
+	for(uint32_t i=0; i<128*256; i++)
+		texturePointer[i] = 0x50A000A0;
+
+	SDL_UpdateTexture(overlay, NULL, texturePointer, 128 * sizeof(Uint32));
+
+	olSrc.x = olSrc.y = 0;
+	olSrc.w = 128;
+	olSrc.h = 256;
+	olDst.x = VIRTUAL_SCREEN_WIDTH;
+	olDst.y = 24;
+	olDst.w = 128;
+	olDst.h = 256;
+
+	WriteLog("GUI: Successfully initialized.\n");
+}
+
+
+void GUI2::MouseDown(int32_t x, int32_t y, uint32_t buttons)
+{
+}
+
+
+void GUI2::MouseUp(int32_t x, int32_t y, uint32_t buttons)
+{
+}
+
+
+void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
+{
+	if (!sidebarOut)
+	{
+		if (x > (VIRTUAL_SCREEN_WIDTH - 100))
+		{
+//printf("GUI: sidebar showing (x = %i)...\n", x);
+			sidebarState = SBS_SHOWING;
+			dx = -8;
+		}
+		else
+		{
+//printf("GUI: sidebar hiding[1] (x = %i)...\n", x);
+			sidebarState = SBS_HIDING;
+			dx = 8;
+		}
+
+	}
+	else
+	{
+		if (x < (VIRTUAL_SCREEN_WIDTH - 100))
+		{
+//printf("GUI: sidebar hiding[2] (x = %i)...\n", x);
+			sidebarOut = false;
+			sidebarState = SBS_HIDING;
+			dx = 8;
+		}
+	}
+}
+
+
+void GUI2::Render(SDL_Renderer * renderer)
+{
+	if (!overlay)
+		return;
+
+	HandleGUIState();
+	SDL_RenderCopy(renderer, overlay, &olSrc, &olDst);
+}
+
+
+void GUI2::HandleGUIState(void)
+{
+	olDst.x += dx;
+
+	if (olDst.x < (VIRTUAL_SCREEN_WIDTH - 100) && sidebarState == SBS_SHOWING)
+	{
+		olDst.x = VIRTUAL_SCREEN_WIDTH - 100;
+		sidebarOut = true;
+		sidebarState = SBS_SHOWN;
+		dx = 0;
+	}
+	else if (olDst.x > VIRTUAL_SCREEN_WIDTH && sidebarState == SBS_HIDING)
+	{
+		olDst.x = VIRTUAL_SCREEN_WIDTH;
+		sidebarState = SBS_HIDDEN;
+		dx = 0;
+	}
+}
+
+
+/*
+GUI Considerations:
+
+screen is 560 x 384
+
+cut into 7 pieces give ~54 pix per piece
+So, let's try 40x40 icons, and see if that's good enough...
+
+drive proportions: 1.62 : 1
+
+Icon order:
+
++-----+
+|     |
+|Power|
+|     |
++-----+
+
++-----+
+|     |
+|Disk1|
+|    ^| <-- eject button
++-----+
+
++-----+
+|     |
+|Disk2|
+|    ^|
++-----+
+
++-----+
+|     |
+|Swap |
+|     |
++-----+
+
++-----+
+|     |
+|Confg|
+|     |
++-----+
+
+maybe state save/load
+
+*/
+

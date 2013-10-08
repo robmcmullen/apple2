@@ -35,5 +35,30 @@ class GUI
 		SDL_Rect mouse, oldMouse;
 };
 
+
+class GUI2
+{
+	public:
+		GUI2();
+		~GUI2();
+
+		// Everything else is a class method...
+		static void Init(SDL_Renderer *);
+		static void MouseDown(int32_t, int32_t, uint32_t);
+		static void MouseUp(int32_t, int32_t, uint32_t);
+		static void MouseMove(int32_t, int32_t, uint32_t);
+		static void Render(SDL_Renderer *);
+		static void HandleGUIState(void);
+
+		// Class variables...
+		static SDL_Texture * overlay;
+		static SDL_Rect olSrc;
+		static SDL_Rect olDst;
+		static bool sidebarOut;
+		static int sidebarState;
+		static int32_t dx;
+};
+
+
 #endif	// __GUI_H__
 

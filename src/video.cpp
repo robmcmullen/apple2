@@ -12,9 +12,9 @@
 //
 
 #include "video.h"
-#include <SDL2/SDL.h>
 #include <string.h>	// Why??? (for memset, etc... Lazy!) Dunno why, but this just strikes me as wrong...
 #include <malloc.h>
+#include "gui/gui.h"
 #include "log.h"
 #include "settings.h"
 
@@ -22,7 +22,7 @@
 // Exported global variables (actually, these are LOCAL global variables, EXPORTED...)
 
 static SDL_Window * sdlWindow = NULL;
-static SDL_Renderer * sdlRenderer = NULL;
+SDL_Renderer * sdlRenderer = NULL;
 static SDL_Texture * sdlTexture = NULL;
 uint32_t scrBuffer[VIRTUAL_SCREEN_WIDTH * VIRTUAL_SCREEN_HEIGHT * sizeof(uint32_t)];
 
@@ -79,7 +79,6 @@ void RenderScreenBuffer(void)
 	SDL_UpdateTexture(sdlTexture, NULL, scrBuffer, VIRTUAL_SCREEN_WIDTH * sizeof(Uint32));
 	SDL_RenderClear(sdlRenderer);
 	SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
-	SDL_RenderPresent(sdlRenderer);
 }
 
 
@@ -96,4 +95,5 @@ void ToggleFullScreen(void)
 	if (retVal != 0)
 		WriteLog("Video::ToggleFullScreen: SDL error = %s\n", SDL_GetError());
 }
+
 

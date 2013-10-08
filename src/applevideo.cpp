@@ -861,14 +861,8 @@ static void RenderDHiRes(uint16_t toLine/*= 192*/)
 
 void RenderVideoFrame(void)
 {
-//temp...
-/*RenderLoRes();
-RenderScreenBuffer();
-return;//*/
-
 	if (textMode)
 	{
-		// There's prolly more to it than this (like 80 column text), but this'll have to do for now...
 		if (!col80Mode)
 			Render40ColumnText();
 		else
@@ -911,7 +905,5 @@ return;//*/
 		DrawString();
 		msgTicks--;
 	}
-
-	RenderScreenBuffer();
 }
 
