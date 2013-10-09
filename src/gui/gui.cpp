@@ -485,6 +485,27 @@ void GUI::Stop(void)
 // NEW GUI STARTS HERE
 //
 
+
+// Okay, this is ugly but works and I can't think of any better way to handle
+// this. So what we do when we pass the GIMP bitmaps into a function is pass
+// them as a (void *) and then cast them as type (Bitmap *) in order to use
+// them. Yes, it's ugly. Come up with something better!
+
+struct Bitmap {
+	unsigned int width;
+	unsigned int height;
+	unsigned int bytesPerPixel;					// 3:RGB, 4:RGBA
+	unsigned char pixelData[];
+};
+
+
+// Icons, in GIMP "C" format
+#include "gfx/disk-1-icon.c"
+#include "gfx/disk-2-icon.c"
+#include "gfx/power-off-icon.c"
+#include "gfx/power-on-icon.c"
+
+
 enum { SBS_SHOWING, SBS_HIDING, SBS_SHOWN, SBS_HIDDEN };
 
 
@@ -494,6 +515,10 @@ SDL_Rect GUI2::olDst;
 bool GUI2::sidebarOut = false;
 int GUI2::sidebarState = SBS_HIDDEN;
 int32_t GUI2::dx = 0;
+SDL_Texture * disk1Icon = NULL;
+SDL_Texture * disk2Icon = NULL;
+SDL_Texture * powerOnIcon = NULL;
+SDL_Texture * powerOffIcon = NULL;
 
 
 GUI2::GUI2(void)
@@ -508,8 +533,10 @@ GUI2::~GUI2(void)
 
 void GUI2::Init(SDL_Renderer * renderer)
 {
+//	overlay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+//		SDL_TEXTUREACCESS_STREAMING, 128, 256);
 	overlay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_STREAMING, 128, 256);
+		SDL_TEXTUREACCESS_TARGET, 128, 380);
 
 	if (!overlay)
 	{
@@ -521,20 +548,63 @@ void GUI2::Init(SDL_Renderer * renderer)
 		WriteLog("GUI: Could not set blend mode for overlay.\n");
 
 //	uint32_t * texturePointer = (uint32_t *)scrBuffer;
-	uint32_t texturePointer[128 * 256];
+	uint32_t texturePointer[128 * 380];
 
-	for(uint32_t i=0; i<128*256; i++)
-		texturePointer[i] = 0x50A000A0;
+	for(uint32_t i=0; i<128*380; i++)
+		texturePointer[i] = 0x80A000A0;
 
 	SDL_UpdateTexture(overlay, NULL, texturePointer, 128 * sizeof(Uint32));
 
-	olSrc.x = olSrc.y = 0;
-	olSrc.w = 128;
-	olSrc.h = 256;
+//	olSrc.x = olSrc.y = 0;
+//	olSrc.w = 128;
+//	olSrc.h = 380;
 	olDst.x = VIRTUAL_SCREEN_WIDTH;
-	olDst.y = 24;
+	olDst.y = 2;
 	olDst.w = 128;
-	olDst.h = 256;
+	olDst.h = 380;
+
+	disk1Icon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_STATIC, 40, 40);
+	disk2Icon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_STATIC, 40, 40);
+	powerOffIcon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_STATIC, 40, 40);
+	powerOnIcon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_STATIC, 40, 40);
+	SDL_SetTextureBlendMode(disk1Icon, SDL_BLENDMODE_BLEND);
+	SDL_SetTextureBlendMode(disk2Icon, SDL_BLENDMODE_BLEND);
+	SDL_SetTextureBlendMode(powerOffIcon, SDL_BLENDMODE_BLEND);
+	SDL_SetTextureBlendMode(powerOnIcon, SDL_BLENDMODE_BLEND);
+	Bitmap * bm1 = (Bitmap *)((void *)&disk_1);
+	SDL_UpdateTexture(disk1Icon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
+	bm1 = (Bitmap *)((void *)&disk_2);
+	SDL_UpdateTexture(disk2Icon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
+	bm1 = (Bitmap *)((void *)&power_off);
+	SDL_UpdateTexture(powerOffIcon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
+	bm1 = (Bitmap *)((void *)&power_on);
+	SDL_UpdateTexture(powerOnIcon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
+
+	if (SDL_SetRenderTarget(renderer, overlay) < 0)
+	{
+		WriteLog("GUI: Could not set Render Target to overlay... (%s)\n", SDL_GetError());
+	}
+	else
+	{
+		SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, powerOffIcon, powerOffIcon, powerOffIcon, powerOffIcon };
+		SDL_Rect dst;
+		dst.w = dst.h = 40;
+		dst.x = 24;
+		dst.y = 1;
+
+		for(int i=0; i<7; i++)
+		{
+			SDL_RenderCopy(renderer, icons[i], NULL, &dst);
+			dst.y += 54;
+		}
+
+		// Set render target back to default
+		SDL_SetRenderTarget(renderer, NULL);
+	}
 
 	WriteLog("GUI: Successfully initialized.\n");
 }
@@ -587,7 +657,7 @@ void GUI2::Render(SDL_Renderer * renderer)
 		return;
 
 	HandleGUIState();
-	SDL_RenderCopy(renderer, overlay, &olSrc, &olDst);
+	SDL_RenderCopy(renderer, overlay, NULL, &olDst);
 }
 
 
