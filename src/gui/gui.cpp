@@ -500,6 +500,7 @@ struct Bitmap {
 
 
 // Icons, in GIMP "C" format
+#include "gfx/icon-selection.c"
 #include "gfx/disk-1-icon.c"
 #include "gfx/disk-2-icon.c"
 #include "gfx/power-off-icon.c"
@@ -510,15 +511,19 @@ enum { SBS_SHOWING, SBS_HIDING, SBS_SHOWN, SBS_HIDDEN };
 
 
 SDL_Texture * GUI2::overlay = NULL;
-SDL_Rect GUI2::olSrc;
+//SDL_Rect GUI2::olSrc;
 SDL_Rect GUI2::olDst;
-bool GUI2::sidebarOut = false;
+//bool GUI2::sidebarOut = false;
 int GUI2::sidebarState = SBS_HIDDEN;
 int32_t GUI2::dx = 0;
+int32_t GUI2::iconSelected = -1;
+int32_t lastIconSelected = -1;
+SDL_Texture * iconSelection = NULL;
 SDL_Texture * disk1Icon = NULL;
 SDL_Texture * disk2Icon = NULL;
 SDL_Texture * powerOnIcon = NULL;
 SDL_Texture * powerOffIcon = NULL;
+uint32_t texturePointer[128 * 380];
 
 
 GUI2::GUI2(void)
@@ -548,10 +553,9 @@ void GUI2::Init(SDL_Renderer * renderer)
 		WriteLog("GUI: Could not set blend mode for overlay.\n");
 
 //	uint32_t * texturePointer = (uint32_t *)scrBuffer;
-	uint32_t texturePointer[128 * 380];
 
 	for(uint32_t i=0; i<128*380; i++)
-		texturePointer[i] = 0x80A000A0;
+		texturePointer[i] = 0xA0A000A0;
 
 	SDL_UpdateTexture(overlay, NULL, texturePointer, 128 * sizeof(Uint32));
 
@@ -563,6 +567,8 @@ void GUI2::Init(SDL_Renderer * renderer)
 	olDst.w = 128;
 	olDst.h = 380;
 
+	iconSelection = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_STATIC, 54, 54);
 	disk1Icon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
 		SDL_TEXTUREACCESS_STATIC, 40, 40);
 	disk2Icon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
@@ -571,11 +577,14 @@ void GUI2::Init(SDL_Renderer * renderer)
 		SDL_TEXTUREACCESS_STATIC, 40, 40);
 	powerOnIcon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
 		SDL_TEXTUREACCESS_STATIC, 40, 40);
+	SDL_SetTextureBlendMode(iconSelection, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureBlendMode(disk1Icon, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureBlendMode(disk2Icon, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureBlendMode(powerOffIcon, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureBlendMode(powerOnIcon, SDL_BLENDMODE_BLEND);
-	Bitmap * bm1 = (Bitmap *)((void *)&disk_1);
+	Bitmap * bm1 = (Bitmap *)((void *)&icon_selection);
+	SDL_UpdateTexture(iconSelection, NULL, (Uint32 *)bm1->pixelData, 54 * sizeof(Uint32));
+	bm1 = (Bitmap *)((void *)&disk_1);
 	SDL_UpdateTexture(disk1Icon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
 	bm1 = (Bitmap *)((void *)&disk_2);
 	SDL_UpdateTexture(disk2Icon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
@@ -594,7 +603,7 @@ void GUI2::Init(SDL_Renderer * renderer)
 		SDL_Rect dst;
 		dst.w = dst.h = 40;
 		dst.x = 24;
-		dst.y = 1;
+		dst.y = 2 + 7;
 
 		for(int i=0; i<7; i++)
 		{
@@ -622,8 +631,10 @@ void GUI2::MouseUp(int32_t x, int32_t y, uint32_t buttons)
 
 void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 {
-	if (!sidebarOut)
+	if (sidebarState != SBS_SHOWN)
 	{
+		iconSelected = -1;
+
 		if (x > (VIRTUAL_SCREEN_WIDTH - 100))
 		{
 //printf("GUI: sidebar showing (x = %i)...\n", x);
@@ -636,17 +647,116 @@ void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 			sidebarState = SBS_HIDING;
 			dx = 8;
 		}
-
 	}
 	else
 	{
 		if (x < (VIRTUAL_SCREEN_WIDTH - 100))
 		{
+			iconSelected = -1;
+			lastIconSelected = -1;
+			HandleIconSelection(sdlRenderer);
 //printf("GUI: sidebar hiding[2] (x = %i)...\n", x);
-			sidebarOut = false;
+//			sidebarOut = false;
 			sidebarState = SBS_HIDING;
 			dx = 8;
 		}
+		// We're in the right zone, and the sidebar is shown, so let's select
+		// something!
+		else
+		{
+			if (y < 3 || y > 382)
+			{
+				iconSelected = -1;
+			}
+			else
+				iconSelected = (y - 2) / 54;
+
+			if (iconSelected != lastIconSelected)
+			{
+				HandleIconSelection(sdlRenderer);
+				lastIconSelected = iconSelected;
+			}
+		}
+	}
+}
+
+
+void GUI2::HandleIconSelection(SDL_Renderer * renderer)
+{
+	// Reload the background...
+	SDL_UpdateTexture(overlay, NULL, texturePointer, 128 * sizeof(Uint32));
+
+	if (SDL_SetRenderTarget(renderer, overlay) < 0)
+	{
+		WriteLog("GUI: Could not set Render Target to overlay... (%s)\n", SDL_GetError());
+		return;
+	}
+
+	SDL_Rect dst;// = { 54, 54, 24 - 7, 2 };
+	dst.w = dst.h = 54;
+	dst.x = 24 - 7;
+	dst.y = 2;
+
+	if (iconSelected >= 0)
+	{
+		dst.y += iconSelected * 54;
+		SDL_RenderCopy(renderer, iconSelection, NULL, &dst);
+	}
+
+#if 1
+	DrawSidebarIcons(renderer);
+#else
+	SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, powerOffIcon, powerOffIcon, powerOffIcon, powerOffIcon };
+	dst.w = dst.h = 40;
+	dst.x = 24;
+	dst.y = 2 + 7;
+
+	for(int i=0; i<7; i++)
+	{
+		SDL_RenderCopy(renderer, icons[i], NULL, &dst);
+		dst.y += 54;
+	}
+#endif
+
+	// Set render target back to default
+	SDL_SetRenderTarget(renderer, NULL);
+}
+
+
+void GUI2::HandleGUIState(void)
+{
+	olDst.x += dx;
+
+	if (olDst.x < (VIRTUAL_SCREEN_WIDTH - 100) && sidebarState == SBS_SHOWING)
+	{
+		olDst.x = VIRTUAL_SCREEN_WIDTH - 100;
+//		sidebarOut = true;
+		sidebarState = SBS_SHOWN;
+		dx = 0;
+	}
+	else if (olDst.x > VIRTUAL_SCREEN_WIDTH && sidebarState == SBS_HIDING)
+	{
+		olDst.x = VIRTUAL_SCREEN_WIDTH;
+		sidebarState = SBS_HIDDEN;
+		dx = 0;
+	}
+}
+
+
+void GUI2::DrawSidebarIcons(SDL_Renderer * renderer)
+{
+	SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, powerOffIcon,
+		powerOffIcon, powerOffIcon, powerOffIcon };
+
+	SDL_Rect dst;
+	dst.w = dst.h = 40;
+	dst.x = 24;
+	dst.y = 2 + 7;
+
+	for(int i=0; i<7; i++)
+	{
+		SDL_RenderCopy(renderer, icons[i], NULL, &dst);
+		dst.y += 54;
 	}
 }
 
@@ -661,26 +771,6 @@ void GUI2::Render(SDL_Renderer * renderer)
 }
 
 
-void GUI2::HandleGUIState(void)
-{
-	olDst.x += dx;
-
-	if (olDst.x < (VIRTUAL_SCREEN_WIDTH - 100) && sidebarState == SBS_SHOWING)
-	{
-		olDst.x = VIRTUAL_SCREEN_WIDTH - 100;
-		sidebarOut = true;
-		sidebarState = SBS_SHOWN;
-		dx = 0;
-	}
-	else if (olDst.x > VIRTUAL_SCREEN_WIDTH && sidebarState == SBS_HIDING)
-	{
-		olDst.x = VIRTUAL_SCREEN_WIDTH;
-		sidebarState = SBS_HIDDEN;
-		dx = 0;
-	}
-}
-
-
 /*
 GUI Considerations:
 
@@ -688,6 +778,7 @@ screen is 560 x 384
 
 cut into 7 pieces give ~54 pix per piece
 So, let's try 40x40 icons, and see if that's good enough...
+Selection is 54x54.
 
 drive proportions: 1.62 : 1
 
