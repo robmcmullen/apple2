@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# Short script to do cross compilation with MXE on Linux
+#
+# by James Hammons
+# (C) 2012 Underground Software
+#
+export PATH=/opt/mxe/usr/bin:$PATH
+make CROSS=i686-pc-mingw32- clean  && make CROSS=i686-pc-mingw32-
+
+#TARGET = apple2
+#echo "Cross compiling $(TARGET) for Win32..."
+#export PATH=/opt/mxe/usr/bin:$PATH
+#rm Makefile
+#/opt/mxe/usr/i686-pc-mingw32/qt/bin/qmake
+#make clean && make
+#make CROSS=i686-pc-mingw32-
+#rel=`svn info | grep Revision | cut -f 2 -d ' '`
+#rel=`git log -1 --pretty=format:%ci | cut -d ' ' -f 1 | tr -d -`
+#cd release && upx -9v $(TARGET).exe && zip -9v $(TARGET)-$rel.zip $(TARGET).exe
+

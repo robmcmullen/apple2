@@ -538,8 +538,6 @@ GUI2::~GUI2(void)
 
 void GUI2::Init(SDL_Renderer * renderer)
 {
-//	overlay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-//		SDL_TEXTUREACCESS_STREAMING, 128, 256);
 	overlay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
 		SDL_TEXTUREACCESS_TARGET, 128, 380);
 
@@ -552,46 +550,21 @@ void GUI2::Init(SDL_Renderer * renderer)
 	if (SDL_SetTextureBlendMode(overlay, SDL_BLENDMODE_BLEND) == -1)
 		WriteLog("GUI: Could not set blend mode for overlay.\n");
 
-//	uint32_t * texturePointer = (uint32_t *)scrBuffer;
-
 	for(uint32_t i=0; i<128*380; i++)
-		texturePointer[i] = 0xA0A000A0;
+		texturePointer[i] = 0xB0A000A0;
 
 	SDL_UpdateTexture(overlay, NULL, texturePointer, 128 * sizeof(Uint32));
 
-//	olSrc.x = olSrc.y = 0;
-//	olSrc.w = 128;
-//	olSrc.h = 380;
 	olDst.x = VIRTUAL_SCREEN_WIDTH;
 	olDst.y = 2;
 	olDst.w = 128;
 	olDst.h = 380;
 
-	iconSelection = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_STATIC, 54, 54);
-	disk1Icon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_STATIC, 40, 40);
-	disk2Icon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_STATIC, 40, 40);
-	powerOffIcon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_STATIC, 40, 40);
-	powerOnIcon = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_STATIC, 40, 40);
-	SDL_SetTextureBlendMode(iconSelection, SDL_BLENDMODE_BLEND);
-	SDL_SetTextureBlendMode(disk1Icon, SDL_BLENDMODE_BLEND);
-	SDL_SetTextureBlendMode(disk2Icon, SDL_BLENDMODE_BLEND);
-	SDL_SetTextureBlendMode(powerOffIcon, SDL_BLENDMODE_BLEND);
-	SDL_SetTextureBlendMode(powerOnIcon, SDL_BLENDMODE_BLEND);
-	Bitmap * bm1 = (Bitmap *)((void *)&icon_selection);
-	SDL_UpdateTexture(iconSelection, NULL, (Uint32 *)bm1->pixelData, 54 * sizeof(Uint32));
-	bm1 = (Bitmap *)((void *)&disk_1);
-	SDL_UpdateTexture(disk1Icon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
-	bm1 = (Bitmap *)((void *)&disk_2);
-	SDL_UpdateTexture(disk2Icon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
-	bm1 = (Bitmap *)((void *)&power_off);
-	SDL_UpdateTexture(powerOffIcon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
-	bm1 = (Bitmap *)((void *)&power_on);
-	SDL_UpdateTexture(powerOnIcon, NULL, (Uint32 *)bm1->pixelData, 40 * sizeof(Uint32));
+	iconSelection = CreateTexture(renderer, &icon_selection);
+	disk1Icon     = CreateTexture(renderer, &disk_1);
+	disk2Icon     = CreateTexture(renderer, &disk_2);
+	powerOffIcon  = CreateTexture(renderer, &power_off);
+	powerOnIcon   = CreateTexture(renderer, &power_on);
 
 	if (SDL_SetRenderTarget(renderer, overlay) < 0)
 	{
@@ -599,23 +572,25 @@ void GUI2::Init(SDL_Renderer * renderer)
 	}
 	else
 	{
-		SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, powerOffIcon, powerOffIcon, powerOffIcon, powerOffIcon };
-		SDL_Rect dst;
-		dst.w = dst.h = 40;
-		dst.x = 24;
-		dst.y = 2 + 7;
-
-		for(int i=0; i<7; i++)
-		{
-			SDL_RenderCopy(renderer, icons[i], NULL, &dst);
-			dst.y += 54;
-		}
-
+		DrawSidebarIcons(renderer);
 		// Set render target back to default
 		SDL_SetRenderTarget(renderer, NULL);
 	}
 
 	WriteLog("GUI: Successfully initialized.\n");
+}
+
+
+SDL_Texture * GUI2::CreateTexture(SDL_Renderer * renderer, const void * source)
+{
+	Bitmap * bitmap = (Bitmap *)source;
+	SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_STATIC, bitmap->width, bitmap->height);
+	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+	SDL_UpdateTexture(texture, NULL, (Uint32 *)bitmap->pixelData,
+		bitmap->width * sizeof(Uint32));
+
+	return texture;
 }
 
 
@@ -652,11 +627,9 @@ void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 	{
 		if (x < (VIRTUAL_SCREEN_WIDTH - 100))
 		{
-			iconSelected = -1;
-			lastIconSelected = -1;
+			iconSelected = lastIconSelected = -1;
 			HandleIconSelection(sdlRenderer);
 //printf("GUI: sidebar hiding[2] (x = %i)...\n", x);
-//			sidebarOut = false;
 			sidebarState = SBS_HIDING;
 			dx = 8;
 		}
@@ -664,12 +637,12 @@ void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 		// something!
 		else
 		{
-			if (y < 3 || y > 382)
+			if (y < 4 || y > 383)
 			{
 				iconSelected = -1;
 			}
 			else
-				iconSelected = (y - 2) / 54;
+				iconSelected = (y - 4) / 54;
 
 			if (iconSelected != lastIconSelected)
 			{
@@ -692,31 +665,18 @@ void GUI2::HandleIconSelection(SDL_Renderer * renderer)
 		return;
 	}
 
-	SDL_Rect dst;// = { 54, 54, 24 - 7, 2 };
-	dst.w = dst.h = 54;
-	dst.x = 24 - 7;
-	dst.y = 2;
-
+	// Draw the icon selector, if an icon is selected
 	if (iconSelected >= 0)
 	{
-		dst.y += iconSelected * 54;
+		SDL_Rect dst;// = { 54, 54, 24 - 7, 2 };
+		dst.w = dst.h = 54;
+		dst.x = 24 - 7;
+		dst.y = 2 + (iconSelected * 54);
+
 		SDL_RenderCopy(renderer, iconSelection, NULL, &dst);
 	}
 
-#if 1
 	DrawSidebarIcons(renderer);
-#else
-	SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, powerOffIcon, powerOffIcon, powerOffIcon, powerOffIcon };
-	dst.w = dst.h = 40;
-	dst.x = 24;
-	dst.y = 2 + 7;
-
-	for(int i=0; i<7; i++)
-	{
-		SDL_RenderCopy(renderer, icons[i], NULL, &dst);
-		dst.y += 54;
-	}
-#endif
 
 	// Set render target back to default
 	SDL_SetRenderTarget(renderer, NULL);

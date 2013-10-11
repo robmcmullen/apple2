@@ -7,10 +7,15 @@
 #
 
 FIND = find
+FINDSDL2 := $(shell which $(CROSS)sdl2-config 2> /dev/null)
 
 # Figure out which system we're compiling for, and set the appropriate variables
 
-ifeq "$(OSTYPE)" "msys"							# Win32
+ifeq "$(CROSS)" ""
+OSTYPE   := $(shell uname -a)
+
+# Win32
+ifeq "$(findstring Msys,$(OSTYPE))" "Msys"
 
 SYSTYPE    = __GCCWIN32__
 EXESUFFIX  = .exe
@@ -18,9 +23,8 @@ ICON       = obj/icon.o
 SDLLIBTYPE = --libs
 MSG        = Win32 on MinGW
 
-else
-#ifeq "$(OSTYPE)" "darwin"
-ifeq "darwin" "$(findstring darwin,$(OSTYPE))"	# Should catch both 'darwin' and 'darwin7.0'
+# Should catch both 'darwin' and 'darwin7.0'
+else ifeq "$(findstring Darwin,$(OSTYPE))" "Darwin"
 
 SYSTYPE    = __GCCUNIX__ -D_OSX_
 EXESUFFIX  =
@@ -28,7 +32,8 @@ ICON       =
 SDLLIBTYPE = --static-libs
 MSG        = Mac OS X
 
-else											# *nix
+# *nix
+else ifeq "$(findstring Linux,$(OSTYPE))" "Linux"
 
 SYSTYPE    = __GCCUNIX__
 EXESUFFIX  =
@@ -36,12 +41,31 @@ ICON       =
 SDLLIBTYPE = --libs
 MSG        = generic Unix/Linux
 
+# Throw error, unknown OS
+else
+
+$(error OS TYPE UNDETECTED)
+
 endif
+# Cross compile using MXE under Linux host
+else
+
+SYSTYPE    = __GCCWIN32__
+EXESUFFIX  = .exe
+ICON       = obj/icon.o
+SDLLIBTYPE = --libs
+MSG        = Win32 under MXE (cross compile)
+
 endif
 
-CC         = gcc
-LD         = gcc
+CC         = $(CROSS)gcc
+LD         = $(CROSS)gcc
 TARGET     = apple2
+
+SDL_CFLAGS = `$(CROSS)sdl2-config --cflags`
+SDL_LIBS   = `$(CROSS)sdl2-config $(SDLLIBTYPE)`
+DEFINES    = -D$(SYSTYPE)
+GCC_DEPS   = -MMD
 
 # Note that we use optimization level 2 instead of 3--3 doesn't seem to gain much over 2
 #CFLAGS   = -MMD -Wall -Wno-switch -O2 -D$(SYSTYPE) -ffast-math -fomit-frame-pointer `sdl2-config --cflags`
@@ -52,12 +76,15 @@ TARGET     = apple2
 #CPPFLAGS = -MMD -Wall -Wno-switch -Wno-non-virtual-dtor -D$(SYSTYPE) \
 #		-ffast-math -fomit-frame-pointer `sdl2-config --cflags` -fprofile-arcs -ftest-coverage
 # No optimization for profiling with gprof...
-CFLAGS   = -MMD -Wall -Wno-switch -D$(SYSTYPE) \
-		-ffast-math `sdl2-config --cflags` -pg -g
-CPPFLAGS = -MMD -Wall -Wno-switch -Wno-non-virtual-dtor -D$(SYSTYPE) \
-		-ffast-math `sdl2-config --cflags` -pg -g
+#CFLAGS   = -MMD -Wall -Wno-switch -D$(SYSTYPE) \
+#		-ffast-math `sdl2-config --cflags` -pg -g
+#CPPFLAGS = -MMD -Wall -Wno-switch -Wno-non-virtual-dtor -D$(SYSTYPE) \
+#		-ffast-math `sdl2-config --cflags` -pg -g
 #		-fomit-frame-pointer `sdl2-config --cflags` -g
 #		-fomit-frame-pointer `sdl2-config --cflags` -DLOG_UNMAPPED_MEMORY_ACCESSES
+CFLAGS   = $(GCC_DEPS) -Wall -Wno-switch $(DEFINES) -ffast-math $(SDL_CFLAGS) -pg -g
+CPPFLAGS = $(GCC_DEPS) -Wall -Wno-switch -Wno-non-virtual-dtor $(DEFINES) \
+		-ffast-math $(SDL_CFLAGS) -pg -g
 
 LDFLAGS =
 
@@ -65,9 +92,11 @@ LDFLAGS =
 # Link in the gcov library (for profiling purposes)
 #LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -lgcov
 # Link in the gprof lib
-LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -pg
+#LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -pg
+LIBS = -L/usr/local/lib -L/usr/lib $(SDL_LIBS) -lstdc++ -lz $(GLLIB) -pg
 
-INCS = -I. -I./src -I/usr/local/include -I/usr/include
+#INCS = -I. -I./src -I/usr/local/include -I/usr/include
+INCS = -I. -I./src
 
 OBJS = \
 	obj/button.o          \
@@ -107,15 +136,19 @@ all: checkenv message obj $(TARGET)$(EXESUFFIX)
 checkenv:
 	@echo
 	@echo -en "\033[01;33m***\033[00;32m Checking compilation environment... \033[00m"
-ifeq "" "$(shell which sdl2-config)"
+ifeq "$(FINDSDL2)" ""
 	@echo
 	@echo
-	@echo -e "\033[01;33mIt seems that you don't have the SDL 2 development libraries installed.
+	@echo -e "\033[01;33mIt seems that you don't have the SDL 2 development libraries installed. If you"
 	@echo -e "have installed them, make sure that the sdl2-config file is somewhere in your"
 	@echo -e "path and is executable.\033[00m"
 	@echo
 #Is there a better way to break out of the makefile?
-	@break
+	@false;
+#	@break
+# YES! But ignores all the echo's above... :-/
+#$(error SDL2 MISSING)
+
 else
 	@echo -e "\033[01;37mOK\033[00m"
 endif
@@ -139,7 +172,7 @@ obj:
 ifneq "" "$(ICON)"
 $(ICON): res/$(TARGET).rc res/$(TARGET).ico
 	@echo -e "\033[01;33m***\033[00;32m Processing icon...\033[00m"
-	@windres -i res/$(TARGET).rc -o $(ICON) --include-dir=./res
+	@$(CROSS)windres -i res/$(TARGET).rc -o $(ICON) --include-dir=./res
 endif
 
 obj/%.o: src/%.c

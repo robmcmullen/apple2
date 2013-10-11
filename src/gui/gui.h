@@ -44,6 +44,7 @@ class GUI2
 
 		// Everything else is a class method...
 		static void Init(SDL_Renderer *);
+		static SDL_Texture * CreateTexture(SDL_Renderer *, const void *);
 		static void MouseDown(int32_t, int32_t, uint32_t);
 		static void MouseUp(int32_t, int32_t, uint32_t);
 		static void MouseMove(int32_t, int32_t, uint32_t);
