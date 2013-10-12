@@ -49,15 +49,18 @@ class GUI2
 		static void MouseUp(int32_t, int32_t, uint32_t);
 		static void MouseMove(int32_t, int32_t, uint32_t);
 		static void HandleIconSelection(SDL_Renderer *);
+		static void AssembleDriveIcon(SDL_Renderer *, int);
+		static void DrawEjectButton(SDL_Renderer *, int);
+		static void DrawDriveLight(SDL_Renderer *, int);
+		static void DrawCharArray(SDL_Renderer *, const char *, int x,
+			int y, int w, int h, int r, int g, int b);
 		static void HandleGUIState(void);
 		static void DrawSidebarIcons(SDL_Renderer *);
 		static void Render(SDL_Renderer *);
 
 		// Class variables...
 		static SDL_Texture * overlay;
-//		static SDL_Rect olSrc;
 		static SDL_Rect olDst;
-//		static bool sidebarOut;
 		static int sidebarState;
 		static int32_t dx;
 		static int32_t iconSelected;

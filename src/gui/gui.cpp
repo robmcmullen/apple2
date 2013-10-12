@@ -501,28 +501,67 @@ struct Bitmap {
 
 // Icons, in GIMP "C" format
 #include "gfx/icon-selection.c"
+#include "gfx/disk-icon.c"
 #include "gfx/disk-1-icon.c"
 #include "gfx/disk-2-icon.c"
 #include "gfx/power-off-icon.c"
 #include "gfx/power-on-icon.c"
+#include "gfx/disk-door-open.c"
+#include "gfx/disk-door-closed.c"
+
+
+const char numeralOne[(7 * 7) + 1] =
+	"  @@   "
+	" @@@   "
+	"@@@@   "
+	"  @@   "
+	"  @@   "
+	"  @@   "
+	"@@@@@@ ";
+
+const char numeralTwo[(7 * 7) + 1] =
+	" @@@@@ "
+	"@@   @@"
+	"    @@@"
+	"  @@@@ "
+	" @@@   "
+	"@@     "
+	"@@@@@@@";
+
+const char ejectIcon[(8 * 7) + 1] =
+	"   @@   "
+	"  @@@@  "
+	" @@@@@@ "
+	"@@@@@@@@"
+	"        "
+	"@@@@@@@@"
+	"@@@@@@@@";
+
+const char driveLight[(5 * 5) + 1] =
+	" @@@ "
+	"@@@@@"
+	"@@@@@"
+	"@@@@@"
+	" @@@ ";
 
 
 enum { SBS_SHOWING, SBS_HIDING, SBS_SHOWN, SBS_HIDDEN };
 
 
 SDL_Texture * GUI2::overlay = NULL;
-//SDL_Rect GUI2::olSrc;
 SDL_Rect GUI2::olDst;
-//bool GUI2::sidebarOut = false;
 int GUI2::sidebarState = SBS_HIDDEN;
 int32_t GUI2::dx = 0;
 int32_t GUI2::iconSelected = -1;
 int32_t lastIconSelected = -1;
 SDL_Texture * iconSelection = NULL;
+SDL_Texture * diskIcon = NULL;
 SDL_Texture * disk1Icon = NULL;
 SDL_Texture * disk2Icon = NULL;
 SDL_Texture * powerOnIcon = NULL;
 SDL_Texture * powerOffIcon = NULL;
+SDL_Texture * doorOpen = NULL;
+SDL_Texture * doorClosed = NULL;
 uint32_t texturePointer[128 * 380];
 
 
@@ -561,10 +600,17 @@ void GUI2::Init(SDL_Renderer * renderer)
 	olDst.h = 380;
 
 	iconSelection = CreateTexture(renderer, &icon_selection);
+	diskIcon      = CreateTexture(renderer, &disk_icon);
+	doorOpen      = CreateTexture(renderer, &door_open);
+	doorClosed    = CreateTexture(renderer, &door_closed);
 	disk1Icon     = CreateTexture(renderer, &disk_1);
 	disk2Icon     = CreateTexture(renderer, &disk_2);
 	powerOffIcon  = CreateTexture(renderer, &power_off);
 	powerOnIcon   = CreateTexture(renderer, &power_on);
+
+	// Set up drive icons in their current states
+	AssembleDriveIcon(renderer, 0);
+	AssembleDriveIcon(renderer, 1);
 
 	if (SDL_SetRenderTarget(renderer, overlay) < 0)
 	{
@@ -585,7 +631,8 @@ SDL_Texture * GUI2::CreateTexture(SDL_Renderer * renderer, const void * source)
 {
 	Bitmap * bitmap = (Bitmap *)source;
 	SDL_Texture * texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_STATIC, bitmap->width, bitmap->height);
+//		SDL_TEXTUREACCESS_STATIC, bitmap->width, bitmap->height);
+		SDL_TEXTUREACCESS_TARGET, bitmap->width, bitmap->height);
 	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 	SDL_UpdateTexture(texture, NULL, (Uint32 *)bitmap->pixelData,
 		bitmap->width * sizeof(Uint32));
@@ -656,6 +703,10 @@ void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 
 void GUI2::HandleIconSelection(SDL_Renderer * renderer)
 {
+	// Set up drive icons in their current states
+	AssembleDriveIcon(renderer, 0);
+	AssembleDriveIcon(renderer, 1);
+
 	// Reload the background...
 	SDL_UpdateTexture(overlay, NULL, texturePointer, 128 * sizeof(Uint32));
 
@@ -669,10 +720,7 @@ void GUI2::HandleIconSelection(SDL_Renderer * renderer)
 	if (iconSelected >= 0)
 	{
 		SDL_Rect dst;// = { 54, 54, 24 - 7, 2 };
-		dst.w = dst.h = 54;
-		dst.x = 24 - 7;
-		dst.y = 2 + (iconSelected * 54);
-
+		dst.w = dst.h = 54, dst.x = 24 - 7, dst.y = 2 + (iconSelected * 54);
 		SDL_RenderCopy(renderer, iconSelection, NULL, &dst);
 	}
 
@@ -680,6 +728,78 @@ void GUI2::HandleIconSelection(SDL_Renderer * renderer)
 
 	// Set render target back to default
 	SDL_SetRenderTarget(renderer, NULL);
+}
+
+
+void GUI2::AssembleDriveIcon(SDL_Renderer * renderer, int driveNumber)
+{
+	SDL_Texture * drive[2] = { disk1Icon, disk2Icon };
+	const char * number[2] = { numeralOne, numeralTwo };
+
+	if (SDL_SetRenderTarget(renderer, drive[driveNumber]) < 0)
+	{
+		WriteLog("GUI: Could not set Render Target to overlay... (%s)\n", SDL_GetError());
+		return;
+	}
+
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, diskIcon, NULL, NULL);
+
+	// Drive door @ (16, 7)
+	SDL_Rect dst;
+	dst.w = 8, dst.h = 10, dst.x = 16, dst.y = 7;
+	SDL_RenderCopy(renderer, (floppyDrive.DriveIsEmpty(driveNumber) ?
+		doorOpen : doorClosed), NULL, &dst);
+
+	// Numeral @ (30, 20)
+	DrawCharArray(renderer, number[driveNumber], 30, 20, 7, 7, 0xD0, 0xE0, 0xF0);
+	DrawDriveLight(renderer, driveNumber);
+	DrawEjectButton(renderer, driveNumber);
+
+	// Set render target back to default
+	SDL_SetRenderTarget(renderer, NULL);
+}
+
+
+void GUI2::DrawEjectButton(SDL_Renderer * renderer, int driveNumber)
+{
+	if (floppyDrive.DriveIsEmpty(driveNumber))
+		return;
+
+	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, 0x00, 0xAA, 0x00);
+}
+
+
+void GUI2::DrawDriveLight(SDL_Renderer * renderer, int driveNumber)
+{
+	int lightState = floppyDrive.DriveLightStatus(driveNumber);
+	int r = 0x77, g = 0x00, b = 0x00;
+
+	if (lightState == DLS_READ)
+		r = 0x20, g = 0xFF, b = 0x20;
+	else if (lightState == DLS_WRITE)
+		r = 0xFF, g = 0x30, b = 0x30;
+
+	// Drive light @ (8, 21)
+	DrawCharArray(renderer, driveLight, 8, 21, 5, 5, r, g, b);
+}
+
+
+void GUI2::DrawCharArray(SDL_Renderer * renderer, const char * array, int x,
+	int y, int w, int h, int r, int g, int b)
+{
+	SDL_SetRenderDrawColor(renderer, r, g, b, 0xFF);
+
+	for(int j=0; j<h; j++)
+	{
+		for(int i=0; i<w; i++)
+		{
+			if (array[(j * w) + i] != ' ')
+				SDL_RenderDrawPoint(renderer, x + i, y + j);
+		}
+	}
+
+	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
 }
 
 
@@ -709,9 +829,7 @@ void GUI2::DrawSidebarIcons(SDL_Renderer * renderer)
 		powerOffIcon, powerOffIcon, powerOffIcon };
 
 	SDL_Rect dst;
-	dst.w = dst.h = 40;
-	dst.x = 24;
-	dst.y = 2 + 7;
+	dst.w = dst.h = 40, dst.x = 24, dst.y = 2 + 7;
 
 	for(int i=0; i<7; i++)
 	{
@@ -727,6 +845,10 @@ void GUI2::Render(SDL_Renderer * renderer)
 		return;
 
 	HandleGUIState();
+
+	if (sidebarState != SBS_HIDDEN)
+		HandleIconSelection(renderer);
+
 	SDL_RenderCopy(renderer, overlay, NULL, &olDst);
 }
 

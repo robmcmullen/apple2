@@ -15,6 +15,7 @@
 #include <stdint.h>
 
 enum { DT_UNKNOWN, DT_DOS33, DT_DOS33_HDR, DT_PRODOS, DT_NYBBLE };
+enum { DLS_OFF, DLS_READ, DLS_WRITE };
 
 class FloppyDrive
 {
@@ -32,6 +33,7 @@ class FloppyDrive
 		bool DriveIsEmpty(uint8_t driveNum = 0);
 		bool DiskIsWriteProtected(uint8_t driveNum = 0);
 		void SetWriteProtect(bool, uint8_t driveNum = 0);
+		int DriveLightStatus(uint8_t driveNum = 0);
 
 		// I/O functions ($C0Ex accesses)
 
@@ -62,6 +64,7 @@ class FloppyDrive
 		uint8_t latchValue;
 		uint8_t phase;
 		uint8_t track;
+		bool ioHappened;
 
 		uint8_t nybblizedImage[2][232960];
 		uint32_t currentPos;

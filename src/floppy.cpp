@@ -42,7 +42,7 @@ char FloppyDrive::nameBuf[MAX_PATH];
 
 // FloppyDrive class implementation...
 
-FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ), phase(0), track(0)
+FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ), phase(0), track(0), ioHappened(false)
 {
 	disk[0] = disk[1] = NULL;
 	diskSize[0] = diskSize[1] = 0;
@@ -596,6 +596,21 @@ void FloppyDrive::SetWriteProtect(bool state, uint8_t driveNum/*= 0*/)
 }
 
 
+int FloppyDrive::DriveLightStatus(uint8_t driveNum/*= 0*/)
+{
+	int retval = DLS_OFF;
+
+	if (activeDrive != driveNum)
+		return DLS_OFF;
+
+	if (ioHappened)
+		retval = (ioMode == IO_MODE_READ ? DLS_READ : DLS_WRITE);
+
+	ioHappened = false;
+	return retval;
+}
+
+
 // Memory mapped I/O functions
 
 /*
@@ -661,6 +676,7 @@ SpawnMessage("%u:%sing %s track %u, sector %u...", activeDrive,
 	(ioMode == IO_MODE_READ ? "Read" : "Write"),
 	(ioMode == IO_MODE_READ ? "from" : "to"), track, currentPos / 396);
 	// $C0EC
+	ioHappened = true;
 /*
 I think what happens here is that once a track is read its nybblized form
 is fed through here, one byte at a time--which means for DO disks, we have
@@ -671,14 +687,12 @@ Which we now do. :-)
 	{
 		// Does it behave like this?
 #warning "Write protection kludged in--investigate real behavior!"
-		if (!writeProtected[activeDrive])
-		{
-			nybblizedImage[activeDrive][(track * 6656) + currentPos] = latchValue;
-			imageDirty[activeDrive] = true;
-		}
-		else
+		if (writeProtected[activeDrive])
 //doesn't seem to do anything
 			return 0;//is this more like it?
+
+		nybblizedImage[activeDrive][(track * 6656) + currentPos] = latchValue;
+		imageDirty[activeDrive] = true;
 	}
 
 	uint8_t diskByte = nybblizedImage[activeDrive][(track * 6656) + currentPos];
