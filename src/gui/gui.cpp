@@ -1,5 +1,5 @@
 //
-// GUI.CPP
+// gui.cpp
 //
 // Graphical User Interface support
 // by James Hammons
@@ -23,9 +23,11 @@
 #include "window.h"
 #include "button.h"
 #include "text.h"
+#include "diskselector.h"
 #include "diskwindow.h"
 #include "video.h"
 #include "apple2.h"
+#include "applevideo.h"
 
 // Debug support
 //#define DEBUG_MAIN_LOOP
@@ -59,8 +61,8 @@ GUI::GUI(SDL_Surface * surface): menuItem(new MenuItems())
 	windowList.push_back(new Window(30, 30, 200, 100));
 	windowList.push_back(new Window(30, 140, 200, 100));
 	windowList.push_back(new Button(30, 250, "Click!"));
-	windowList.push_back(new Text(30, 20, floppyDrive.GetImageName(0)));
-	windowList.push_back(new Text(30, 130, floppyDrive.GetImageName(1)));
+	windowList.push_back(new Text(30, 20, floppyDrive.ImageName(0)));
+	windowList.push_back(new Text(30, 130, floppyDrive.ImageName(1)));
 	windowList.push_back(new DiskWindow(&floppyDrive, 240, 20));
 }
 
@@ -502,12 +504,14 @@ struct Bitmap {
 // Icons, in GIMP "C" format
 #include "gfx/icon-selection.c"
 #include "gfx/disk-icon.c"
-#include "gfx/disk-1-icon.c"
-#include "gfx/disk-2-icon.c"
 #include "gfx/power-off-icon.c"
 #include "gfx/power-on-icon.c"
+#include "gfx/disk-swap-icon.c"
 #include "gfx/disk-door-open.c"
 #include "gfx/disk-door-closed.c"
+#include "gfx/save-state-icon.c"
+#include "gfx/load-state-icon.c"
+#include "gfx/config-icon.c"
 
 
 const char numeralOne[(7 * 7) + 1] =
@@ -553,6 +557,7 @@ SDL_Rect GUI2::olDst;
 int GUI2::sidebarState = SBS_HIDDEN;
 int32_t GUI2::dx = 0;
 int32_t GUI2::iconSelected = -1;
+bool GUI2::hasKeyboardFocus = false;
 int32_t lastIconSelected = -1;
 SDL_Texture * iconSelection = NULL;
 SDL_Texture * diskIcon = NULL;
@@ -560,9 +565,19 @@ SDL_Texture * disk1Icon = NULL;
 SDL_Texture * disk2Icon = NULL;
 SDL_Texture * powerOnIcon = NULL;
 SDL_Texture * powerOffIcon = NULL;
+SDL_Texture * diskSwapIcon = NULL;
+SDL_Texture * stateSaveIcon = NULL;
+SDL_Texture * stateLoadIcon = NULL;
+SDL_Texture * configIcon = NULL;
 SDL_Texture * doorOpen = NULL;
 SDL_Texture * doorClosed = NULL;
 uint32_t texturePointer[128 * 380];
+const char iconHelp[7][80] = { "Turn emulated Apple off/on",
+	"Insert floppy image into drive #1", "Insert floppy image into drive #2",
+	"Swap disks", "Save emulator state", "Load emulator state",
+	"Configure Apple2" };
+
+#define SIDEBAR_X_POS  (VIRTUAL_SCREEN_WIDTH - 80)
 
 
 GUI2::GUI2(void)
@@ -599,18 +614,22 @@ void GUI2::Init(SDL_Renderer * renderer)
 	olDst.w = 128;
 	olDst.h = 380;
 
-	iconSelection = CreateTexture(renderer, &icon_selection);
-	diskIcon      = CreateTexture(renderer, &disk_icon);
-	doorOpen      = CreateTexture(renderer, &door_open);
-	doorClosed    = CreateTexture(renderer, &door_closed);
-	disk1Icon     = CreateTexture(renderer, &disk_1);
-	disk2Icon     = CreateTexture(renderer, &disk_2);
-	powerOffIcon  = CreateTexture(renderer, &power_off);
-	powerOnIcon   = CreateTexture(renderer, &power_on);
+	iconSelection  = CreateTexture(renderer, &icon_selection);
+	diskIcon       = CreateTexture(renderer, &disk_icon);
+	doorOpen       = CreateTexture(renderer, &door_open);
+	doorClosed     = CreateTexture(renderer, &door_closed);
+	disk1Icon      = CreateTexture(renderer, &disk_icon);
+	disk2Icon      = CreateTexture(renderer, &disk_icon);
+	powerOffIcon   = CreateTexture(renderer, &power_off);
+	powerOnIcon    = CreateTexture(renderer, &power_on);
+	diskSwapIcon   = CreateTexture(renderer, &disk_swap);
+	stateSaveIcon  = CreateTexture(renderer, &save_state);
+	stateLoadIcon  = CreateTexture(renderer, &load_state);
+	configIcon     = CreateTexture(renderer, &config);
 
 	// Set up drive icons in their current states
-	AssembleDriveIcon(renderer, 0);
-	AssembleDriveIcon(renderer, 1);
+//	AssembleDriveIcon(renderer, 0);
+//	AssembleDriveIcon(renderer, 1);
 
 	if (SDL_SetRenderTarget(renderer, overlay) < 0)
 	{
@@ -622,6 +641,9 @@ void GUI2::Init(SDL_Renderer * renderer)
 		// Set render target back to default
 		SDL_SetRenderTarget(renderer, NULL);
 	}
+
+	DiskSelector::Init(renderer);
+	DiskSelector::showWindow = true;
 
 	WriteLog("GUI: Successfully initialized.\n");
 }
@@ -657,7 +679,7 @@ void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 	{
 		iconSelected = -1;
 
-		if (x > (VIRTUAL_SCREEN_WIDTH - 100))
+		if (x > SIDEBAR_X_POS)
 		{
 //printf("GUI: sidebar showing (x = %i)...\n", x);
 			sidebarState = SBS_SHOWING;
@@ -672,7 +694,7 @@ void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 	}
 	else
 	{
-		if (x < (VIRTUAL_SCREEN_WIDTH - 100))
+		if (x < SIDEBAR_X_POS)
 		{
 			iconSelected = lastIconSelected = -1;
 			HandleIconSelection(sdlRenderer);
@@ -695,6 +717,14 @@ void GUI2::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 			{
 				HandleIconSelection(sdlRenderer);
 				lastIconSelected = iconSelected;
+				SpawnMessage("%s", iconHelp[iconSelected]);
+
+				// Show what's in the selected drive
+				if (iconSelected >= 1 && iconSelected <= 2)
+				{
+					if (!floppyDrive.IsEmpty(iconSelected - 1))
+						SpawnMessage("\"%s\"", floppyDrive.ImageName(iconSelected - 1));
+				}
 			}
 		}
 	}
@@ -748,7 +778,7 @@ void GUI2::AssembleDriveIcon(SDL_Renderer * renderer, int driveNumber)
 	// Drive door @ (16, 7)
 	SDL_Rect dst;
 	dst.w = 8, dst.h = 10, dst.x = 16, dst.y = 7;
-	SDL_RenderCopy(renderer, (floppyDrive.DriveIsEmpty(driveNumber) ?
+	SDL_RenderCopy(renderer, (floppyDrive.IsEmpty(driveNumber) ?
 		doorOpen : doorClosed), NULL, &dst);
 
 	// Numeral @ (30, 20)
@@ -763,7 +793,7 @@ void GUI2::AssembleDriveIcon(SDL_Renderer * renderer, int driveNumber)
 
 void GUI2::DrawEjectButton(SDL_Renderer * renderer, int driveNumber)
 {
-	if (floppyDrive.DriveIsEmpty(driveNumber))
+	if (floppyDrive.IsEmpty(driveNumber))
 		return;
 
 	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, 0x00, 0xAA, 0x00);
@@ -807,10 +837,9 @@ void GUI2::HandleGUIState(void)
 {
 	olDst.x += dx;
 
-	if (olDst.x < (VIRTUAL_SCREEN_WIDTH - 100) && sidebarState == SBS_SHOWING)
+	if (olDst.x < SIDEBAR_X_POS && sidebarState == SBS_SHOWING)
 	{
-		olDst.x = VIRTUAL_SCREEN_WIDTH - 100;
-//		sidebarOut = true;
+		olDst.x = SIDEBAR_X_POS;
 		sidebarState = SBS_SHOWN;
 		dx = 0;
 	}
@@ -825,8 +854,8 @@ void GUI2::HandleGUIState(void)
 
 void GUI2::DrawSidebarIcons(SDL_Renderer * renderer)
 {
-	SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, powerOffIcon,
-		powerOffIcon, powerOffIcon, powerOffIcon };
+	SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, diskSwapIcon,
+		stateSaveIcon, stateLoadIcon, configIcon };
 
 	SDL_Rect dst;
 	dst.w = dst.h = 40, dst.x = 24, dst.y = 2 + 7;
@@ -850,6 +879,9 @@ void GUI2::Render(SDL_Renderer * renderer)
 		HandleIconSelection(renderer);
 
 	SDL_RenderCopy(renderer, overlay, NULL, &olDst);
+
+	// Hmm.
+	DiskSelector::Render(renderer);
 }
 
 

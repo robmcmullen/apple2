@@ -64,6 +64,7 @@ class GUI2
 		static int sidebarState;
 		static int32_t dx;
 		static int32_t iconSelected;
+		static bool hasKeyboardFocus;
 };
 
 

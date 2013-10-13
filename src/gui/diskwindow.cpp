@@ -54,8 +54,8 @@ DiskWindow::DiskWindow(FloppyDrive * fdp, uint32_t x/*= 0*/, uint32_t y/*= 0*/):
 //	closeButton = new Button(w - (cbWidth + 1), 1, cbUp, cbHover, cbDown, this);
 //	list.push_back(closeButton);
 
-	name1 = new Text(4, 4, floppyDrive->GetImageName(0), 0xFF00FF00, 0xFF23239F, this);
-	name2 = new Text(4, 24, floppyDrive->GetImageName(1), 0xFF00FF00, 0xFF23239F, this);
+	name1 = new Text(4, 4, floppyDrive->ImageName(0), 0xFF00FF00, 0xFF23239F, this);
+	name2 = new Text(4, 24, floppyDrive->ImageName(1), 0xFF00FF00, 0xFF23239F, this);
 
 	AddElement(name1);
 	AddElement(name2);
@@ -79,8 +79,8 @@ DiskWindow::DiskWindow(FloppyDrive * fdp, uint32_t x/*= 0*/, uint32_t y/*= 0*/):
 	writeProtect2 = new Button(4, 196, "WriteProt2", this);
 	swap = new Button(4, 220, "Swap Disks", this);
 
-	writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "no write" : "write"));
-	writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "no write" : "write"));
+	writeProtect1->SetText((floppyDrive->IsWriteProtected(0) ? "no write" : "write"));
+	writeProtect2->SetText((floppyDrive->IsWriteProtected(1) ? "no write" : "write"));
 
 	AddElement(newDisk1);
 	AddElement(newDisk2);
@@ -213,7 +213,7 @@ void DiskWindow::Notify(Element * e)
 	}
 	else if (e == newDisk1)
 	{
-		if (!floppyDrive->DriveIsEmpty(0))
+		if (!floppyDrive->IsEmpty(0))
 		{
 			// Put up a warning and give user a chance to exit this potentially
 			// disastrous action
@@ -236,12 +236,12 @@ what you could do is like this way:
 		// Housekeeping
 		eject1->SetVisible(true);
 		load1->SetVisible(false);
-		name1->SetText(floppyDrive->GetImageName(0));
+		name1->SetText(floppyDrive->ImageName(0));
 		Draw();
 	}
 	else if (e == newDisk2)
 	{
-		if (!floppyDrive->DriveIsEmpty(1))
+		if (!floppyDrive->IsEmpty(1))
 		{
 			// Put up a warning and give user a chance to exit this potentially
 			// disastrous action
@@ -253,26 +253,26 @@ what you could do is like this way:
 		// Housekeeping
 		eject2->SetVisible(true);
 		load2->SetVisible(false);
-		name2->SetText(floppyDrive->GetImageName(1));
+		name2->SetText(floppyDrive->ImageName(1));
 		Draw();
 	}
 	else if (e == writeProtect1)
 	{
-		floppyDrive->SetWriteProtect((floppyDrive->DiskIsWriteProtected(0) ? false : true), 0);
+		floppyDrive->SetWriteProtect((floppyDrive->IsWriteProtected(0) ? false : true), 0);
 //			floppyDrive->SetWriteProtect(false, 0);
 //		else
 //			floppyDrive->SetWriteProtect(true, 0);
 
 		// Housekeeping
-		writeProtect1->SetText((floppyDrive->DiskIsWriteProtected(0) ? "no write" : "write"));
+		writeProtect1->SetText((floppyDrive->IsWriteProtected(0) ? "no write" : "write"));
 		Draw();
 	}
 	else if (e == writeProtect2)
 	{
-		floppyDrive->SetWriteProtect((floppyDrive->DiskIsWriteProtected(1) ? false : true), 1);
+		floppyDrive->SetWriteProtect((floppyDrive->IsWriteProtected(1) ? false : true), 1);
 
 		// Housekeeping
-		writeProtect2->SetText((floppyDrive->DiskIsWriteProtected(1) ? "no write" : "write"));
+		writeProtect2->SetText((floppyDrive->IsWriteProtected(1) ? "no write" : "write"));
 		Draw();
 	}
 	else if (e == swap)
@@ -280,8 +280,8 @@ what you could do is like this way:
 		floppyDrive->SwapImages();
 
 		// Housekeeping
-		name1->SetText(floppyDrive->GetImageName(0));
-		name2->SetText(floppyDrive->GetImageName(1));
+		name1->SetText(floppyDrive->ImageName(0));
+		name2->SetText(floppyDrive->ImageName(1));
 		Draw();
 	}
 }

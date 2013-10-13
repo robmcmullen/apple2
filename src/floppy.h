@@ -28,10 +28,10 @@ class FloppyDrive
 		bool SaveImageAs(const char * filename, uint8_t driveNum = 0);
 		void CreateBlankImage(uint8_t driveNum = 0);
 		void SwapImages(void);
-		const char * GetImageName(uint8_t driveNum = 0);
+		const char * ImageName(uint8_t driveNum = 0);
 		void EjectImage(uint8_t driveNum = 0);
-		bool DriveIsEmpty(uint8_t driveNum = 0);
-		bool DiskIsWriteProtected(uint8_t driveNum = 0);
+		bool IsEmpty(uint8_t driveNum = 0);
+		bool IsWriteProtected(uint8_t driveNum = 0);
 		void SetWriteProtect(bool, uint8_t driveNum = 0);
 		int DriveLightStatus(uint8_t driveNum = 0);
 

@@ -502,7 +502,7 @@ void FloppyDrive::DenybblizeImage(uint8_t driveNum)
 }
 
 
-const char * FloppyDrive::GetImageName(uint8_t driveNum/*= 0*/)
+const char * FloppyDrive::ImageName(uint8_t driveNum/*= 0*/)
 {
 	// Set up a zero-length string for return value
 	nameBuf[0] = 0;
@@ -559,7 +559,7 @@ void FloppyDrive::EjectImage(uint8_t driveNum/*= 0*/)
 }
 
 
-bool FloppyDrive::DriveIsEmpty(uint8_t driveNum/*= 0*/)
+bool FloppyDrive::IsEmpty(uint8_t driveNum/*= 0*/)
 {
 	if (driveNum > 1)
 	{
@@ -572,7 +572,7 @@ bool FloppyDrive::DriveIsEmpty(uint8_t driveNum/*= 0*/)
 }
 
 
-bool FloppyDrive::DiskIsWriteProtected(uint8_t driveNum/*= 0*/)
+bool FloppyDrive::IsWriteProtected(uint8_t driveNum/*= 0*/)
 {
 	if (driveNum > 1)
 	{

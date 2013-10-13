@@ -100,6 +100,7 @@ INCS = -I. -I./src
 
 OBJS = \
 	obj/button.o          \
+	obj/diskselector.o      \
 	obj/diskwindow.o      \
 	obj/draggablewindow.o \
 	obj/draggablewindow2.o \
