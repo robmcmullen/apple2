@@ -100,11 +100,12 @@ INCS = -I. -I./src
 
 OBJS = \
 	obj/button.o          \
-	obj/diskselector.o      \
+	obj/diskselector.o    \
 	obj/diskwindow.o      \
 	obj/draggablewindow.o \
 	obj/draggablewindow2.o \
 	obj/element.o         \
+	obj/font14pt.o        \
 	obj/gui.o             \
 	obj/guimisc.o         \
 	obj/menu.o            \
@@ -114,6 +115,7 @@ OBJS = \
                           \
 	obj/applevideo.o      \
 	obj/ay8910.o          \
+	obj/charset.o         \
 	obj/dis65c02.o        \
 	obj/firmware.o        \
 	obj/floppy.o          \

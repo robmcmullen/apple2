@@ -23,7 +23,7 @@
 // - Fix OSD text display so that it's visible no matter what background is there [DONE]
 //
 
-// Display routines seem MUCH slower now... !!! INVESTIGATE !!!
+// Display routines seem MUCH slower now... !!! INVESTIGATE !!! [not anymore]
 
 #include "applevideo.h"
 
@@ -34,7 +34,7 @@
 #include "apple2.h"
 #include "video.h"
 #include "charset.h"
-#include "font14pt.h"
+#include "gui/font14pt.h"
 
 /* Reference: Technote tn-iigs-063 "Master Color Values"
 
@@ -396,7 +396,8 @@ static void DrawString2(uint32_t x, uint32_t y, uint32_t color)
 
 				*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = pixel;//*/
 
-				uint8_t trans = font1[fontAddr++];
+//				uint8_t trans = font1[fontAddr++];
+				uint8_t trans = font2[fontAddr++];
 
 				if (trans)
 				{
