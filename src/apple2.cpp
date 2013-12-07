@@ -919,7 +919,6 @@ if (counter == 60)
 // have it do 16 for one frame, then 17 for two others. Then it should average
 // out to 1/60s per frame every 3 frames.
 	frameCount = (frameCount + 1) % 3;
-
 	uint32_t waitFrameTime = 17 - (frameCount == 0 ? 1 : 0);
 
 	while (SDL_GetTicks() - startTicks < waitFrameTime)

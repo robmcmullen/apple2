@@ -1,0 +1,101 @@
+/* CSS for Apple2 Web */
+
+/* for testing */
+/*div { border: 1px solid red; }*/
+
+body, table
+{
+	background: #006060;
+	color: #FFFFFF;
+	text-align: center;	/* Crappy IE kludge */
+	font: 14.0pt Arial, Verdana, "Helvetica" sans-serif;
+}
+
+#title img
+{
+	margin-top: 22px;
+}
+
+#news td
+{
+	padding-bottom: 1em;
+}
+
+#compatibility
+{
+	border: 1px solid white;
+	border-spacing: 0;
+	margin-bottom: 1em;
+}
+
+#compatibility td
+{
+	vertical-align: top;
+	border: 1px solid white;
+	font-size: 85%;
+}
+
+.date
+{
+	width: 7em;
+	vertical-align: top;
+/*	color: #FF6060;*/
+	color: #FF6020;
+}
+
+hr
+{
+	margin-bottom: 1.75em;
+}
+
+table, ul
+{
+	text-align: left;
+}
+
+p
+{
+	text-align: left;
+	margin-top: 0;
+	margin-bottom: 1em;
+}
+
+h1
+{
+	font-size: 300%;
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+h2
+{
+	font-size: 200%;
+	margin-top: 1.25em;
+	margin-bottom: 0.75em;
+	color: #FFB000;
+	font-style: italic;
+}
+
+h3
+{
+	font-size: 120%;
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+tt
+{
+	font-size: 100%;
+}
+
+p#footer
+{
+	margin-top: 2.0em;
+	font-size: 75%;
+	font-style: italic;
+}
+
+a:link    { color: #0090FF; text-decoration: underline; }
+a:visited { color: #6F006F; text-decoration: underline; }
+a:hover   { color: #20B0FF; text-decoration: none; }
+a:active  { color: #FFFFFF; text-decoration: underline; }
