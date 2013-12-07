@@ -8,12 +8,19 @@ body, table
 	background: #006060;
 	color: #FFFFFF;
 	text-align: center;	/* Crappy IE kludge */
-	font: 14.0pt Arial, Verdana, "Helvetica" sans-serif;
+	font: 14.0pt Arial, Verdana, sans-serif;
 }
 
 #title img
 {
 	margin-top: 22px;
+}
+
+#title
+{
+	font-size: 300%;
+	font-weight: bold;
+	color: #30FF30;
 }
 
 #news td
@@ -43,6 +50,11 @@ body, table
 	color: #FF6020;
 }
 
+sup
+{
+	font-size: 60%;
+}
+
 hr
 {
 	margin-bottom: 1.75em;
@@ -60,12 +72,12 @@ p
 	margin-bottom: 1em;
 }
 
-h1
+/*h1
 {
 	font-size: 300%;
 	margin-top: 0;
 	margin-bottom: 0;
-}
+}*/
 
 h2
 {
@@ -85,7 +97,7 @@ h3
 
 tt
 {
-	font-size: 100%;
+	font-size: 80%;
 }
 
 p#footer
