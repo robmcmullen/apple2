@@ -99,19 +99,9 @@ LIBS = -L/usr/local/lib -L/usr/lib $(SDL_LIBS) -lstdc++ -lz $(GLLIB) -pg
 INCS = -I. -I./src
 
 OBJS = \
-	obj/button.o          \
 	obj/diskselector.o    \
-	obj/diskwindow.o      \
-	obj/draggablewindow.o \
-	obj/draggablewindow2.o \
-	obj/element.o         \
 	obj/font14pt.o        \
 	obj/gui.o             \
-	obj/guimisc.o         \
-	obj/menu.o            \
-	obj/text.o            \
-	obj/textedit.o        \
-	obj/window.o          \
                           \
 	obj/applevideo.o      \
 	obj/ay8910.o          \
@@ -129,6 +119,18 @@ OBJS = \
 	obj/video.o           \
 	obj/apple2.o          \
 	$(ICON)
+
+#foooked:
+#	obj/button.o          \
+	obj/diskwindow.o      \
+	obj/draggablewindow.o \
+	obj/draggablewindow2.o \
+	obj/element.o         \
+	obj/guimisc.o         \
+	obj/menu.o            \
+	obj/text.o            \
+	obj/textedit.o        \
+	obj/window.o          \
 
 all: checkenv message obj $(TARGET)$(EXESUFFIX)
 	@echo

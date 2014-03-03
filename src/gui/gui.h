@@ -10,6 +10,7 @@
 #include <SDL2/SDL.h>
 #include <list>
 
+#if 0
 class Menu;										// Now *this* should work, since we've got pointers...
 class MenuItems;
 class Element;
@@ -34,7 +35,7 @@ class GUI
 		bool showMouse;
 		SDL_Rect mouse, oldMouse;
 };
-
+#endif
 
 class GUI2
 {

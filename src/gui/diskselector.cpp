@@ -3,6 +3,7 @@
 //
 // Floppy disk selector GUI
 // by James Hammons
+// © 2014 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -70,7 +71,6 @@ void DiskSelector::Init(SDL_Renderer * renderer)
 {
 	window = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
 		SDL_TEXTUREACCESS_TARGET, 400, 300);
-//	charStamp = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
 	charStamp = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
 		SDL_TEXTUREACCESS_TARGET, FONT_WIDTH, FONT_HEIGHT);
 

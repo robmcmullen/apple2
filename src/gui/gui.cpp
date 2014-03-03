@@ -18,6 +18,7 @@
 // - Multiple window handling [DONE]
 //
 
+#if 0
 #include "gui.h"
 #include "menu.h"								// Element class methods are pulled in here...
 #include "window.h"
@@ -480,7 +481,7 @@ void GUI::Stop(void)
 {
 	exitGUI = true;
 }
-
+#endif
 
 
 //
@@ -500,6 +501,13 @@ struct Bitmap {
 	unsigned char pixelData[];
 };
 
+
+#include "gui.h"
+#include "apple2.h"
+#include "applevideo.h"
+#include "diskselector.h"
+#include "log.h"
+#include "video.h"
 
 // Icons, in GIMP "C" format
 #include "gfx/icon-selection.c"

@@ -52,9 +52,9 @@
 #include "mmu.h"
 
 #include "gui/gui.h"
-#include "gui/window.h"
-#include "gui/draggablewindow2.h"
-#include "gui/textedit.h"
+//#include "gui/window.h"
+//#include "gui/draggablewindow2.h"
+//#include "gui/textedit.h"
 
 // Debug and misc. defines
 
