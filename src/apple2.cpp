@@ -2,7 +2,7 @@
 // Apple 2 SDL Portable Apple Emulator
 //
 // by James Hammons
-// (C) 2005 Underground Software
+// © 2014 Underground Software
 //
 // Loosely based on AppleWin by Tom Charlesworth which was based on AppleWin by
 // Oliver Schmidt which was based on AppleWin by Michael O'Brien. :-) Parts are
@@ -52,9 +52,6 @@
 #include "mmu.h"
 
 #include "gui/gui.h"
-//#include "gui/window.h"
-//#include "gui/draggablewindow2.h"
-//#include "gui/textedit.h"
 
 // Debug and misc. defines
 
@@ -331,7 +328,7 @@ int main(int /*argc*/, char * /*argv*/[])
 		return -1;
 	}
 
-	GUI2::Init(sdlRenderer);
+	GUI::Init(sdlRenderer);
 
 	// Have to do this *after* video init but *before* sound init...!
 //Shouldn't be necessary since we're not doing emulation in the ISR...
@@ -868,17 +865,17 @@ else if (event.key.keysym.sym == SDLK_F10)
 
 			break;
 		case SDL_MOUSEBUTTONDOWN:
-			GUI2::MouseDown(event.motion.x, event.motion.y, event.motion.state);
+			GUI::MouseDown(event.motion.x, event.motion.y, event.motion.state);
 			break;
 		case SDL_MOUSEBUTTONUP:
-			GUI2::MouseUp(event.motion.x, event.motion.y, event.motion.state);
+			GUI::MouseUp(event.motion.x, event.motion.y, event.motion.state);
 			break;
 		case SDL_MOUSEMOTION:
-			GUI2::MouseMove(event.motion.x, event.motion.y, event.motion.state);
+			GUI::MouseMove(event.motion.x, event.motion.y, event.motion.state);
 			break;
 		case SDL_WINDOWEVENT:
 			if (event.window.event == SDL_WINDOWEVENT_LEAVE)
-				GUI2::MouseMove(0, 0, 0);
+				GUI::MouseMove(0, 0, 0);
 
 			break;
 		case SDL_QUIT:
@@ -889,7 +886,7 @@ else if (event.key.keysym.sym == SDLK_F10)
 //#warning "!!! Taking MAJOR time hit with the video frame rendering !!!"
 	RenderVideoFrame();
 	RenderScreenBuffer();
-	GUI2::Render(sdlRenderer);
+	GUI::Render(sdlRenderer);
 	SDL_RenderPresent(sdlRenderer);
 	SetCallbackTime(FrameCallback, 16666.66666667);
 

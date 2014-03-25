@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-#include "font14pt.h"
+#include "font10pt.h"
 #include "log.h"
 #include "settings.h"
 #include "video.h"
@@ -87,7 +87,7 @@ void DiskSelector::Init(SDL_Renderer * renderer)
 		WriteLog("GUI (DiskSelector): Could not set blend mode for charStamp.\n");
 
 	for(uint32_t i=0; i<400*300; i++)
-		windowPixels[i] = 0xB000FF00;
+		windowPixels[i] = 0xEF00FF00;
 
 	SDL_UpdateTexture(window, NULL, windowPixels, 128 * sizeof(Uint32));
 	FindDisks(NULL);
@@ -147,15 +147,23 @@ void DiskSelector::DrawFilenames(SDL_Renderer * renderer)
 	}
 
 	// 3 columns of 16 chars apiece (with 8X16 font), 18 rows
+	// 3 columns of 18 chars apiece (with 7X12 font), 24 rows
+	// 3 columns of 21 chars apiece (with 6X11 font), 27 rows
 
 	int count = 0;
 
 	while (count < imageList.size())
 	{
-		int currentX = (count / 18) * 17;
-		int currentY = (count % 18);
+//		int currentX = (count / 18) * 17;
+//		int currentY = (count % 18);
+//		int currentX = (count / 24) * 19;
+//		int currentY = (count % 24);
+		int currentX = (count / 27) * 22;
+		int currentY = (count % 27);
 
-		for(unsigned int i=0; i<16; i++)
+//		for(unsigned int i=0; i<16; i++)
+//		for(unsigned int i=0; i<18; i++)
+		for(unsigned int i=0; i<21; i++)
 		{
 			if (i >= imageList[count].length())
 				break;
@@ -165,7 +173,9 @@ void DiskSelector::DrawFilenames(SDL_Renderer * renderer)
 
 		count++;
 
-		if (count >= (18 * 3))
+//		if (count >= (18 * 3))
+//		if (count >= (24 * 3))
+		if (count >= (27 * 3))
 			break;
 	}
 
@@ -191,8 +201,8 @@ void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t 
 
 	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
 #else
-	uint32_t pixel = 0xFFCFA000;
-	uint8_t * ptr = (uint8_t *)&font2[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
+	uint32_t pixel = 0xFFFFA000;
+	uint8_t * ptr = (uint8_t *)&font10pt[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
 	SDL_Rect dst;
 	dst.x = x * FONT_WIDTH, dst.y = y * FONT_HEIGHT, dst.w = FONT_WIDTH, dst.h = FONT_HEIGHT;
 

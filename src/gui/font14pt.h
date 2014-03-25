@@ -4,7 +4,9 @@
 #define FONT_WIDTH		8
 #define FONT_HEIGHT		16
 
-extern char font2[];
+#include <stdint.h>
+
+extern uint8_t font2[];
 
 #endif	// __FONT14PT_H__
 

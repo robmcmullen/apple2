@@ -100,6 +100,8 @@ INCS = -I. -I./src
 
 OBJS = \
 	obj/diskselector.o    \
+	obj/font10pt.o        \
+	obj/font12pt.o        \
 	obj/font14pt.o        \
 	obj/gui.o             \
                           \
