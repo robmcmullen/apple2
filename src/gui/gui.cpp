@@ -115,6 +115,9 @@ const char iconHelp[7][80] = { "Turn emulated Apple off/on",
 	"Insert floppy image into drive #1", "Insert floppy image into drive #2",
 	"Swap disks", "Save emulator state", "Load emulator state",
 	"Configure Apple2" };
+bool disk1EjectHovered = false;
+bool disk2EjectHovered = false;
+
 
 #define SIDEBAR_X_POS  (VIRTUAL_SCREEN_WIDTH - 80)
 
@@ -204,6 +207,48 @@ SDL_Texture * GUI::CreateTexture(SDL_Renderer * renderer, const void * source)
 
 void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 {
+	if (sidebarState != SBS_SHOWN)
+		return;
+
+	switch (iconSelected)
+	{
+	// Power
+	case 0:
+		SpawnMessage("*** POWER ***");
+		break;
+	// Disk #1
+	case 1:
+		SpawnMessage("*** DISK #1 ***");
+
+		if (disk1EjectHovered && !floppyDrive.IsEmpty(0))
+			SpawnMessage("*** EJECT DISK #1 ***");
+
+		break;
+	// Disk #2
+	case 2:
+		SpawnMessage("*** DISK #2 ***");
+
+		if (disk2EjectHovered && !floppyDrive.IsEmpty(1))
+			SpawnMessage("*** EJECT DISK #2 ***");
+
+		break;
+	// Swap disks
+	case 3:
+		SpawnMessage("*** SWAP DISKS ***");
+		break;
+	// Save state
+	case 4:
+		SpawnMessage("*** SAVE STATE ***");
+		break;
+	// Load state
+	case 5:
+		SpawnMessage("*** LOAD STATE ***");
+		break;
+	// Configuration
+	case 6:
+		SpawnMessage("*** CONFIGURATION ***");
+		break;
+	}
 }
 
 
@@ -251,6 +296,17 @@ void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 			}
 			else
 				iconSelected = (y - 4) / 54;
+
+			// It's y+2 because the sidebar sits at (SIDEBAR_X_POS, 2)
+			disk1EjectHovered = ((x >= (SIDEBAR_X_POS + 24 + 29))
+				&& (x < (SIDEBAR_X_POS + 24 + 29 + 8))
+				&& (y >= (63 + 31 + 2))
+				&& (y < (63 + 31 + 2 + 7))) ? true : false);
+
+			disk2EjectHovered = ((x >= (SIDEBAR_X_POS + 24 + 29))
+				&& (x < (SIDEBAR_X_POS + 24 + 29 + 8))
+				&& (y >= (117 + 31 + 2))
+				&& (y < (117 + 31 + 2 + 7)) ? true : false);
 
 			if (iconSelected != lastIconSelected)
 			{
@@ -335,7 +391,14 @@ void GUI::DrawEjectButton(SDL_Renderer * renderer, int driveNumber)
 	if (floppyDrive.IsEmpty(driveNumber))
 		return;
 
-	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, 0x00, 0xAA, 0x00);
+	uint8_t r = 0x00, g = 0xAA, b = 0x00;
+
+	if ((driveNumber == 0 && disk1EjectHovered)
+		|| (driveNumber == 1 && disk2EjectHovered))
+		r = 0x20, g = 0xFF, b = 0x20;
+
+//	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, 0x00, 0xAA, 0x00);
+	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, r, g, b);
 }
 
 

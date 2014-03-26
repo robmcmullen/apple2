@@ -201,7 +201,7 @@ void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t 
 
 	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
 #else
-	uint32_t pixel = 0xFFFFA000;
+	uint32_t pixel = 0xFFFFA020;
 	uint8_t * ptr = (uint8_t *)&font10pt[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
 	SDL_Rect dst;
 	dst.x = x * FONT_WIDTH, dst.y = y * FONT_HEIGHT, dst.w = FONT_WIDTH, dst.h = FONT_HEIGHT;

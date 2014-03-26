@@ -93,7 +93,8 @@ LDFLAGS =
 #LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -lgcov
 # Link in the gprof lib
 #LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -pg
-LIBS = -L/usr/local/lib -L/usr/lib $(SDL_LIBS) -lstdc++ -lz $(GLLIB) -pg
+#LIBS = -L/usr/local/lib -L/usr/lib $(SDL_LIBS) -lstdc++ -lz $(GLLIB) -pg
+LIBS = $(SDL_LIBS) -lstdc++ -lz $(GLLIB) -pg
 
 #INCS = -I. -I./src -I/usr/local/include -I/usr/include
 INCS = -I. -I./src
@@ -197,7 +198,7 @@ obj/%.o: src/gui/%.cpp
 
 $(TARGET)$(EXESUFFIX): $(OBJS)
 	@echo -e "\033[01;33m***\033[00;32m Linking it all together...\033[00m"
-	@$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 #	strip --strip-all vj$(EXESUFFIX)
 #	upx -9 vj$(EXESUFFIX)
 

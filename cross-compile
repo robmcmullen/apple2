@@ -7,6 +7,7 @@
 #
 export PATH=/opt/mxe/usr/bin:$PATH
 make CROSS=i686-pc-mingw32- clean  && make CROSS=i686-pc-mingw32-
+upx -9v apple2.exe
 
 #TARGET = apple2
 #echo "Cross compiling $(TARGET) for Win32..."
