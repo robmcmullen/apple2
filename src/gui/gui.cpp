@@ -301,7 +301,7 @@ void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 			disk1EjectHovered = ((x >= (SIDEBAR_X_POS + 24 + 29))
 				&& (x < (SIDEBAR_X_POS + 24 + 29 + 8))
 				&& (y >= (63 + 31 + 2))
-				&& (y < (63 + 31 + 2 + 7))) ? true : false);
+				&& (y < (63 + 31 + 2 + 7)) ? true : false);
 
 			disk2EjectHovered = ((x >= (SIDEBAR_X_POS + 24 + 29))
 				&& (x < (SIDEBAR_X_POS + 24 + 29 + 8))
