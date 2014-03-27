@@ -3049,9 +3049,6 @@ if (regs.pc == 0xFBD8)
 //These should be correct now...
 		if (regs.cpuFlags & V65C02_ASSERT_LINE_RESET)
 		{
-#ifdef __DEBUG__
-WriteLog("\n*** RESET ***\n\n");
-#endif
 			// Not sure about this...
 			regs.sp = 0xFF;
 			regs.cc = FLAG_B | FLAG_I;					// Reset the CC register
@@ -3059,6 +3056,9 @@ WriteLog("\n*** RESET ***\n\n");
 
 			context->cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
 			regs.cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
+#ifdef __DEBUG__
+WriteLog("\n*** RESET *** (PC = $%04X)\n\n", regs.pc);
+#endif
 		}
 		else if (regs.cpuFlags & V65C02_ASSERT_LINE_NMI)
 		{

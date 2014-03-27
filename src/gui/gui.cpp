@@ -97,6 +97,8 @@ int GUI::sidebarState = SBS_HIDDEN;
 int32_t GUI::dx = 0;
 int32_t GUI::iconSelected = -1;
 bool GUI::hasKeyboardFocus = false;
+bool GUI::powerOnState = true;
+
 int32_t lastIconSelected = -1;
 SDL_Texture * iconSelection = NULL;
 SDL_Texture * diskIcon = NULL;
@@ -210,11 +212,18 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 	if (sidebarState != SBS_SHOWN)
 		return;
 
+//	char [2][2] = {};
+
 	switch (iconSelected)
 	{
 	// Power
 	case 0:
-		SpawnMessage("*** POWER ***");
+		powerOnState = !powerOnState;
+		SetPowerState();
+
+		if (!powerOnState)
+			SpawnMessage("*** POWER OFF ***");
+
 		break;
 	// Disk #1
 	case 1:
@@ -458,6 +467,8 @@ void GUI::DrawSidebarIcons(SDL_Renderer * renderer)
 {
 	SDL_Texture * icons[7] = { powerOnIcon, disk1Icon, disk2Icon, diskSwapIcon,
 		stateSaveIcon, stateLoadIcon, configIcon };
+
+	icons[0] = (powerOnState ? powerOnIcon : powerOffIcon);
 
 	SDL_Rect dst;
 	dst.w = dst.h = 40, dst.x = 24, dst.y = 2 + 7;

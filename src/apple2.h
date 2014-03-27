@@ -7,6 +7,10 @@
 
 enum { APPLE_TYPE_II, APPLE_TYPE_IIE, APPLE_TYPE_IIC };
 
+// Exported functions
+
+void SetPowerState(void);
+
 // Global variables (exported)
 
 extern uint8_t ram[0x10000], rom[0x10000];		// RAM & ROM pointers
@@ -27,3 +31,5 @@ extern bool ramwrt;
 extern bool altzp;
 extern bool ioudis;
 extern bool dhires;
+extern uint8_t lcState;
+

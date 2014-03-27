@@ -38,6 +38,7 @@ class GUI
 		static int32_t dx;
 		static int32_t iconSelected;
 		static bool hasKeyboardFocus;
+		static bool powerOnState;
 };
 
 #endif	// __GUI_H__

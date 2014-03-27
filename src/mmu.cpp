@@ -40,9 +40,6 @@ uint16_t addrOffset[0x10000];
 READFUNC(funcMapRead[0x10000]);
 WRITEFUNC(funcMapWrite[0x10000]);
 
-// Language card state (ROM read, no write)
-uint8_t lcState = 0x02;
-
 struct AddressMap
 {
 	uint16_t start;

@@ -64,12 +64,14 @@
 
 // Global variables
 
-uint8_t ram[0x10000], rom[0x10000];				// RAM & ROM spaces
-uint8_t ram2[0x10000];							// Auxillary RAM
-//uint8_t diskRom[0x100];							// Disk ROM space
-V65C02REGS mainCPU;								// v65C02 execution context
+uint8_t ram[0x10000], rom[0x10000];			// RAM & ROM spaces
+uint8_t ram2[0x10000];						// Auxillary RAM
+//uint8_t diskRom[0x100];						// Disk ROM space
+V65C02REGS mainCPU;							// v65C02 execution context
 uint8_t appleType = APPLE_TYPE_IIE;
 FloppyDrive floppyDrive;
+//bool powerOnState = true;					// Virtual power switch
+bool powerStateChangeRequested = false;
 
 // Local variables
 
@@ -86,22 +88,22 @@ bool ramwrt = false;
 bool altzp = false;
 bool ioudis = true;
 bool dhires = false;
+// Language card state (ROM read, no write)
+uint8_t lcState = 0x02;
 
-static bool running = true;						// Machine running state flag...
+static bool running = true;					// Machine running state flag...
 static uint32_t startTicks;
 static bool pauseMode = false;
 static bool fullscreenDebounce = false;
 static bool capsLock = false;
 static bool capsLockDebounce = false;
-//static GUI * gui = NULL;
 
 // Local functions (technically, they're global...)
 
 bool LoadImg(char * filename, uint8_t * ram, int size);
-uint8_t RdMem(uint16_t addr);
-void WrMem(uint16_t addr, uint8_t b);
 static void SaveApple2State(const char * filename);
 static bool LoadApple2State(const char * filename);
+static void ResetApple2State(void);
 
 // Local timer callback functions
 
@@ -224,24 +226,29 @@ WriteLog("CPU: SDL_mutexV(cpuMutex);\n");
 #endif
 
 
-#if 0
-// Test GUI function
-
-Element * TestWindow(void)
+#if 1
+//
+// Request a change in the power state of the emulated Apple
+//
+void SetPowerState(void)
 {
-	Element * win = new DraggableWindow2(10, 10, 128, 128);
-//	((DraggableWindow *)win)->AddElement(new TextEdit(4, 16, 92, 0, "u2prog.dsk", win));
+//	powerOnState = state;
+//	pauseMode = !state;
 
-	return win;
-}
-
-
-Element * QuitEmulator(void)
-{
-	gui->Stop();
-	running = false;
-
-	return NULL;
+//	if (!pauseMode)
+//	{
+//printf("Turning on...\n");
+		// Transitioning from OFF to ON
+//		mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
+//		SoundResume();
+//	}
+//	else
+//	{
+//printf("Turning off...\n");
+		// Turn it off...
+//		SoundPause();
+//	}
+	powerStateChangeRequested = true;
 }
 #endif
 
@@ -274,6 +281,28 @@ static bool LoadApple2State(const char * filename)
 }
 
 
+static void ResetApple2State(void)
+{
+	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
+	keyDown = false;
+	openAppleDown = false;
+	closedAppleDown = false;
+	store80Mode = false;
+	vbl = false;
+	slotCXROM = false;
+	slotC3ROM = false;
+	ramrd = false;
+	ramwrt = false;
+	altzp = false;
+	ioudis = true;
+	dhires = false;
+	lcState = 0x02;
+	SwitchLC();			// Make sure MMU is in sane state
+	memset(ram, 0, 0x10000);
+	memset(ram2, 0, 0x10000);
+}
+
+
 #ifdef CPU_CLOCK_CHECKING
 uint8_t counter = 0;
 uint32_t totalCPU = 0;
@@ -293,7 +322,6 @@ int main(int /*argc*/, char * /*argv*/[])
 	memset(rom, 0, 0x10000);
 	memset(ram2, 0, 0x10000);
 
-#if 1
 	// Set up MMU
 	SetupAddressMap();
 
@@ -301,10 +329,6 @@ int main(int /*argc*/, char * /*argv*/[])
 	memset(&mainCPU, 0, sizeof(V65C02REGS));
 	mainCPU.RdMem = AppleReadMem;
 	mainCPU.WrMem = AppleWriteMem;
-#else
-	mainCPU.RdMem = RdMem;
-	mainCPU.WrMem = WrMem;
-#endif
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
 //	alternateCharset = true;
@@ -339,59 +363,10 @@ int main(int /*argc*/, char * /*argv*/[])
 			WriteLog("Unable to use Apple2 state file \"%s\"!\n", settings.autoStatePath);
 	}
 
-
-#if 0
-// State loading!
-if (!LoadImg("./BT1_6502_RAM_SPACE.bin", ram, 0x10000))
-{
-	cout << "Couldn't load state file!" << endl;
-	cout << "Aborting!!" << endl;
-	return -1;
-}
-
-//A  P  Y  X  S     PC
-//-- -- -- -- ----- -----
-//00 75 3B 53 FD 01 41 44
-
-mainCPU.cpuFlags = 0;
-mainCPU.a = 0x00;
-mainCPU.x = 0x53;
-mainCPU.y = 0x3B;
-mainCPU.cc = 0x75;
-mainCPU.sp = 0xFD;
-mainCPU.pc = 0x4441;
-
-textMode = false;
-mixedMode = false;
-displayPage2 = false;
-hiRes = true;
-
-//kludge...
-readHiRam = true;
-//dumpDis=true;
-//kludge II...
-memcpy(ram + 0xD000, ram + 0xC000, 0x1000);
-#endif
-
 	WriteLog("About to initialize audio...\n");
 	SoundInit();
-//nope	SDL_EnableUNICODE(1);						// Needed to do key translation shit
-
-//	gui = new GUI(surface);						// Set up the GUI system object...
-//	gui = new GUI(mainSurface);					// Set up the GUI system object...
-// SDL 2... this will likely cause Apple 2 to crash
-//	gui = new GUI(NULL);					// Set up the GUI system object...
-#if 0
-	gui->AddMenuTitle("Apple2");
-	gui->AddMenuItem("Test!", TestWindow/*, hotkey*/);
-	gui->AddMenuItem("");
-	gui->AddMenuItem("Quit", QuitEmulator, SDLK_q);
-	gui->CommitItemsToMenu();
-#endif
-
 	SetupBlurTable();							// Set up the color TV emulation blur table
 	running = true;								// Set running status...
-
 	InitializeEventList();						// Clear the event list before we use it...
 	SetCallbackTime(FrameCallback, 16666.66666667);	// Set frame to fire at 1/60 s interval
 	SetCallbackTime(BlinkTimer, 250000);		// Set up blinking at 1/4 s intervals
@@ -432,11 +407,6 @@ cpuFinished = true;
 //#warning "If sound thread is behind, CPU thread will never wake up... !!! FIX !!!" [DONE]
 //What to do? How do you know when the CPU is sleeping???
 //USE A CONDITIONAL!!! OF COURSE!!!!!!11!11!11!!!1!
-#if 0
-SDL_mutexP(mainMutex);
-SDL_CondWait(mainCond, mainMutex);	// Wait for CPU thread to get to signal point...
-SDL_mutexV(mainMutex);
-#else
 //Nope, use a semaphore...
 WriteLog("Main: SDL_SemWait(mainSem);\n");
 SDL_SemWait(mainSem);//should lock until CPU thread is waiting...
@@ -450,9 +420,7 @@ SDL_WaitThread(cpuThread, NULL);
 WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
 SDL_DestroyCond(cpuCond);
 
-//SDL_DestroyMutex(mainMutex);
 SDL_DestroySemaphore(mainSem);
-#endif
 
 	if (settings.autoStateSaving)
 	{
@@ -783,14 +751,13 @@ static void FrameCallback(void)
 
 			if (event.key.keysym.sym == SDLK_F11)
 				dumpDis = !dumpDis;				// Toggle the disassembly process
-//			else if (event.key.keysym.sym == SDLK_F11)
-//				floppyDrive.LoadImage("./disks/bt1_char.dsk");//Kludge to load char disk...
-else if (event.key.keysym.sym == SDLK_F9)
+
+/*else if (event.key.keysym.sym == SDLK_F9)
 {
 	floppyDrive.CreateBlankImage(0);
 //	SpawnMessage("Image cleared...");
 }//*/
-else if (event.key.keysym.sym == SDLK_F10)
+/*else if (event.key.keysym.sym == SDLK_F10)
 {
 	floppyDrive.SwapImages();
 //	SpawnMessage("Image swapped...");
@@ -800,17 +767,7 @@ else if (event.key.keysym.sym == SDLK_F10)
 				TogglePalette();
 			else if (event.key.keysym.sym == SDLK_F3)// Cycle through screen types
 				CycleScreenTypes();
-
-// GUI is no longer launched this way...
-#if 0
-//			if (event.key.keysym.sym == SDLK_F5)	// Temp GUI launch key
-			if (event.key.keysym.sym == SDLK_F1)	// GUI launch key
-//NOTE: Should parse the output to determine whether or not the user requested
-//      to quit completely... !!! FIX !!!
-				gui->Run();
-#endif
-
-			if (event.key.keysym.sym == SDLK_F5)
+			else if (event.key.keysym.sym == SDLK_F5)
 			{
 				VolumeDown();
 				char volStr[19] = "[****************]";
@@ -828,8 +785,7 @@ else if (event.key.keysym.sym == SDLK_F10)
 					volStr[1 + i] = '-';
 				SpawnMessage("Volume: %s", volStr);
 			}
-
-			if (event.key.keysym.sym == SDLK_F12)
+			else if (event.key.keysym.sym == SDLK_F12)
 			{
 				if (!fullscreenDebounce)
 				{
@@ -883,8 +839,32 @@ else if (event.key.keysym.sym == SDLK_F10)
 		}
 	}
 
+	// Handle power request from the GUI
+	if (powerStateChangeRequested)
+	{
+		if (GUI::powerOnState)
+		{
+			pauseMode = false;
+			SoundResume();
+			ResetApple2State();
+		}
+		else
+		{
+			pauseMode = true;
+			SoundPause();
+//NOPE			SDL_SemWait(mainSem);//should lock until CPU thread is waiting...
+//			ResetApple2State();
+		}
+
+		powerStateChangeRequested = false;
+	}
+
 //#warning "!!! Taking MAJOR time hit with the video frame rendering !!!"
-	RenderVideoFrame();
+//	if (!pauseMode)
+	{
+		RenderVideoFrame();
+	}
+
 	RenderScreenBuffer();
 	GUI::Render(sdlRenderer);
 	SDL_RenderPresent(sdlRenderer);

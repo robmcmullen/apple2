@@ -6,6 +6,7 @@
 void SetupAddressMap(void);
 uint8_t AppleReadMem(uint16_t);
 void AppleWriteMem(uint16_t, uint8_t);
+void SwitchLC(void);
 
 #endif	// __MMU_H__
 
