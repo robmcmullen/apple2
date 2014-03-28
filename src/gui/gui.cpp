@@ -321,7 +321,9 @@ void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 			{
 				HandleIconSelection(sdlRenderer);
 				lastIconSelected = iconSelected;
-				SpawnMessage("%s", iconHelp[iconSelected]);
+
+				if ((iconSelected >= 0) && (iconSelected <= 6))
+					SpawnMessage("%s", iconHelp[iconSelected]);
 
 				// Show what's in the selected drive
 				if (iconSelected >= 1 && iconSelected <= 2)

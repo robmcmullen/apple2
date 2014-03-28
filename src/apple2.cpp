@@ -388,10 +388,6 @@ int main(int /*argc*/, char * /*argv*/[])
 #ifndef THREADED_65C02
 		Execute65C02(&mainCPU, USEC_TO_M6502_CYCLES(timeToNextEvent));
 #endif
-//We MUST remove a frame's worth of time in order for the CPU to function... !!! FIX !!!
-//(Fix so that this is not a requirement!)
-//Fixed, but mainCPU.clock is destroyed in the bargain. Oh well.
-//		mainCPU.clock -= USEC_TO_M6502_CYCLES(timeToNextEvent);
 
 #ifdef CPU_CLOCK_CHECKING
 #ifndef THREADED_65C02
@@ -884,12 +880,6 @@ if (counter == 60)
 	counter = 0;
 }
 #endif
-//Instead of this, we should yield remaining time to other processes... !!! FIX !!! [DONE]
-//lessee...
-//nope.
-//Actually, slows things down too much...
-//SDL_Delay(10);
-//	while (SDL_GetTicks() - startTicks < 16);	// Wait for next frame...
 
 // This is the problem: If you set the interval to 16, it runs faster than
 // 1/60s per frame. If you set it to 17, it runs slower. What we need is to
@@ -898,8 +888,9 @@ if (counter == 60)
 	frameCount = (frameCount + 1) % 3;
 	uint32_t waitFrameTime = 17 - (frameCount == 0 ? 1 : 0);
 
+	// Wait for next frame...
 	while (SDL_GetTicks() - startTicks < waitFrameTime)
-		SDL_Delay(1);							// Wait for next frame...
+		SDL_Delay(1);
 
 	startTicks = SDL_GetTicks();
 #if 0

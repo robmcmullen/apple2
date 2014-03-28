@@ -24,12 +24,12 @@
 
 // NOTE ABOUT TIMING SYSTEM DATA STRUCTURES:
 
-// A queue won't work for this system because we can't guarantee that an event will go
-// in with a time that is later than the ones already queued up. So we just use a simple
-// list.
+// A queue won't work for this system because we can't guarantee that an event
+// will go in with a time that is later than the ones already queued up. So we
+// just use a simple list.
 
-// Although if we used an insertion sort we could, but it wouldn't work for adjusting
-// times...
+// Although if we used an insertion sort we could, but it wouldn't work for
+// adjusting times...
 
 struct Event
 {
