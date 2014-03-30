@@ -277,6 +277,34 @@ void SetupAddressMap(void)
 
 
 //
+// Reset the MMU state after a power down event
+//
+void ResetMMUPointers(void)
+{
+	if (store80Mode)
+	{
+		mainMemoryTextR = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
+		mainMemoryTextW = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
+	}
+	else
+	{
+		mainMemoryTextR = (ramwrt ? &ram2[0x0400] : &ram[0x0400]);
+		mainMemoryTextW = (ramwrt ? &ram2[0x0400] : &ram[0x0400]);
+	}
+
+	mainMemoryR = (ramrd ? &ram2[0x0200] : &ram[0x0200]);
+	mainMemoryHGRR = (ramrd ? &ram2[0x2000] : &ram[0x2000]);
+	mainMemoryW = (ramwrt ?  &ram2[0x0200] : &ram[0x0200]);
+	mainMemoryHGRW = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
+
+	slot6Memory = (slotCXROM ? &diskROM[0] : &rom[0xC600]);
+	slot3Memory = (slotC3ROM ? &rom[0] : &rom[0xC300]);
+	pageZeroMemory = (altzp ? &ram2[0x0000] : &ram[0x0000]);
+	SwitchLC();
+}
+
+
+//
 // Built-in functions
 //
 uint8_t ReadNOP(uint16_t)

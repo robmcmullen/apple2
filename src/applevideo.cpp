@@ -724,6 +724,7 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 
 static void RenderHiRes(uint16_t toLine/*= 192*/)
 {
+//printf("RenderHiRes to line %u\n", toLine);
 // NOTE: Not endian safe. !!! FIX !!! [DONE]
 #if 0
 	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
@@ -751,6 +752,12 @@ static void RenderHiRes(uint16_t toLine/*= 192*/)
 			previousLoPixel = (screenByte << 2) & 0x0100;
 
 			pixels = previous3bits | (pixels << 14) | pixels2;
+
+//testing (this shows on the screen, so it's OK)
+//if (x == 0)
+//{
+//	pixels = 0x7FFFFFFF;
+//}
 
 			// We now have 28 pixels (expanded from 14) in word: mask is $0F FF FF FF
 			// 0ppp 1111 1111 1111 1111 1111 1111 1111

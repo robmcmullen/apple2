@@ -187,7 +187,7 @@ void GUI::Init(SDL_Renderer * renderer)
 	}
 
 	DiskSelector::Init(renderer);
-	DiskSelector::showWindow = true;
+//	DiskSelector::showWindow = true;
 
 	WriteLog("GUI: Successfully initialized.\n");
 }
@@ -209,10 +209,10 @@ SDL_Texture * GUI::CreateTexture(SDL_Renderer * renderer, const void * source)
 
 void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 {
+	DiskSelector::MouseDown(x, y, buttons);
+
 	if (sidebarState != SBS_SHOWN)
 		return;
-
-//	char [2][2] = {};
 
 	switch (iconSelected)
 	{
@@ -230,7 +230,16 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 		SpawnMessage("*** DISK #1 ***");
 
 		if (disk1EjectHovered && !floppyDrive.IsEmpty(0))
-			SpawnMessage("*** EJECT DISK #1 ***");
+		{
+			floppyDrive.EjectImage(0);
+			SpawnMessage("*** DISK #1 EJECTED ***");
+		}
+
+		if (!disk1EjectHovered)
+		{
+			// Load the disk selector
+			DiskSelector::ShowWindow(0);
+		}
 
 		break;
 	// Disk #2
@@ -238,12 +247,22 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 		SpawnMessage("*** DISK #2 ***");
 
 		if (disk2EjectHovered && !floppyDrive.IsEmpty(1))
-			SpawnMessage("*** EJECT DISK #2 ***");
+		{
+			floppyDrive.EjectImage(1);
+			SpawnMessage("*** DISK #2 EJECTED ***");
+		}
+
+		if (!disk2EjectHovered)
+		{
+			// Load the disk selector
+			DiskSelector::ShowWindow(1);
+		}
 
 		break;
 	// Swap disks
 	case 3:
-		SpawnMessage("*** SWAP DISKS ***");
+		floppyDrive.SwapImages();
+		SpawnMessage("*** DISKS SWAPPED ***");
 		break;
 	// Save state
 	case 4:
@@ -263,11 +282,14 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 
 void GUI::MouseUp(int32_t x, int32_t y, uint32_t buttons)
 {
+	DiskSelector::MouseUp(x, y, buttons);
 }
 
 
 void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 {
+	DiskSelector::MouseMove(x, y, buttons);
+
 	if (sidebarState != SBS_SHOWN)
 	{
 		iconSelected = -1;

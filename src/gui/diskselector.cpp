@@ -20,10 +20,24 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include "apple2.h"
 #include "font10pt.h"
 #include "log.h"
 #include "settings.h"
 #include "video.h"
+
+
+enum { DSS_SHOWING, DSS_HIDING, DSS_SHOWN, DSS_HIDDEN };
+
+#define DS_WIDTH	400
+#define DS_HEIGHT	300
+
+bool entered = false;
+int driveNumber;
+int diskSelectorState = DSS_HIDDEN;
+int diskSelected = -1;
+int lastDiskSelected = -1;
+
 
 //
 // Case insensitve string comparison voodoo
@@ -61,7 +75,7 @@ typedef std::basic_string<char, ci_char_traits> ci_string;
 
 static SDL_Texture * window = NULL;
 static SDL_Texture * charStamp = NULL;
-static uint32_t windowPixels[400 * 300];
+static uint32_t windowPixels[DS_WIDTH * DS_HEIGHT];
 static uint32_t stamp[FONT_WIDTH * FONT_HEIGHT];
 bool DiskSelector::showWindow = false;
 std::vector<ci_string> imageList;
@@ -70,7 +84,7 @@ std::vector<ci_string> imageList;
 void DiskSelector::Init(SDL_Renderer * renderer)
 {
 	window = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
-		SDL_TEXTUREACCESS_TARGET, 400, 300);
+		SDL_TEXTUREACCESS_TARGET, DS_WIDTH, DS_HEIGHT);
 	charStamp = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
 		SDL_TEXTUREACCESS_TARGET, FONT_WIDTH, FONT_HEIGHT);
 
@@ -86,7 +100,7 @@ void DiskSelector::Init(SDL_Renderer * renderer)
 	if (SDL_SetTextureBlendMode(charStamp, SDL_BLENDMODE_BLEND) == -1)
 		WriteLog("GUI (DiskSelector): Could not set blend mode for charStamp.\n");
 
-	for(uint32_t i=0; i<400*300; i++)
+	for(uint32_t i=0; i<DS_WIDTH*DS_HEIGHT; i++)
 		windowPixels[i] = 0xEF00FF00;
 
 	SDL_UpdateTexture(window, NULL, windowPixels, 128 * sizeof(Uint32));
@@ -150,7 +164,7 @@ void DiskSelector::DrawFilenames(SDL_Renderer * renderer)
 	// 3 columns of 18 chars apiece (with 7X12 font), 24 rows
 	// 3 columns of 21 chars apiece (with 6X11 font), 27 rows
 
-	int count = 0;
+	unsigned int count = 0;
 
 	while (count < imageList.size())
 	{
@@ -168,7 +182,8 @@ void DiskSelector::DrawFilenames(SDL_Renderer * renderer)
 			if (i >= imageList[count].length())
 				break;
 
-			DrawCharacter(renderer, currentX + i, currentY, imageList[count][i]);
+			bool invert = (diskSelected == (int)count ? true : false);
+			DrawCharacter(renderer, currentX + i, currentY, imageList[count][i], invert);
 		}
 
 		count++;
@@ -184,7 +199,8 @@ void DiskSelector::DrawFilenames(SDL_Renderer * renderer)
 }
 
 
-void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t c)
+void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t c,
+	bool invert/*=false*/)
 {
 #if 0
 //	uint32_t pixel = 0xFF7F0000;
@@ -201,18 +217,20 @@ void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t 
 
 	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
 #else
-	uint32_t pixel = 0xFFFFA020;
+	uint32_t inv = (invert ? 0x000000FF : 0x00000000);
+	uint32_t pixel = 0xFFFFC000;	// RRGGBBAA
 	uint8_t * ptr = (uint8_t *)&font10pt[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
 	SDL_Rect dst;
 	dst.x = x * FONT_WIDTH, dst.y = y * FONT_HEIGHT, dst.w = FONT_WIDTH, dst.h = FONT_HEIGHT;
 
 	for(int i=0; i<FONT_WIDTH*FONT_HEIGHT; i++)
-		stamp[i] = pixel | ptr[i];
+		stamp[i] = (pixel | ptr[i]) ^ inv;
 
 	SDL_UpdateTexture(charStamp, NULL, stamp, FONT_WIDTH * sizeof(Uint32));
 	SDL_RenderCopy(renderer, charStamp, NULL, &dst);
 #endif
 }
+
 
 /*
 void DiskSelector::()
@@ -220,28 +238,99 @@ void DiskSelector::()
 }
 */
 
+
+void DiskSelector::ShowWindow(int drive)
+{
+	entered = false;
+	showWindow = true;
+	driveNumber = drive;
+}
+
+
 void DiskSelector::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 {
+	if (!showWindow)
+		return;
+
+	if (!entered)
+		return;
+
+	if (diskSelected != -1)
+	{
+		char buffer[2048];
+		sprintf(buffer, "%s/%s", settings.disksPath, &imageList[diskSelected][0]);
+//		floppyDrive.LoadImage(&imageList[diskSelected][0], driveNumber);
+		floppyDrive.LoadImage(buffer, driveNumber);
+	}
+
+	showWindow = false;
 }
 
 
 void DiskSelector::MouseUp(int32_t x, int32_t y, uint32_t buttons)
 {
+	if (!showWindow)
+		return;
+
 }
 
 
+#define DS_XPOS	((VIRTUAL_SCREEN_WIDTH - DS_WIDTH) / 2)
+#define DS_YPOS	((VIRTUAL_SCREEN_HEIGHT - DS_HEIGHT) / 2)
 void DiskSelector::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 {
+	if (!showWindow)
+		return;
+
+	if (!entered && ((x >= DS_XPOS) && (x <= (DS_XPOS + DS_WIDTH))
+		&& (y >= DS_YPOS) && (y <= (DS_YPOS + DS_HEIGHT))))
+		entered = true;
+
+	if (entered && ((x < DS_XPOS) || (x > (DS_XPOS + DS_WIDTH))
+		|| (y < DS_YPOS) || (y > (DS_YPOS + DS_HEIGHT))))
+	{
+		showWindow = false;
+		return;
+	}
+
+//	prevDiskSelected = diskSelected;
+	int xChar = (x - DS_XPOS) / FONT_WIDTH;
+	int yChar = (y - DS_YPOS) / FONT_HEIGHT;
+//		int currentX = (count / 27) * 22;
+//		int currentY = (count % 27);
+	diskSelected = ((xChar / 22) * 27) + yChar;
+
+	if ((yChar >= 27) || (diskSelected >= (int)imageList.size()))
+		diskSelected = -1;
+
+	if (diskSelected != lastDiskSelected)
+	{
+		HandleSelection(sdlRenderer);
+		lastDiskSelected = diskSelected;
+	}
+}
+
+
+void DiskSelector::HandleSelection(SDL_Renderer * renderer)
+{
+//	if (diskSelected == prevDiskSelected)
+//		return;
+
+	SDL_UpdateTexture(window, NULL, windowPixels, 128 * sizeof(Uint32));
+	DrawFilenames(renderer);
 }
 
 
 void DiskSelector::Render(SDL_Renderer * renderer)
 {
-	if (!(window || showWindow))
+	if (!(window && showWindow))
 		return;
 
+//	HandleSelection(renderer);
+
 	SDL_Rect dst;
-	dst.x = (VIRTUAL_SCREEN_WIDTH - 400) / 2, dst.y = (VIRTUAL_SCREEN_HEIGHT - 300) / 2, dst.w = 400, dst.h = 300;
+//	dst.x = (VIRTUAL_SCREEN_WIDTH - DS_WIDTH) / 2, dst.y = (VIRTUAL_SCREEN_HEIGHT - DS_HEIGHT) / 2, dst.w = DS_WIDTH, dst.h = DS_HEIGHT;
+	dst.x = DS_XPOS, dst.y = DS_YPOS, dst.w = DS_WIDTH, dst.h = DS_HEIGHT;
 
 	SDL_RenderCopy(renderer, window, NULL, &dst);
 }

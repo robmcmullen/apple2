@@ -46,7 +46,7 @@ FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ), ph
 {
 	disk[0] = disk[1] = NULL;
 	diskSize[0] = diskSize[1] = 0;
-	diskType[0] = diskType[1] = DT_UNKNOWN;
+	diskType[0] = diskType[1] = DFT_UNKNOWN;
 	imageDirty[0] = imageDirty[1] = false;
 	writeProtected[0] = writeProtected[1] = false;
 	imageName[0][0] = imageName[1][0] = 0;			// Zero out filenames
@@ -224,7 +224,7 @@ SpawnMessage("Drive 0: %s...", imageName[0]);
 
 void FloppyDrive::DetectImageType(const char * filename, uint8_t driveNum)
 {
-	diskType[driveNum] = DT_UNKNOWN;
+	diskType[driveNum] = DFT_UNKNOWN;
 
 	if (diskSize[driveNum] == 232960)
 	{
@@ -551,7 +551,7 @@ void FloppyDrive::EjectImage(uint8_t driveNum/*= 0*/)
 
 	disk[driveNum] = NULL;
 	diskSize[driveNum] = 0;
-	diskType[driveNum] = DT_UNKNOWN;
+	diskType[driveNum] = DFT_UNKNOWN;
 	imageDirty[driveNum] = false;
 	writeProtected[driveNum] = false;
 	imageName[driveNum][0] = 0;			// Zero out filenames

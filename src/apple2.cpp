@@ -283,7 +283,6 @@ static bool LoadApple2State(const char * filename)
 
 static void ResetApple2State(void)
 {
-	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 	keyDown = false;
 	openAppleDown = false;
 	closedAppleDown = false;
@@ -297,9 +296,14 @@ static void ResetApple2State(void)
 	ioudis = true;
 	dhires = false;
 	lcState = 0x02;
-	SwitchLC();			// Make sure MMU is in sane state
+//	SwitchLC();			// Make sure MMU is in sane state
+//NOPE, does nothing	SetupAddressMap();
+	ResetMMUPointers();
+
+	// Without this, you can wedge the system :-/
 	memset(ram, 0, 0x10000);
-	memset(ram2, 0, 0x10000);
+//	memset(ram2, 0, 0x10000);
+	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 }
 
 
@@ -324,6 +328,7 @@ int main(int /*argc*/, char * /*argv*/[])
 
 	// Set up MMU
 	SetupAddressMap();
+	ResetMMUPointers();
 
 	// Set up V65C02 execution context
 	memset(&mainCPU, 0, sizeof(V65C02REGS));
