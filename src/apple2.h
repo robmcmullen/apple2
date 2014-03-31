@@ -15,7 +15,6 @@ void SetPowerState(void);
 
 extern uint8_t ram[0x10000], rom[0x10000];		// RAM & ROM pointers
 extern uint8_t ram2[0x10000];					// Auxillary RAM
-//extern uint8_t diskRom[0x100];					// Floppy disk ROM
 extern uint8_t appleType;
 extern FloppyDrive floppyDrive;
 extern uint8_t lastKeyPressed;

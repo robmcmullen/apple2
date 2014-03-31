@@ -140,6 +140,7 @@ int CPUThreadFunc(void * data)
 
 	do
 	{
+// This is never set to true anywhere...
 		if (cpuSleep)
 			SDL_CondWait(cpuCond, cpuMutex);
 
@@ -151,31 +152,6 @@ SDL_SemWait(mainSem);
 
 // There are exactly 800 slices of 21.333 cycles per frame, so it works out
 // evenly.
-#if 0
-		uint32_t cycles = 17066;
-#ifdef CPU_THREAD_OVERFLOW_COMPENSATION
-// ODD! It's closer *without* this overflow compensation. ??? WHY ???
-		overflow += 0.666666667;
-
-		if (overflow > 1.0)
-		{
-			overflow -= 1.0;
-			cycles++;
-		}
-#endif
-
-#ifdef THREAD_DEBUGGING
-WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
-#endif
-		Execute65C02(&mainCPU, cycles); // how much? 1 frame (after 1 s, off by 40 cycles) not any more--it's off by as much as 240 now!
-
-		// Adjust the sound routine's last cycle toggled time base
-		// Also, since we're finished executing, .clock is now valid
-#ifdef THREAD_DEBUGGING
-WriteLog("CPU: AdjustLastToggleCycles(mainCPU.clock);\n");
-#endif
-		AdjustLastToggleCycles(mainCPU.clock);
-#else
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 #endif
@@ -196,7 +172,6 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 			// Dunno if this is correct (seems to be close enough)...
 			vbl = (i < 670 ? true : false);
 		}
-#endif
 
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
@@ -847,14 +822,16 @@ static void FrameCallback(void)
 		{
 			pauseMode = false;
 			SoundResume();
-			ResetApple2State();
+			// Unlock the CPU thread...
+			SDL_SemPost(mainSem);
 		}
 		else
 		{
 			pauseMode = true;
+			// Should lock until CPU thread is waiting...
+			SDL_SemWait(mainSem);
 			SoundPause();
-//NOPE			SDL_SemWait(mainSem);//should lock until CPU thread is waiting...
-//			ResetApple2State();
+			ResetApple2State();
 		}
 
 		powerStateChangeRequested = false;
@@ -902,7 +879,7 @@ if (counter == 60)
 	uint64_t cpuCycles = GetCurrentV65C02Clock();
 	uint32_t cyclesBurned = (uint32_t)(cpuCycles - lastCPUCycles);
 	WriteLog("FrameCallback: used %i cycles\n", cyclesBurned);
-	lastCPUCycles = cpuCycles;
+	lastCPUCycles = cpuCycles
 #endif
 
 //let's wait, then signal...

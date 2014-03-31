@@ -35,6 +35,7 @@
 #include "video.h"
 #include "charset.h"
 #include "gui/font14pt.h"
+#include "gui/gui.h"
 
 /* Reference: Technote tn-iigs-063 "Master Color Values"
 
@@ -869,43 +870,50 @@ static void RenderDHiRes(uint16_t toLine/*= 192*/)
 
 void RenderVideoFrame(void)
 {
-	if (textMode)
+	if (GUI::powerOnState == true)
 	{
-		if (!col80Mode)
-			Render40ColumnText();
+		if (textMode)
+		{
+			if (!col80Mode)
+				Render40ColumnText();
+			else
+				Render80ColumnText();
+		}
 		else
-			Render80ColumnText();
+		{
+			if (mixedMode)
+			{
+				if (hiRes)
+				{
+					RenderHiRes(160);
+					Render40ColumnTextLine(20);
+					Render40ColumnTextLine(21);
+					Render40ColumnTextLine(22);
+					Render40ColumnTextLine(23);
+				}
+				else
+				{
+					RenderLoRes(20);
+					Render40ColumnTextLine(20);
+					Render40ColumnTextLine(21);
+					Render40ColumnTextLine(22);
+					Render40ColumnTextLine(23);
+				}
+			}
+			else
+			{
+				if (dhires)
+					RenderDHiRes();
+				else if (hiRes)
+					RenderHiRes();
+				else
+					RenderLoRes();
+			}
+		}
 	}
 	else
 	{
-		if (mixedMode)
-		{
-			if (hiRes)
-			{
-				RenderHiRes(160);
-				Render40ColumnTextLine(20);
-				Render40ColumnTextLine(21);
-				Render40ColumnTextLine(22);
-				Render40ColumnTextLine(23);
-			}
-			else
-			{
-				RenderLoRes(20);
-				Render40ColumnTextLine(20);
-				Render40ColumnTextLine(21);
-				Render40ColumnTextLine(22);
-				Render40ColumnTextLine(23);
-			}
-		}
-		else
-		{
-			if (dhires)
-				RenderDHiRes();
-			else if (hiRes)
-				RenderHiRes();
-			else
-				RenderLoRes();
-		}
+		memset(scrBuffer, 0, VIRTUAL_SCREEN_WIDTH * VIRTUAL_SCREEN_HEIGHT * sizeof(uint32_t));
 	}
 
 	if (msgTicks)
