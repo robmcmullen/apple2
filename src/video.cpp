@@ -15,6 +15,7 @@
 #include <string.h>	// Why??? (for memset, etc... Lazy!) Dunno why, but this just strikes me as wrong...
 #include <malloc.h>
 #include "gui/gui.h"
+#include "apple2-icon-64x64.h"
 #include "log.h"
 #include "settings.h"
 
@@ -50,6 +51,12 @@ bool InitVideo(void)
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 //	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 	SDL_RenderSetLogicalSize(sdlRenderer, VIRTUAL_SCREEN_WIDTH, VIRTUAL_SCREEN_HEIGHT);
+
+	// Set the application's icon & title...
+	SDL_Surface * iconSurface = SDL_CreateRGBSurfaceFrom(icon, 64, 64, 32, 64*4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+	SDL_SetWindowIcon(sdlWindow, iconSurface);
+	SDL_FreeSurface(iconSurface);
+	SDL_SetWindowTitle(sdlWindow, "Apple2 Emulator");
 
 	sdlTexture = SDL_CreateTexture(sdlRenderer,
 		SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING,

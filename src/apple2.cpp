@@ -824,7 +824,7 @@ static void FrameCallback(void)
 		if (GUI::powerOnState)
 		{
 			pauseMode = false;
-			SoundResume();
+//			SoundResume();
 			// Unlock the CPU thread...
 			SDL_SemPost(mainSem);
 		}
@@ -833,7 +833,7 @@ static void FrameCallback(void)
 			pauseMode = true;
 			// Should lock until CPU thread is waiting...
 			SDL_SemWait(mainSem);
-			SoundPause();
+//			SoundPause();
 			ResetApple2State();
 		}
 

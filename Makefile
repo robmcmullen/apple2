@@ -106,6 +106,7 @@ OBJS = \
 	obj/font14pt.o        \
 	obj/gui.o             \
                           \
+        obj/apple2-icon-64x64.o \
 	obj/applevideo.o      \
 	obj/ay8910.o          \
 	obj/charset.o         \
