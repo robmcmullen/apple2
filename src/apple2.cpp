@@ -117,7 +117,7 @@ static SDL_Thread * cpuThread = NULL;
 static SDL_cond * cpuCond = NULL;
 static SDL_sem * mainSem = NULL;
 static bool cpuFinished = false;
-static bool cpuSleep = false;
+//static bool cpuSleep = false;
 
 // NB: Apple //e Manual sez 6502 is running @ 1,022,727 Hz
 
@@ -141,14 +141,14 @@ int CPUThreadFunc(void * data)
 	do
 	{
 // This is never set to true anywhere...
-		if (cpuSleep)
-			SDL_CondWait(cpuCond, cpuMutex);
+//		if (cpuSleep)
+//			SDL_CondWait(cpuCond, cpuMutex);
 
 // decrement mainSem...
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_SemWait(mainSem);\n");
 #endif
-SDL_SemWait(mainSem);
+		SDL_SemWait(mainSem);
 
 // There are exactly 800 slices of 21.333 cycles per frame, so it works out
 // evenly.
@@ -385,26 +385,29 @@ cpuFinished = true;
 //USE A CONDITIONAL!!! OF COURSE!!!!!!11!11!11!!!1!
 //Nope, use a semaphore...
 WriteLog("Main: SDL_SemWait(mainSem);\n");
-SDL_SemWait(mainSem);//should lock until CPU thread is waiting...
+	// Only do this if NOT in power off/emulation paused mode!
+	if (!pauseMode)
+		// Should lock until CPU thread is waiting...
+		SDL_SemWait(mainSem);
 #endif
 
 WriteLog("Main: SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up\n");
-SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up
+	SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up
 WriteLog("Main: SDL_WaitThread(cpuThread, NULL);\n");
-SDL_WaitThread(cpuThread, NULL);
+	SDL_WaitThread(cpuThread, NULL);
 //nowok:SDL_WaitThread(CPUThreadFunc, NULL);
 WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
-SDL_DestroyCond(cpuCond);
-
-SDL_DestroySemaphore(mainSem);
+	SDL_DestroyCond(cpuCond);
+	SDL_DestroySemaphore(mainSem);
 
 	if (settings.autoStateSaving)
 	{
 		// Save state here...
 		SaveApple2State(settings.autoStatePath);
 	}
-floppyDrive.SaveImage(0);
-floppyDrive.SaveImage(1);
+
+	floppyDrive.SaveImage(0);
+	floppyDrive.SaveImage(1);
 
 	SoundDone();
 	VideoDone();

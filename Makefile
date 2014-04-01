@@ -198,7 +198,7 @@ obj/%.o: src/gui/%.cpp
 
 $(TARGET)$(EXESUFFIX): $(OBJS)
 	@echo -e "\033[01;33m***\033[00;32m Linking it all together...\033[00m"
-	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+	@$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 #	strip --strip-all vj$(EXESUFFIX)
 #	upx -9 vj$(EXESUFFIX)
 
