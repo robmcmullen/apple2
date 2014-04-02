@@ -611,6 +611,109 @@ int FloppyDrive::DriveLightStatus(uint8_t driveNum/*= 0*/)
 }
 
 
+void FloppyDrive::SaveState(FILE * file)
+{
+	// Internal state vars
+	fputc(motorOn, file);
+	fputc(activeDrive, file);
+	fputc(ioMode, file);
+	fputc(latchValue, file);
+	fputc(phase, file);
+	fputc(track, file);
+	fputc((ioHappened ? 1 : 0), file);
+	WriteLong(file, currentPos);
+
+	// Disk #1
+	if (disk[0] != NULL)
+	{
+		WriteLong(file, diskSize[0]);
+		WriteLong(file, diskType[0]);
+		fputc((imageDirty[0] ? 1 : 0), file);
+		fputc((writeProtected[0] ? 1 : 0), file);
+		fwrite(nybblizedImage[0], 1, 232960, file);
+		fwrite(imageName[0], 1, MAX_PATH, file);
+	}
+	else
+		WriteLong(file, 0);
+
+	// Disk #2
+	if (disk[1] != NULL)
+	{
+		WriteLong(file, diskSize[1]);
+		WriteLong(file, diskType[1]);
+		fputc((imageDirty[1] ? 1 : 0), file);
+		fputc((writeProtected[1] ? 1 : 0), file);
+		fwrite(nybblizedImage[1], 1, 232960, file);
+		fwrite(imageName[1], 1, MAX_PATH, file);
+	}
+	else
+		WriteLong(file, 0);
+}
+
+
+void FloppyDrive::LoadState(FILE * file)
+{
+	// Eject images if they're loaded
+	EjectImage(0);
+	EjectImage(1);
+
+	// Read internal state variables
+	motorOn = fgetc(file);
+	activeDrive = fgetc(file);
+	ioMode = fgetc(file);
+	latchValue = fgetc(file);
+	phase = fgetc(file);
+	track = fgetc(file);
+	ioHappened = (fgetc(file) == 1 ? true : false);
+	currentPos = ReadLong(file);
+
+	diskSize[0] = ReadLong(file);
+
+	if (diskSize[0])
+	{
+		disk[0] = new uint8_t[diskSize[0]];
+		diskType[0] = (uint8_t)ReadLong(file);
+		imageDirty[0] = (fgetc(file) == 1 ? true : false);
+		writeProtected[0] = (fgetc(file) == 1 ? true : false);
+		fread(nybblizedImage[0], 1, 232960, file);
+		fread(imageName[0], 1, MAX_PATH, file);
+	}
+
+	diskSize[1] = ReadLong(file);
+
+	if (diskSize[1])
+	{
+		disk[1] = new uint8_t[diskSize[1]];
+		diskType[1] = (uint8_t)ReadLong(file);
+		imageDirty[1] = (fgetc(file) == 1 ? true : false);
+		writeProtected[1] = (fgetc(file) == 1 ? true : false);
+		fread(nybblizedImage[1], 1, 232960, file);
+		fread(imageName[1], 1, MAX_PATH, file);
+	}
+}
+
+
+uint32_t FloppyDrive::ReadLong(FILE * file)
+{
+	uint32_t r = 0;
+
+	for(int i=0; i<4; i++)
+		r = (r << 8) | fgetc(file);
+
+	return r;
+}
+
+
+void FloppyDrive::WriteLong(FILE * file, uint32_t l)
+{
+	for(int i=0; i<4; i++)
+	{
+		fputc((l >> 24) & 0xFF, file);
+		l = l << 8;
+	}
+}
+
+
 // Memory mapped I/O functions
 
 /*

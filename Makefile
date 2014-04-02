@@ -3,7 +3,7 @@
 #
 # by James Hammons
 # (C) 2005 Underground Software
-# This software is licensed under the GPL v2
+# This software is licensed under the GPL v3
 #
 
 FIND = find

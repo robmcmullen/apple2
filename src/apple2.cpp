@@ -245,14 +245,118 @@ bool LoadImg(char * filename, uint8_t * ram, int size)
 }
 
 
+const uint8_t stateHeader[19] = "APPLE2SAVESTATE1.0";
 static void SaveApple2State(const char * filename)
 {
+	WriteLog("Main: Saving Apple2 state...\n");
+	FILE * file = fopen(filename, "wb");
+
+	if (!file)
+	{
+		WriteLog("Could not open file \"%s\" for writing!\n", filename);
+		return;
+	}
+
+	// Write out header
+	fwrite(stateHeader, 1, 18, file);
+
+	// Write out CPU state
+	fwrite(&mainCPU, 1, sizeof(mainCPU), file);
+
+	// Write out main memory
+	fwrite(ram, 1, 0x10000, file);
+	fwrite(ram2, 1, 0x10000, file);
+
+	// Write out state variables
+	fputc((uint8_t)keyDown, file);
+	fputc((uint8_t)openAppleDown, file);
+	fputc((uint8_t)closedAppleDown, file);
+	fputc((uint8_t)store80Mode, file);
+	fputc((uint8_t)vbl, file);
+	fputc((uint8_t)slotCXROM, file);
+	fputc((uint8_t)slotC3ROM, file);
+	fputc((uint8_t)ramrd, file);
+	fputc((uint8_t)ramwrt, file);
+	fputc((uint8_t)altzp, file);
+	fputc((uint8_t)ioudis, file);
+	fputc((uint8_t)dhires, file);
+	fputc((uint8_t)flash, file);
+	fputc((uint8_t)textMode, file);
+	fputc((uint8_t)mixedMode, file);
+	fputc((uint8_t)displayPage2, file);
+	fputc((uint8_t)hiRes, file);
+	fputc((uint8_t)alternateCharset, file);
+	fputc((uint8_t)col80Mode, file);
+	fputc(lcState, file);
+
+	// Write out floppy state
+	floppyDrive.SaveState(file);
+	fclose(file);
 }
 
 
 static bool LoadApple2State(const char * filename)
 {
-	return false;
+	WriteLog("Main: Loading Apple2 state...\n");
+	FILE * file = fopen(filename, "rb");
+
+	if (!file)
+	{
+		WriteLog("Could not open file \"%s\" for reading!\n", filename);
+		return false;
+	}
+
+	uint8_t buffer[18];
+	fread(buffer, 1, 18, file);
+
+	// Sanity check...
+	if (memcmp(buffer, stateHeader, 18) != 0)
+	{
+		fclose(file);
+		WriteLog("File \"%s\" is not a valid Apple2 save state file!\n", filename);
+		return false;
+	}
+
+	// Read CPU state
+	fread(&mainCPU, 1, sizeof(mainCPU), file);
+
+	// Read main memory
+	fread(ram, 1, 0x10000, file);
+	fread(ram2, 1, 0x10000, file);
+
+	// Read in state variables
+	keyDown = (bool)fgetc(file);
+	openAppleDown = (bool)fgetc(file);
+	closedAppleDown = (bool)fgetc(file);
+	store80Mode = (bool)fgetc(file);
+	vbl = (bool)fgetc(file);
+	slotCXROM = (bool)fgetc(file);
+	slotC3ROM = (bool)fgetc(file);
+	ramrd = (bool)fgetc(file);
+	ramwrt = (bool)fgetc(file);
+	altzp = (bool)fgetc(file);
+	ioudis = (bool)fgetc(file);
+	dhires = (bool)fgetc(file);
+	flash = (bool)fgetc(file);
+	textMode = (bool)fgetc(file);
+	mixedMode = (bool)fgetc(file);
+	displayPage2 = (bool)fgetc(file);
+	hiRes = (bool)fgetc(file);
+	alternateCharset = (bool)fgetc(file);
+	col80Mode = (bool)fgetc(file);
+	lcState = fgetc(file);
+
+	// Read in floppy state
+	floppyDrive.LoadState(file);
+
+	fclose(file);
+
+	// Make sure things are in a sane state before execution :-P
+	mainCPU.RdMem = AppleReadMem;
+	mainCPU.WrMem = AppleWriteMem;
+	ResetMMUPointers();
+
+	return true;
 }
 
 
@@ -322,7 +426,6 @@ int main(int /*argc*/, char * /*argv*/[])
 //Load up disk image from config file (for now)...
 	floppyDrive.LoadImage(settings.diskImagePath1, 0);
 	floppyDrive.LoadImage(settings.diskImagePath2, 1);
-//	floppyDrive.LoadImage("./disks/temp.nib", 1);	// Load temp .nib file into second drive...
 
 	WriteLog("About to initialize video...\n");
 
