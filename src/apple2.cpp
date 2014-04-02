@@ -679,12 +679,6 @@ static void FrameCallback(void)
 					keyDown = true;
 					break;
 				}
-				else if (event.key.keysym.sym == SDLK_3)
-				{
-					lastKeyPressed = '#';
-					keyDown = true;
-					break;
-				}
 				else if (event.key.keysym.sym == SDLK_4)
 				{
 					lastKeyPressed = '$';
@@ -826,9 +820,11 @@ static void FrameCallback(void)
 			}
 
 			// Paddle buttons 0 & 1
-			if (event.key.keysym.sym == SDLK_INSERT)
+//			if (event.key.keysym.sym == SDLK_INSERT)
+			if (event.key.keysym.sym == SDLK_LALT)
 				openAppleDown = true;
-			if (event.key.keysym.sym == SDLK_PAGEUP)
+//			if (event.key.keysym.sym == SDLK_PAGEUP)
+			if (event.key.keysym.sym == SDLK_RALT)
 				closedAppleDown = true;
 
 			if (event.key.keysym.sym == SDLK_F11)
@@ -893,9 +889,11 @@ static void FrameCallback(void)
 				capsLockDebounce = false;
 
 			// Paddle buttons 0 & 1
-			if (event.key.keysym.sym == SDLK_INSERT)
+//			if (event.key.keysym.sym == SDLK_INSERT)
+			if (event.key.keysym.sym == SDLK_LALT)
 				openAppleDown = false;
-			if (event.key.keysym.sym == SDLK_PAGEUP)
+//			if (event.key.keysym.sym == SDLK_PAGEUP)
+			if (event.key.keysym.sym == SDLK_RALT)
 				closedAppleDown = false;
 
 //			if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
