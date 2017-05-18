@@ -2,7 +2,7 @@
 # Unified Makefile for Apple 2 SDL
 #
 # by James Hammons
-# (C) 2005 Underground Software
+# (C) 2005-17 Underground Software
 # This software is licensed under the GPL v3
 #
 
@@ -106,7 +106,7 @@ OBJS = \
 	obj/font14pt.o        \
 	obj/gui.o             \
                           \
-        obj/apple2-icon-64x64.o \
+	obj/apple2-icon-64x64.o \
 	obj/applevideo.o      \
 	obj/ay8910.o          \
 	obj/charset.o         \
@@ -136,30 +136,19 @@ OBJS = \
 	obj/textedit.o        \
 	obj/window.o          \
 
-all: checkenv message obj $(TARGET)$(EXESUFFIX)
+all: message obj $(TARGET)$(EXESUFFIX)
 	@echo
 	@echo -e "\033[01;33m***\033[00;32m Looks like it compiled OK... Give it a whirl!\033[00m"
 
 # Check the compilation environment, barf if not appropriate
 
-checkenv:
-	@echo
-	@echo -en "\033[01;33m***\033[00;32m Checking compilation environment... \033[00m"
 ifeq "$(FINDSDL2)" ""
-	@echo
-	@echo
-	@echo -e "\033[01;33mIt seems that you don't have the SDL 2 development libraries installed. If you"
-	@echo -e "have installed them, make sure that the sdl2-config file is somewhere in your"
-	@echo -e "path and is executable.\033[00m"
-	@echo
-#Is there a better way to break out of the makefile?
-	@false;
-#	@break
-# YES! But ignores all the echo's above... :-/
-#$(error SDL2 MISSING)
-
-else
-	@echo -e "\033[01;37mOK\033[00m"
+  $(info )
+  $(info It seems that you don't have the SDL 2 development libraries installed. If you)
+  $(info have installed them, make sure that the sdl2-config file is somewhere in your)
+  $(info path and is executable.)
+  $(info )
+  $(error SDL2 MISSING)
 endif
 
 message:
@@ -176,8 +165,7 @@ clean:
 obj:
 	@mkdir obj
 
-# This is only done for Win32 at the moment...
-
+# Icon creation is only done for Win32 at the moment...
 ifneq "" "$(ICON)"
 $(ICON): res/$(TARGET).rc res/$(TARGET).ico
 	@echo -e "\033[01;33m***\033[00;32m Processing icon...\033[00m"
@@ -193,15 +181,15 @@ obj/%.o: src/%.cpp
 	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
 
 #GUI compilation...
-obj/%.o: src/gui/%.cpp
-	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
-	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
+#obj/%.o: src/gui/%.cpp
+#	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
+#	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
 
 $(TARGET)$(EXESUFFIX): $(OBJS)
 	@echo -e "\033[01;33m***\033[00;32m Linking it all together...\033[00m"
 	@$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
-#	strip --strip-all vj$(EXESUFFIX)
-#	upx -9 vj$(EXESUFFIX)
+#	strip --strip-all $(TARGET)$(EXESUFFIX)
+#	upx -9 $(TARGET)$(EXESUFFIX)
 
 statistics:
 	@echo -n "Lines in source files: "

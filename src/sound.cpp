@@ -36,6 +36,7 @@
 #define SAMPLES_PER_FRAME	(SAMPLE_RATE / 60.0)
 #define CYCLES_PER_SAMPLE	(1024000.0 / SAMPLE_RATE)
 //#define SOUND_BUFFER_SIZE	(8192)
+// 32K ought to be enough for anybody
 #define SOUND_BUFFER_SIZE	(32768)
 
 // Global variables

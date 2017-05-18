@@ -11,6 +11,10 @@
 #define MAX_PATH		_POSIX_PATH_MAX
 #else
 #include <stdlib.h>								// for MAX_PATH on MinGW/Darwin
+// Kludge for Win64
+#ifndef MAX_PATH
+#define	MAX_PATH	_MAX_PATH
+#endif
 #endif
 #include <stdint.h>
 #include <stdio.h>

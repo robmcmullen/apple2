@@ -14,7 +14,7 @@
 #include "video.h"
 #include <string.h>	// Why??? (for memset, etc... Lazy!) Dunno why, but this just strikes me as wrong...
 #include <malloc.h>
-#include "gui/gui.h"
+//#include "gui/gui.h"
 #include "apple2-icon-64x64.h"
 #include "log.h"
 #include "settings.h"

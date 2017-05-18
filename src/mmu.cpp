@@ -26,9 +26,6 @@
 enum { AM_RAM, AM_ROM, AM_BANKED, AM_READ, AM_WRITE, AM_READ_WRITE, AM_END_OF_LIST };
 
 // Macros for function pointers
-// The typedef would be something like:
-//typedef ReadFunc (uint8_t (*)(uint16_t));
-//typedef WriteFunc (void (*)(uint16_t, uint8_t));
 #define READFUNC(x) uint8_t (* x)(uint16_t)
 #define WRITEFUNC(x) void (* x)(uint16_t, uint8_t)
 
@@ -51,6 +48,7 @@ struct AddressMap
 	WRITEFUNC(write);
 };
 
+#define ADDRESS_MAP_END		{ 0x0000, 0x0000, AM_END_OF_LIST, 0, 0, 0, 0 }
 
 // Dunno if I like this approach or not...
 //ADDRESS_MAP_START()
@@ -192,7 +190,8 @@ AddressMap memoryMap[] = {
 
 	{ 0xD000, 0xDFFF, AM_BANKED, &lcBankMemoryR, &lcBankMemoryW, 0, 0 },
 	{ 0xE000, 0xFFFF, AM_BANKED, &upperMemoryR, &upperMemoryW, 0, 0 },
-	{ 0x0000, 0x0000, AM_END_OF_LIST, 0, 0, 0, 0 }
+//	{ 0x0000, 0x0000, AM_END_OF_LIST, 0, 0, 0, 0 }
+	ADDRESS_MAP_END
 };
 
 
@@ -329,8 +328,8 @@ uint8_t ReadMemory(uint16_t address)
 
 void WriteMemory(uint16_t address, uint8_t byte)
 {
-	// We can write protect memory this way, but it adds a branch to the mix. :-/
-	// (this can be avoided by setting up another bank of memory which we
+	// We can write protect memory this way, but it adds a branch to the mix.
+	// :-/ (this can be avoided by setting up another bank of memory which we
 	//  ignore... hmm...)
 	if ((*addrPtrWrite[address]) == 0)
 		return;
@@ -372,15 +371,11 @@ WriteLog("Setting 80STORE to %s...\n", (store80Mode ? "ON" : "off"));
 	{
 		mainMemoryTextR = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
-//		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
-//		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
 	}
 	else
 	{
 		mainMemoryTextR = (ramwrt ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (ramwrt ? &ram2[0x0400] : &ram[0x0400]);
-//		mainMemoryHGRR = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
-//		mainMemoryHGRW = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
 	}
 }
 
@@ -704,8 +699,6 @@ WriteLog("Setting PAGE2 to %s...\n", (address & 0x01 ? "ON" : "off"));
 	{
 		mainMemoryTextR = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
-//		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
-//		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
 	}
 
 	return 0;
@@ -721,8 +714,6 @@ WriteLog("Setting PAGE2 to %s...\n", (address & 0x01 ? "ON" : "off"));
 	{
 		mainMemoryTextR = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
 		mainMemoryTextW = (displayPage2 ? &ram2[0x0400] : &ram[0x0400]);
-//		mainMemoryHGRR = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
-//		mainMemoryHGRW = (displayPage2 ? &ram2[0x2000] : &ram[0x2000]);
 	}
 }
 

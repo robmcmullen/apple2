@@ -6,7 +6,8 @@
 # (C) 2012 Underground Software
 #
 export PATH=/opt/mxe/usr/bin:$PATH
-make CROSS=i686-pc-mingw32- clean  && make CROSS=i686-pc-mingw32-
+#make CROSS=i686-pc-mingw32- clean  && make CROSS=i686-pc-mingw32-
+make CROSS=x86_64-w64-mingw32- clean  && make CROSS=x86_64-w64-mingw32.static-
 upx -9v apple2.exe
 
 #TARGET = apple2

@@ -3051,11 +3051,13 @@ if (regs.pc == 0xFBD8)
 		{
 			// Not sure about this...
 			regs.sp = 0xFF;
-			regs.cc = FLAG_B | FLAG_I;					// Reset the CC register
-			regs.pc = RdMemW(0xFFFC);					// And load PC with the RESET vector
+			regs.cc = FLAG_B | FLAG_I;		// Reset the CC register
+			regs.pc = RdMemW(0xFFFC);		// And load PC with the RESET vector
 
-			context->cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
-			regs.cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
+//			context->cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
+//			regs.cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
+			context->cpuFlags = 0;			// Clear CPU flags...
+			regs.cpuFlags = 0;
 #ifdef __DEBUG__
 WriteLog("\n*** RESET *** (PC = $%04X)\n\n", regs.pc);
 #endif
