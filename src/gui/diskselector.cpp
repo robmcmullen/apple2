@@ -8,7 +8,7 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  10/13/2013  Created this file
 //
 // STILL TO DO:
@@ -130,13 +130,6 @@ void DiskSelector::FindDisks(const char * path)
 
 	closedir(dir);
 	std::sort(imageList.begin(), imageList.end());
-#if 0
-{
-	std::vector<ci_string>::iterator i;
-	for(i=imageList.begin(); i!=imageList.end(); i++)
-		printf("GUI::DS::Found \"%s\"\n", (*i).c_str());
-}
-#endif
 }
 
 
@@ -199,24 +192,8 @@ void DiskSelector::DrawFilenames(SDL_Renderer * renderer)
 }
 
 
-void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t c,
-	bool invert/*=false*/)
+void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t c, bool invert/*=false*/)
 {
-#if 0
-//	uint32_t pixel = 0xFF7F0000;
-	uint8_t * ptr = (uint8_t *)&font2[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
-
-	for(int j=0; j<FONT_HEIGHT; j++)
-	{
-		for(int i=0; i<FONT_WIDTH; i++)
-		{
-			SDL_SetRenderDrawColor(renderer, 0xFF, 0x7F, 0x00, ptr[(j * FONT_WIDTH) + i]);
-			SDL_RenderDrawPoint(renderer, (x * FONT_WIDTH) + i, (y * FONT_HEIGHT) + j);
-		}
-	}
-
-	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
-#else
 	uint32_t inv = (invert ? 0x000000FF : 0x00000000);
 	uint32_t pixel = 0xFFFFC000;	// RRGGBBAA
 	uint8_t * ptr = (uint8_t *)&font10pt[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
@@ -228,15 +205,7 @@ void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t 
 
 	SDL_UpdateTexture(charStamp, NULL, stamp, FONT_WIDTH * sizeof(Uint32));
 	SDL_RenderCopy(renderer, charStamp, NULL, &dst);
-#endif
 }
-
-
-/*
-void DiskSelector::()
-{
-}
-*/
 
 
 void DiskSelector::ShowWindow(int drive)
@@ -259,7 +228,6 @@ void DiskSelector::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 	{
 		char buffer[2048];
 		sprintf(buffer, "%s/%s", settings.disksPath, &imageList[diskSelected][0]);
-//		floppyDrive.LoadImage(&imageList[diskSelected][0], driveNumber);
 		floppyDrive.LoadImage(buffer, driveNumber);
 	}
 
@@ -293,11 +261,8 @@ void DiskSelector::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 		return;
 	}
 
-//	prevDiskSelected = diskSelected;
 	int xChar = (x - DS_XPOS) / FONT_WIDTH;
 	int yChar = (y - DS_YPOS) / FONT_HEIGHT;
-//		int currentX = (count / 27) * 22;
-//		int currentY = (count % 27);
 	diskSelected = ((xChar / 22) * 27) + yChar;
 
 	if ((yChar >= 27) || (diskSelected >= (int)imageList.size()))
@@ -313,9 +278,6 @@ void DiskSelector::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 
 void DiskSelector::HandleSelection(SDL_Renderer * renderer)
 {
-//	if (diskSelected == prevDiskSelected)
-//		return;
-
 	SDL_UpdateTexture(window, NULL, windowPixels, 128 * sizeof(Uint32));
 	DrawFilenames(renderer);
 }
@@ -326,12 +288,7 @@ void DiskSelector::Render(SDL_Renderer * renderer)
 	if (!(window && showWindow))
 		return;
 
-//	HandleSelection(renderer);
-
-	SDL_Rect dst;
-//	dst.x = (VIRTUAL_SCREEN_WIDTH - DS_WIDTH) / 2, dst.y = (VIRTUAL_SCREEN_HEIGHT - DS_HEIGHT) / 2, dst.w = DS_WIDTH, dst.h = DS_HEIGHT;
-	dst.x = DS_XPOS, dst.y = DS_YPOS, dst.w = DS_WIDTH, dst.h = DS_HEIGHT;
-
+	SDL_Rect dst = { DS_XPOS, DS_YPOS, DS_WIDTH, DS_HEIGHT };
 	SDL_RenderCopy(renderer, window, NULL, &dst);
 }
 

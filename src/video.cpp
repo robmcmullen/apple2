@@ -1,30 +1,30 @@
 //
-// VIDEO.CPP: SDL/local hardware specific video routines
+// VIDEO.CPP: SDL2/local hardware specific video routines
 //
 // by James Hammons
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  01/04/2006  Added changelog ;-)
 // JLH  01/20/2006  Cut out unnecessary buffering
 //
 
 #include "video.h"
-#include <string.h>	// Why??? (for memset, etc... Lazy!) Dunno why, but this just strikes me as wrong...
+#include <string.h>	// (for memset, etc... Lazy!)
 #include <malloc.h>
-//#include "gui/gui.h"
 #include "apple2-icon-64x64.h"
 #include "log.h"
 #include "settings.h"
 
 
-// Exported global variables (actually, these are LOCAL global variables, EXPORTED...)
-
+// Local vars
 static SDL_Window * sdlWindow = NULL;
-SDL_Renderer * sdlRenderer = NULL;
 static SDL_Texture * sdlTexture = NULL;
+
+// Exported vars
+SDL_Renderer * sdlRenderer = NULL;
 uint32_t scrBuffer[VIRTUAL_SCREEN_WIDTH * VIRTUAL_SCREEN_HEIGHT * sizeof(uint32_t)];
 
 

@@ -7,7 +7,7 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  01/03/2006  Moved includes out of header file for faster compilation
 //
 

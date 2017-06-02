@@ -10,6 +10,7 @@ enum { APPLE_TYPE_II, APPLE_TYPE_IIE, APPLE_TYPE_IIC };
 // Exported functions
 
 void SetPowerState(void);
+bool LoadImg(char * filename, uint8_t * ram, int size);
 
 // Global variables (exported)
 

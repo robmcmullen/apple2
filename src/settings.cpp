@@ -7,7 +7,7 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  01/04/2006  Added changelog ;-)
 //
 
@@ -98,10 +98,8 @@ void LoadSettings(void)
 	settings.p2KeyBindings[19] = sdlemu_getval_int("p2k_pound", SDL_SCANCODE_KP_DIVIDE);
 	settings.p2KeyBindings[20] = sdlemu_getval_int("p2k_star", SDL_SCANCODE_KP_MULTIPLY);
 
-	strcpy(settings.BIOSPath, sdlemu_getval_string("BIOSROM", "./ROMs/apple2.rom"));
+	strcpy(settings.BIOSPath, sdlemu_getval_string("BIOSROM", "./ROMs/apple2e-enhanced.rom"));
 	strcpy(settings.disksPath, sdlemu_getval_string("disks", "./disks"));
-	strcpy(settings.diskImagePath1, sdlemu_getval_string("floppyImage1", "./disks/bt1_boot.dsk"));
-	strcpy(settings.diskImagePath2, sdlemu_getval_string("floppyImage2", "./disks/bt1_char.dsk"));
 	strcpy(settings.autoStatePath, sdlemu_getval_string("autoStateFilename", "./apple2auto.state"));
 	CheckForTrailingSlash(settings.disksPath);
 }

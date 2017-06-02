@@ -16,15 +16,15 @@
 // --------------------------
 //    This chapter might not apply to specific portions of MAME (e.g. CPU
 //    emulators) which bear different copyright notices.
-//    The source code cannot be used in a commercial product without the written
-//    authorization of the authors. Use in non-commercial products is allowed, and
-//    indeed encouraged.  If you use portions of the MAME source code in your
-//    program, however, you must make the full source code freely available as
-//    well.
-//    Usage of the _information_ contained in the source code is free for any use.
-//    However, given the amount of time and energy it took to collect this
-//    information, if you find new information we would appreciate if you made it
-//    freely available as well.
+//    The source code cannot be used in a commercial product without the
+//    written authorization of the authors. Use in non-commercial products is
+//    allowed, and indeed encouraged.  If you use portions of the MAME source
+//    code in your program, however, you must make the full source code freely
+//    available as well.
+//    Usage of the _information_ contained in the source code is free for any
+//    use. However, given the amount of time and energy it took to collect this
+//    information, if you find new information we would appreciate if you made
+//    it freely available as well.
 //
 
 // JLH: Commented out MAME specific crap
@@ -91,14 +91,14 @@ void _AYWriteReg(int n, int r, int v)
 	PSG->Regs[r] = v;
 
 	/* A note about the period of tones, noise and envelope: for speed reasons, *
-	 * we count down from the period to 0, but careful studies of the chip      * 
-	 * output prove that it instead counts up from 0 until the counter becomes  * 
-	 * greater or equal to the period. This is an important difference when the * 
-	 * program is rapidly changing the period to modulate the sound.            * 
-	 * To compensate for the difference, when the period is changed we adjust   * 
-	 * our internal counter.                                                    * 
-	 * Also, note that period = 0 is the same as period = 1. This is mentioned  * 
-	 * in the YM2203 data sheets. However, this does NOT apply to the Envelope  * 
+	 * we count down from the period to 0, but careful studies of the chip      *
+	 * output prove that it instead counts up from 0 until the counter becomes  *
+	 * greater or equal to the period. This is an important difference when the *
+	 * program is rapidly changing the period to modulate the sound.            *
+	 * To compensate for the difference, when the period is changed we adjust   *
+	 * our internal counter.                                                    *
+	 * Also, note that period = 0 is the same as period = 1. This is mentioned  *
+	 * in the YM2203 data sheets. However, this does NOT apply to the Envelope  *
 	 * period. In that case, period = 0 is half as period = 1.                  */
 	switch (r)
 	{

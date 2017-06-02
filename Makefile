@@ -124,18 +124,6 @@ OBJS = \
 	obj/apple2.o          \
 	$(ICON)
 
-#foooked:
-#	obj/button.o          \
-	obj/diskwindow.o      \
-	obj/draggablewindow.o \
-	obj/draggablewindow2.o \
-	obj/element.o         \
-	obj/guimisc.o         \
-	obj/menu.o            \
-	obj/text.o            \
-	obj/textedit.o        \
-	obj/window.o          \
-
 all: message obj $(TARGET)$(EXESUFFIX)
 	@echo
 	@echo -e "\033[01;33m***\033[00;32m Looks like it compiled OK... Give it a whirl!\033[00m"
@@ -181,9 +169,9 @@ obj/%.o: src/%.cpp
 	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
 
 #GUI compilation...
-#obj/%.o: src/gui/%.cpp
-#	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
-#	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
+obj/%.o: src/gui/%.cpp
+	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
+	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
 
 $(TARGET)$(EXESUFFIX): $(OBJS)
 	@echo -e "\033[01;33m***\033[00;32m Linking it all together...\033[00m"

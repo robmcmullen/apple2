@@ -12,7 +12,7 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  11/12/2005  Initial port to SDL
 // JLH  11/18/2005  Wired up graphic soft switches
 // JLH  12/02/2005  Setup timer subsystem for more accurate time keeping
@@ -66,14 +66,12 @@
 
 uint8_t ram[0x10000], rom[0x10000];			// RAM & ROM spaces
 uint8_t ram2[0x10000];						// Auxillary RAM
-//uint8_t diskRom[0x100];						// Disk ROM space
 V65C02REGS mainCPU;							// v65C02 execution context
 uint8_t appleType = APPLE_TYPE_IIE;
 FloppyDrive floppyDrive;
-//bool powerOnState = true;					// Virtual power switch
 bool powerStateChangeRequested = false;
 
-// Local variables
+// Local variables (actually, they're global since they're not static)
 
 uint8_t lastKeyPressed = 0;
 bool keyDown = false;
@@ -98,9 +96,8 @@ static bool fullscreenDebounce = false;
 static bool capsLock = false;
 static bool capsLockDebounce = false;
 
-// Local functions (technically, they're global...)
+// Local functions
 
-bool LoadImg(char * filename, uint8_t * ram, int size);
 static void SaveApple2State(const char * filename);
 static bool LoadApple2State(const char * filename);
 static void ResetApple2State(void);
@@ -122,10 +119,10 @@ static bool cpuFinished = false;
 // NB: Apple //e Manual sez 6502 is running @ 1,022,727 Hz
 
 // Let's try a thread...
-/*
-Here's how it works: Execute 1 frame's worth, then sleep.
-Other stuff wakes it up
-*/
+//
+// Here's how it works: Execute 1 frame's worth, then sleep. Other stuff wakes
+// it up
+//
 int CPUThreadFunc(void * data)
 {
 	// Mutex must be locked for conditional to work...
@@ -201,31 +198,13 @@ WriteLog("CPU: SDL_mutexV(cpuMutex);\n");
 #endif
 
 
-#if 1
 //
 // Request a change in the power state of the emulated Apple
 //
 void SetPowerState(void)
 {
-//	powerOnState = state;
-//	pauseMode = !state;
-
-//	if (!pauseMode)
-//	{
-//printf("Turning on...\n");
-		// Transitioning from OFF to ON
-//		mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
-//		SoundResume();
-//	}
-//	else
-//	{
-//printf("Turning off...\n");
-		// Turn it off...
-//		SoundPause();
-//	}
 	powerStateChangeRequested = true;
 }
-#endif
 
 
 //
@@ -375,13 +354,10 @@ static void ResetApple2State(void)
 	ioudis = true;
 	dhires = false;
 	lcState = 0x02;
-//	SwitchLC();			// Make sure MMU is in sane state
-//NOPE, does nothing	SetupAddressMap();
 	ResetMMUPointers();
 
 	// Without this, you can wedge the system :-/
 	memset(ram, 0, 0x10000);
-//	memset(ram2, 0, 0x10000);
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 }
 
@@ -415,17 +391,11 @@ int main(int /*argc*/, char * /*argv*/[])
 	mainCPU.WrMem = AppleWriteMem;
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
-//	alternateCharset = true;
-//	if (!LoadImg(settings.BIOSPath, rom + 0xD000, 0x3000))
 	if (!LoadImg(settings.BIOSPath, rom + 0xC000, 0x4000))
 	{
 		WriteLog("Could not open file '%s'!\n", settings.BIOSPath);
 		return -1;
 	}
-
-//Load up disk image from config file (for now)...
-	floppyDrive.LoadImage(settings.diskImagePath1, 0);
-	floppyDrive.LoadImage(settings.diskImagePath2, 1);
 
 	WriteLog("About to initialize video...\n");
 
@@ -470,23 +440,18 @@ int main(int /*argc*/, char * /*argv*/[])
 		double timeToNextEvent = GetTimeToNextEvent();
 #ifndef THREADED_65C02
 		Execute65C02(&mainCPU, USEC_TO_M6502_CYCLES(timeToNextEvent));
-#endif
 
-#ifdef CPU_CLOCK_CHECKING
-#ifndef THREADED_65C02
+	#ifdef CPU_CLOCK_CHECKING
 totalCPU += USEC_TO_M6502_CYCLES(timeToNextEvent);
-#endif
+	#endif
 #endif
 		HandleNextEvent();
 	}
 
 #ifdef THREADED_65C02
 WriteLog("Main: cpuFinished = true;\n");
-cpuFinished = true;
-//#warning "If sound thread is behind, CPU thread will never wake up... !!! FIX !!!" [DONE]
-//What to do? How do you know when the CPU is sleeping???
-//USE A CONDITIONAL!!! OF COURSE!!!!!!11!11!11!!!1!
-//Nope, use a semaphore...
+	cpuFinished = true;
+
 WriteLog("Main: SDL_SemWait(mainSem);\n");
 	// Only do this if NOT in power off/emulation paused mode!
 	if (!pauseMode)
@@ -494,20 +459,17 @@ WriteLog("Main: SDL_SemWait(mainSem);\n");
 		SDL_SemWait(mainSem);
 #endif
 
-WriteLog("Main: SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up\n");
-	SDL_CondSignal(cpuCond);//thread is probably asleep, wake it up
+WriteLog("Main: SDL_CondSignal(cpuCond);\n");
+	SDL_CondSignal(cpuCond);//thread is probably asleep, so wake it up
 WriteLog("Main: SDL_WaitThread(cpuThread, NULL);\n");
 	SDL_WaitThread(cpuThread, NULL);
-//nowok:SDL_WaitThread(CPUThreadFunc, NULL);
 WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
 	SDL_DestroyCond(cpuCond);
 	SDL_DestroySemaphore(mainSem);
 
+	// Autosave state here, if requested...
 	if (settings.autoStateSaving)
-	{
-		// Save state here...
 		SaveApple2State(settings.autoStatePath);
-	}
 
 	floppyDrive.SaveImage(0);
 	floppyDrive.SaveImage(1);
@@ -574,9 +536,8 @@ Z		$DA	$9A	$DA	$9A
 <-		$88	$88	$88	$88
 ->		$95	$95	$95	$95
 ESC		$9B	$9B	$9B	$9B		No xlation
-
 */
-//static uint64_t lastCPUCycles = 0;
+
 static uint32_t frameCount = 0;
 static void FrameCallback(void)
 {
@@ -607,15 +568,24 @@ static void FrameCallback(void)
 			break;
 #endif
 		case SDL_KEYDOWN:
-			// Use ALT+Q to exit, as well as the usual window decoration method
-			if (event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_ALT))
+			// Use CTRL+SHIFT+Q to exit, as well as the usual window decoration
+			// method
+			if ((event.key.keysym.mod & KMOD_CTRL)
+				&& (event.key.keysym.mod & KMOD_SHIFT)
+				&& (event.key.keysym.sym == SDLK_q))
+			{
 				running = false;
+				// We return here, because we don't want to pick up any
+				// spurious keypresses with our exit sequence.
+				return;
+			}
 
 			// CTRL+RESET key emulation (mapped to CTRL+`)
 // This doesn't work...
 //			if (event.key.keysym.sym == SDLK_BREAK && (event.key.keysym.mod & KMOD_CTRL))
 //			if (event.key.keysym.sym == SDLK_PAUSE && (event.key.keysym.mod & KMOD_CTRL))
-			if (event.key.keysym.sym == SDLK_BACKQUOTE && (event.key.keysym.mod & KMOD_CTRL))
+			if ((event.key.keysym.mod & KMOD_CTRL)
+				&& (event.key.keysym.sym == SDLK_BACKQUOTE))
 			{
 //NOTE that this shouldn't take place until the key is lifted... !!! FIX !!!
 //ALSO it seems to leave the machine in an inconsistent state vis-a-vis the language card...
@@ -820,10 +790,8 @@ static void FrameCallback(void)
 			}
 
 			// Paddle buttons 0 & 1
-//			if (event.key.keysym.sym == SDLK_INSERT)
 			if (event.key.keysym.sym == SDLK_LALT)
 				openAppleDown = true;
-//			if (event.key.keysym.sym == SDLK_PAGEUP)
 			if (event.key.keysym.sym == SDLK_RALT)
 				closedAppleDown = true;
 
@@ -841,26 +809,28 @@ static void FrameCallback(void)
 //	SpawnMessage("Image swapped...");
 }//*/
 
-			if (event.key.keysym.sym == SDLK_F2)// Toggle the palette
+			if (event.key.keysym.sym == SDLK_F2)
 				TogglePalette();
-			else if (event.key.keysym.sym == SDLK_F3)// Cycle through screen types
+			else if (event.key.keysym.sym == SDLK_F3)
 				CycleScreenTypes();
 			else if (event.key.keysym.sym == SDLK_F5)
 			{
 				VolumeDown();
 				char volStr[19] = "[****************]";
-//				volStr[GetVolume()] = 0;
+
 				for(int i=GetVolume(); i<16; i++)
 					volStr[1 + i] = '-';
+
 				SpawnMessage("Volume: %s", volStr);
 			}
 			else if (event.key.keysym.sym == SDLK_F6)
 			{
 				VolumeUp();
 				char volStr[19] = "[****************]";
-//				volStr[GetVolume()] = 0;
+
 				for(int i=GetVolume(); i<16; i++)
 					volStr[1 + i] = '-';
+
 				SpawnMessage("Volume: %s", volStr);
 			}
 			else if (event.key.keysym.sym == SDLK_F12)
@@ -889,15 +859,10 @@ static void FrameCallback(void)
 				capsLockDebounce = false;
 
 			// Paddle buttons 0 & 1
-//			if (event.key.keysym.sym == SDLK_INSERT)
 			if (event.key.keysym.sym == SDLK_LALT)
 				openAppleDown = false;
-//			if (event.key.keysym.sym == SDLK_PAGEUP)
 			if (event.key.keysym.sym == SDLK_RALT)
 				closedAppleDown = false;
-
-//			if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
-//				keyDown = false;
 
 			break;
 		case SDL_MOUSEBUTTONDOWN:
@@ -925,7 +890,6 @@ static void FrameCallback(void)
 		if (GUI::powerOnState)
 		{
 			pauseMode = false;
-//			SoundResume();
 			// Unlock the CPU thread...
 			SDL_SemPost(mainSem);
 		}
@@ -934,20 +898,14 @@ static void FrameCallback(void)
 			pauseMode = true;
 			// Should lock until CPU thread is waiting...
 			SDL_SemWait(mainSem);
-//			SoundPause();
 			ResetApple2State();
 		}
 
 		powerStateChangeRequested = false;
 	}
 
-//#warning "!!! Taking MAJOR time hit with the video frame rendering !!!"
-//	if (!pauseMode)
-	{
-		RenderVideoFrame();
-	}
-
-	RenderScreenBuffer();
+	RenderVideoFrame();				// Render Apple screen to buffer
+	RenderScreenBuffer();			// Render buffer to host screen
 	GUI::Render(sdlRenderer);
 	SDL_RenderPresent(sdlRenderer);
 	SetCallbackTime(FrameCallback, 16666.66666667);
@@ -997,8 +955,9 @@ if (counter == 60)
 
 static void BlinkTimer(void)
 {
+	// Set up blinking at 1/4 sec intervals
 	flash = !flash;
-	SetCallbackTime(BlinkTimer, 250000);		// Set up blinking at 1/4 sec intervals
+	SetCallbackTime(BlinkTimer, 250000);
 }
 
 
@@ -1027,3 +986,4 @@ while (!done)
 		time = 20;
 }
 */
+

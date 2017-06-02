@@ -7,7 +7,7 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  12/03/2005  Created this file
 // JLH  12/15/2005  Fixed nybblization functions to work properly
 // JLH  12/27/2005  Added blank disk creation, fixed saving to work properly
@@ -20,8 +20,6 @@
 #include "apple2.h"
 #include "log.h"
 #include "applevideo.h"					// For message spawning... Though there's probably a better approach than this!
-
-//using namespace std;
 
 // Useful enums
 
@@ -541,10 +539,13 @@ const char * FloppyDrive::ImageName(uint8_t driveNum/*= 0*/)
 
 void FloppyDrive::EjectImage(uint8_t driveNum/*= 0*/)
 {
-	// Probably want to save a dirty image... ;-)
-	SaveImage(driveNum);
+	// Sanity check
+	if (IsEmpty(driveNum))
+		return;
 
-	WriteLog("FLOPPY: Ejected image file '%s' from drive %u...\n", imageName[driveNum], driveNum);
+	// Probably want to save a dirty image... ;-)
+	if (SaveImage(driveNum))
+		WriteLog("FLOPPY: Ejected image file '%s' from drive %u...\n", imageName[driveNum], driveNum);
 
 	if (disk[driveNum])
 		delete[] disk[driveNum];
@@ -717,14 +718,15 @@ void FloppyDrive::WriteLong(FILE * file, uint32_t l)
 // Memory mapped I/O functions
 
 /*
-The DSK format is a byte-for-byte image of a 16-sector Apple II floppy disk: 35 tracks of 16
-sectors of 256 bytes each, making 143,360 bytes in total. The PO format is exactly the same
-size as DSK and is also organized as 35 sequential tracks, but the sectors within each track
-are in a different sequence. The NIB format is a nybblized format: a more direct representation
-of the disk's data as encoded by the Apple II floppy drive hardware. NIB contains 35 tracks of
-6656 bytes each, for a total size of 232,960 bytes. Although this format is much larger, it is
-also more versatile and can represent the older 13-sector disks, many copy-protected disks, and
-other unusual encodings.
+The DSK format is a byte-for-byte image of a 16-sector Apple II floppy disk: 35
+tracks of 16 sectors of 256 bytes each, making 143,360 bytes in total. The PO
+format is exactly the same size as DSK and is also organized as 35 sequential
+tracks, but the sectors within each track are in a different sequence. The NIB
+format is a nybblized format: a more direct representation of the disk's data
+as encoded by the Apple II floppy drive hardware. NIB contains 35 tracks of
+6656 bytes each, for a total size of 232,960 bytes. Although this format is
+much larger, it is also more versatile and can represent the older 13-sector
+disks, many copy-protected disks, and other unusual encodings.
 */
 
 void FloppyDrive::ControlStepper(uint8_t addr)

@@ -7,11 +7,11 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  12/02/2005  Fixed a problem with sound callback thread signaling the
 //                  main thread
-// JLH  12/03/2005  Fixed sound callback dropping samples when the sample buffer
-//                  is shorter than the callback sample buffer
+// JLH  12/03/2005  Fixed sound callback dropping samples when the sample
+//                  buffer is shorter than the callback sample buffer
 //
 
 // STILL TO DO:

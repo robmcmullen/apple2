@@ -7,15 +7,16 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  01/04/2006  Added changelog ;-)
 // JLH  01/18/2009  Fixed EA_ABS_* macros
 //
 
-//OK, the wraparound bug exists in both the Apple and Atari versions of Ultima II.
-//However, the Atari version *does* occassionally pick strength while the Apple
-//versions do not--which would seem to indicate a bug either in the RNG algorithm,
-//the 65C02 core, or the Apple hardware. Need to investigate all three!
+//OK, the wraparound bug exists in both the Apple and Atari versions of Ultima
+//II. However, the Atari version *does* occassionally pick strength while the
+//Apple versions do not--which would seem to indicate a bug either in the RNG
+//algorithm, the 65C02 core, or the Apple hardware. Need to investigate all
+//three!
 
 #define __DEBUG__
 //#define __DEBUGMON__

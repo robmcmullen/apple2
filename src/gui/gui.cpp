@@ -8,7 +8,7 @@
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  02/03/2006  Created this file
 // JLH  03/13/2006  Added functions to allow shutting down GUI externally
 // JLH  03/22/2006  Finalized basic multiple window support
@@ -430,7 +430,6 @@ void GUI::DrawEjectButton(SDL_Renderer * renderer, int driveNumber)
 		|| (driveNumber == 1 && disk2EjectHovered))
 		r = 0x20, g = 0xFF, b = 0x20;
 
-//	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, 0x00, 0xAA, 0x00);
 	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, r, g, b);
 }
 

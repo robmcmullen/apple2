@@ -4,12 +4,12 @@
 // All the video modes that a real Apple 2 supports are handled here
 //
 // by James Hammons
-// (c) 2005 Underground Software
+// (c) 2005-2017 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
 // WHO  WHEN        WHAT
-// ---  ----------  ------------------------------------------------------------
+// ---  ----------  -----------------------------------------------------------
 // JLH  12/01/2005  Added color TV/monochrome emulation to hi-res code
 // JLH  12/09/2005  Cleaned up color TV emulation code
 // JLH  12/09/2005  Fixed lo-res color TV/mono emulation modes
@@ -17,9 +17,9 @@
 // STILL TO DO:
 //
 // - Fix LoRes mode green mono to skip every other scanline instead of fill
-//   like white mono does
-// - Double HiRes
-// - 80 column text
+//   like white mono does [DONE]
+// - Double HiRes [DONE]
+// - 80 column text [DONE]
 // - Fix OSD text display so that it's visible no matter what background is there [DONE]
 //
 
@@ -30,10 +30,9 @@
 #include <string.h>								// for memset()
 #include <stdio.h>
 #include <stdarg.h>								// for va_* stuff
-//#include <string>								// for vsprintf()
 #include "apple2.h"
-#include "video.h"
 #include "charset.h"
+#include "video.h"
 #include "gui/font14pt.h"
 #include "gui/gui.h"
 
@@ -70,7 +69,6 @@ bool displayPage2 = false;
 bool hiRes = false;
 bool alternateCharset = false;
 bool col80Mode = false;
-//void SpawnMessage(const char * text, ...);
 
 // Local variables
 
@@ -497,7 +495,7 @@ static void Render80ColumnTextLine(uint8_t line)
 		if (x & 0x01)
 			chr = ram[lineAddrLoRes[line] + (x >> 1)];
 		else
-			chr = ram2[lineAddrLoRes[line] + (x >> 1)];	
+			chr = ram2[lineAddrLoRes[line] + (x >> 1)];
 #endif
 
 		// Render character at (x, y)

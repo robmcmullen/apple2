@@ -23,15 +23,15 @@
 struct Settings
 {
 	bool useJoystick;
-	int32_t joyport;								// Joystick port
-	bool hardwareTypeNTSC;						// Set to false for PAL
+	int32_t joyport;			// Joystick port
+	bool hardwareTypeNTSC;		// Set to false for PAL
 	bool fullscreen;
 	bool useOpenGL;
 	uint32_t glFilter;
 	uint32_t frameSkip;
 	uint32_t renderType;
-	bool autoStateSaving;						// Auto-state loading/saving on entry/exit
-	
+	bool autoStateSaving;		// Auto-state loading/saving on entry/exit
+
 	// Keybindings in order of U, D, L, R, C, B, A, Op, Pa, 0-9, #, *
 
 	uint16_t p1KeyBindings[21];
@@ -41,11 +41,7 @@ struct Settings
 
 	char BIOSPath[MAX_PATH];
 	char disksPath[MAX_PATH];
-	char diskImagePath1[MAX_PATH];
-	char diskImagePath2[MAX_PATH];
 	char autoStatePath[MAX_PATH];
-//	char CDBootPath[MAX_PATH];
-//	char EEPROMPath[MAX_PATH];
 };
 
 // Render types

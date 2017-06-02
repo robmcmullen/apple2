@@ -113,6 +113,7 @@ int Decode65C02(char * outbuf, uint16_t pc)
 	char buf[32], buf2[32];
 
 	uint16_t addr = pc;
+	uint16_t w;
 	uint8_t opcode = mainCPU.RdMem(addr++);				// Get the opcode
 
 	switch (op_mat[opcode])								// Decode the addressing mode...
@@ -142,19 +143,29 @@ int Decode65C02(char * outbuf, uint16_t pc)
 		sprintf(buf, "%s ($%02X),Y", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
 	case 8:												// Absolute
-		sprintf(buf, "%s $%04X", mnemonics[opcode], mainCPU.RdMem(addr++) | (mainCPU.RdMem(addr++) << 8));
+		w = mainCPU.RdMem(addr++);
+		w |= mainCPU.RdMem(addr++) << 8;
+		sprintf(buf, "%s $%04X", mnemonics[opcode], w);
 		break;
 	case 9:												// Absolute, X
-		sprintf(buf, "%s $%04X,X", mnemonics[opcode], mainCPU.RdMem(addr++) | (mainCPU.RdMem(addr++) << 8));
+		w = mainCPU.RdMem(addr++);
+		w |= mainCPU.RdMem(addr++) << 8;
+		sprintf(buf, "%s $%04X,X", mnemonics[opcode], w);
 		break;
 	case 10:											// Absolute, Y
-		sprintf(buf, "%s $%04X,Y", mnemonics[opcode], mainCPU.RdMem(addr++) | (mainCPU.RdMem(addr++) << 8));
+		w = mainCPU.RdMem(addr++);
+		w |= mainCPU.RdMem(addr++) << 8;
+		sprintf(buf, "%s $%04X,Y", mnemonics[opcode], w);
 		break;
 	case 11:											// Indirect
-		sprintf(buf, "%s ($%04X)", mnemonics[opcode], mainCPU.RdMem(addr++) | (mainCPU.RdMem(addr++) << 8));
+		w = mainCPU.RdMem(addr++);
+		w |= mainCPU.RdMem(addr++) << 8;
+		sprintf(buf, "%s ($%04X)", mnemonics[opcode], w);
 		break;
 	case 12:											// Indirect, X
-		sprintf(buf, "%s ($%04X,X)", mnemonics[opcode], mainCPU.RdMem(addr++) | (mainCPU.RdMem(addr++) << 8));
+		w = mainCPU.RdMem(addr++);
+		w |= mainCPU.RdMem(addr++) << 8;
+		sprintf(buf, "%s ($%04X,X)", mnemonics[opcode], w);
 		break;
 	case 13:											// Relative
 		sprintf(buf, "%s $%04X", mnemonics[opcode], addr + (int16_t)((int8_t)mainCPU.RdMem(addr)) + 1);
