@@ -6,10 +6,11 @@
 //
 
 #include "dis65c02.h"
+
 #include <stdio.h>
 #include <string.h>
-#include "v65c02.h"
 #include "log.h"
+#include "v65c02.h"
 
 
 // External shit
@@ -79,7 +80,6 @@ static uint8_t mnemonics[256][5] = {
 static void DisplayBytes(char * outbuf, uint16_t src, uint32_t dst)
 {
 	char buf[32];
-//	WriteLog("%04X: ", src);
 	sprintf(outbuf, "%04X: ", src);
 	uint8_t cnt = 0;
 
@@ -89,7 +89,6 @@ static void DisplayBytes(char * outbuf, uint16_t src, uint32_t dst)
 
 	for(uint32_t i=src; i<dst; i++)
 	{
-//		WriteLog("%02X ", mainCPU.RdMem(i));
 		sprintf(buf, "%02X ", mainCPU.RdMem(i));
 		strcat(outbuf, buf);
 		cnt++;
@@ -97,7 +96,6 @@ static void DisplayBytes(char * outbuf, uint16_t src, uint32_t dst)
 
 	// Pad the leftover spaces...
 	for(int i=cnt; i<3; i++)
-//		WriteLog("   ");
 	{
 		sprintf(buf, "   ");
 		strcat(outbuf, buf);
@@ -114,71 +112,70 @@ int Decode65C02(char * outbuf, uint16_t pc)
 
 	uint16_t addr = pc;
 	uint16_t w;
-	uint8_t opcode = mainCPU.RdMem(addr++);				// Get the opcode
+	uint8_t opcode = mainCPU.RdMem(addr++);	// Get the opcode
 
-	switch (op_mat[opcode])								// Decode the addressing mode...
+	switch (op_mat[opcode])					// Decode the addressing mode...
 	{
-	case 0:												// Illegal
+	case 0:									// Illegal
 		sprintf(buf, "???");
 		break;
-	case 1:												// Immediate
+	case 1:									// Immediate
 		sprintf(buf, "%s #$%02X", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
-	case 2:												// Zero page
+	case 2:									// Zero page
 		sprintf(buf, "%s $%02X", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
-	case 3:												// Zero page, X
+	case 3:									// Zero page, X
 		sprintf(buf, "%s $%02X,X", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
-	case 4:												// Zero page, Y
+	case 4:									// Zero page, Y
 		sprintf(buf, "%s $%02X,Y", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
-	case 5:												// Zero page indirect
+	case 5:									// Zero page indirect
 		sprintf(buf, "%s ($%02X)", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
-	case 6:												// Zero page, X indirect
+	case 6:									// Zero page, X indirect
 		sprintf(buf, "%s ($%02X,X)", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
-	case 7:												// Zero page, Y indirect
+	case 7:									// Zero page, Y indirect
 		sprintf(buf, "%s ($%02X),Y", mnemonics[opcode], mainCPU.RdMem(addr++));
 		break;
-	case 8:												// Absolute
+	case 8:									// Absolute
 		w = mainCPU.RdMem(addr++);
 		w |= mainCPU.RdMem(addr++) << 8;
 		sprintf(buf, "%s $%04X", mnemonics[opcode], w);
 		break;
-	case 9:												// Absolute, X
+	case 9:									// Absolute, X
 		w = mainCPU.RdMem(addr++);
 		w |= mainCPU.RdMem(addr++) << 8;
 		sprintf(buf, "%s $%04X,X", mnemonics[opcode], w);
 		break;
-	case 10:											// Absolute, Y
+	case 10:								// Absolute, Y
 		w = mainCPU.RdMem(addr++);
 		w |= mainCPU.RdMem(addr++) << 8;
 		sprintf(buf, "%s $%04X,Y", mnemonics[opcode], w);
 		break;
-	case 11:											// Indirect
+	case 11:								// Indirect
 		w = mainCPU.RdMem(addr++);
 		w |= mainCPU.RdMem(addr++) << 8;
 		sprintf(buf, "%s ($%04X)", mnemonics[opcode], w);
 		break;
-	case 12:											// Indirect, X
+	case 12:								// Indirect, X
 		w = mainCPU.RdMem(addr++);
 		w |= mainCPU.RdMem(addr++) << 8;
 		sprintf(buf, "%s ($%04X,X)", mnemonics[opcode], w);
 		break;
-	case 13:											// Relative
+	case 13:								// Relative
 		sprintf(buf, "%s $%04X", mnemonics[opcode], addr + (int16_t)((int8_t)mainCPU.RdMem(addr)) + 1);
 		addr++;
 		break;
-	case 14:											// Inherent
+	case 14:								// Inherent
 		sprintf(buf, "%s ", mnemonics[opcode]);
 		break;
 	}
 
-	DisplayBytes(buf2, pc, addr);						// Show bytes
-//	WriteLog("%-16s", outbuf);							// Display opcode & addressing, etc.
-	sprintf(outbuf, "%s %-14s", buf2, buf);				// Display opcode & addressing, etc.
+	DisplayBytes(buf2, pc, addr);			// Show bytes
+	sprintf(outbuf, "%s %-14s", buf2, buf);	// Display opcode & addressing, etc.
 
 	return addr - pc;
 }

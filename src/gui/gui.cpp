@@ -22,7 +22,6 @@
 
 #include "gui.h"
 #include "apple2.h"
-#include "applevideo.h"
 #include "diskselector.h"
 #include "log.h"
 #include "video.h"

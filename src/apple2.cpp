@@ -2,7 +2,7 @@
 // Apple 2 SDL Portable Apple Emulator
 //
 // by James Hammons
-// © 2014 Underground Software
+// © 2017 Underground Software
 //
 // Loosely based on AppleWin by Tom Charlesworth which was based on AppleWin by
 // Oliver Schmidt which was based on AppleWin by Michael O'Brien. :-) Parts are
@@ -34,23 +34,21 @@
 
 #include <SDL2/SDL.h>
 #include <fstream>
-#include <string>
 #include <iomanip>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include <time.h>
-#include "log.h"
-#include "video.h"
-#include "sound.h"
-#include "settings.h"
-#include "v65c02.h"
-#include "applevideo.h"
-#include "timing.h"
-#include "floppy.h"
 #include "firmware.h"
+#include "floppy.h"
+#include "log.h"
 #include "mmu.h"
-
+#include "settings.h"
+#include "sound.h"
+#include "timing.h"
+#include "v65c02.h"
+#include "video.h"
 #include "gui/gui.h"
 
 // Debug and misc. defines
@@ -95,6 +93,12 @@ static bool pauseMode = false;
 static bool fullscreenDebounce = false;
 static bool capsLock = false;
 static bool capsLockDebounce = false;
+static bool resetKeyDown = false;
+
+// Vars to handle the //e's 2-key rollover
+static SDL_Keycode keysHeld[2];
+static uint8_t keysHeldAppleCode[2];
+static uint8_t keyDownCount = 0;
 
 // Local functions
 
@@ -110,18 +114,16 @@ static void BlinkTimer(void);
 #ifdef THREADED_65C02
 // Test of threaded execution of 6502
 static SDL_Thread * cpuThread = NULL;
-//static SDL_mutex * cpuMutex = NULL;
 static SDL_cond * cpuCond = NULL;
 static SDL_sem * mainSem = NULL;
 static bool cpuFinished = false;
-//static bool cpuSleep = false;
 
 // NB: Apple //e Manual sez 6502 is running @ 1,022,727 Hz
 
 // Let's try a thread...
 //
 // Here's how it works: Execute 1 frame's worth, then sleep. Other stuff wakes
-// it up
+// it up.
 //
 int CPUThreadFunc(void * data)
 {
@@ -129,26 +131,20 @@ int CPUThreadFunc(void * data)
 	// Also, must be created in the thread that uses it...
 	SDL_mutex * cpuMutex = SDL_CreateMutex();
 
-// decrement mainSem...
-//SDL_SemWait(mainSem);
 #ifdef CPU_THREAD_OVERFLOW_COMPENSATION
 	float overflow = 0.0;
 #endif
 
 	do
 	{
-// This is never set to true anywhere...
-//		if (cpuSleep)
-//			SDL_CondWait(cpuCond, cpuMutex);
-
 // decrement mainSem...
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_SemWait(mainSem);\n");
 #endif
 		SDL_SemWait(mainSem);
 
-// There are exactly 800 slices of 21.333 cycles per frame, so it works out
-// evenly.
+		// There are exactly 800 slices of 21.333 cycles per frame, so it works
+		// out evenly.
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 #endif
@@ -163,6 +159,11 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 				overflow -= 1.0;
 			}
 
+			// If the CTRL+Reset key combo is being held, make sure the RESET
+			// line stays asserted:
+			if (resetKeyDown)
+				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
+
 			Execute65C02(&mainCPU, cycles);
 			WriteSampleToBuffer();
 
@@ -174,7 +175,7 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
 #endif
 		SDL_mutexP(cpuMutex);
-// increment mainSem...
+		// increment mainSem...
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_SemPost(mainSem);\n");
 #endif
@@ -374,7 +375,7 @@ int main(int /*argc*/, char * /*argv*/[])
 {
 	InitLog("./apple2.log");
 	LoadSettings();
-	srand(time(NULL));									// Initialize RNG
+	srand(time(NULL));			// Initialize RNG
 
 	// Zero out memory
 	memset(ram, 0, 0x10000);
@@ -401,14 +402,14 @@ int main(int /*argc*/, char * /*argv*/[])
 
 	if (!InitVideo())
 	{
-		std::cout << "Aborting!" << std::endl;
+		printf("Could not init screen: aborting!\n");
 		return -1;
 	}
 
 	GUI::Init(sdlRenderer);
+	WriteLog("About to initialize audio...\n");
+	SoundInit();
 
-	// Have to do this *after* video init but *before* sound init...!
-//Shouldn't be necessary since we're not doing emulation in the ISR...
 	if (settings.autoStateSaving)
 	{
 		// Load last state from file...
@@ -416,16 +417,16 @@ int main(int /*argc*/, char * /*argv*/[])
 			WriteLog("Unable to use Apple2 state file \"%s\"!\n", settings.autoStatePath);
 	}
 
-	WriteLog("About to initialize audio...\n");
-	SoundInit();
-	SetupBlurTable();							// Set up the color TV emulation blur table
-	running = true;								// Set running status...
-	InitializeEventList();						// Clear the event list before we use it...
-	SetCallbackTime(FrameCallback, 16666.66666667);	// Set frame to fire at 1/60 s interval
-	SetCallbackTime(BlinkTimer, 250000);		// Set up blinking at 1/4 s intervals
+	running = true;
+	InitializeEventList();
+	// Set frame to fire at 1/60 s interval
+	SetCallbackTime(FrameCallback, 16666.66666667);
+	// Set up blinking at 1/4 s intervals
+	SetCallbackTime(BlinkTimer, 250000);
 	startTicks = SDL_GetTicks();
 
 #ifdef THREADED_65C02
+	// Kick off the CPU...
 	cpuCond = SDL_CreateCond();
 	mainSem = SDL_CreateSemaphore(1);
 	cpuThread = SDL_CreateThread(CPUThreadFunc, NULL, NULL);
@@ -538,16 +539,69 @@ Z		$DA	$9A	$DA	$9A
 ESC		$9B	$9B	$9B	$9B		No xlation
 */
 
+//
+// Apple //e scancodes. Tables are normal (0), +CTRL (1), +SHIFT (2),
+// +CTRL+SHIFT (3). Order of keys is:
+// Delete, left, tab, down, up, return, right, escape
+// Space, single quote, comma, minus, period, slash
+// Numbers 0-9
+// Semicolon, equals, left bracket, backslash, right bracket, backquote
+// Letters a-z (lowercase)
+//
+// N.B.: The Apple //e keyboard maps its shift characters like most modern US
+//       keyboards, so this table should suffice for the shifted keys just fine.
+//
+uint8_t apple2e_keycode[4][56] = {
+	{	// Normal
+		0x7F, 0x08, 0x09, 0x0A, 0x0B, 0x0D, 0x15, 0x1B,
+		0x20, 0x27, 0x2C, 0x2D, 0x2E, 0x2F,
+		0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,
+		0x3B, 0x3D, 0x5B, 0x5C, 0x5D, 0x60,
+		0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A,
+		0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74,
+		0x75, 0x76, 0x77, 0x78, 0x79, 0x7A
+	},
+	{	// With CTRL held
+		0x7F, 0x08, 0x09, 0x0A, 0x0B, 0x0D, 0x15, 0x1B,
+		0x20, 0x27, 0x2C, 0x1F, 0x2E, 0x2F,
+		0x30, 0x31, 0x00, 0x33, 0x34, 0x35, 0x1E, 0x37, 0x38, 0x39,
+		0x3B, 0x3D, 0x1B, 0x1C, 0x1D, 0x60,
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+		0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14,
+		0x15, 0x16, 0x17, 0x18, 0x19, 0x1A
+	},
+	{	// With Shift held
+		0x7F, 0x08, 0x09, 0x0A, 0x0B, 0x0D, 0x15, 0x1B,
+		0x20, 0x22, 0x3C, 0x5F, 0x3E, 0x3F,
+		0x29, 0x21, 0x40, 0x23, 0x24, 0x25, 0x5E, 0x26, 0x2A, 0x28,
+		0x3A, 0x2B, 0x7B, 0x7C, 0x7D, 0x7E,
+		0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A,
+		0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54,
+		0x55, 0x56, 0x57, 0x58, 0x59, 0x5A
+	},
+	{	// With CTRL+Shift held
+		0x7F, 0x08, 0x09, 0x0A, 0x0B, 0x0D, 0x15, 0x1B,
+		0x20, 0x22, 0x3C, 0x1F, 0x3E, 0x3F,
+		0x29, 0x21, 0x00, 0x23, 0x24, 0x25, 0x1E, 0x26, 0x2A, 0x28,
+		0x3A, 0x2B, 0x1B, 0x1C, 0x1D, 0x7E,
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+		0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14,
+		0x15, 0x16, 0x17, 0x18, 0x19, 0x1A
+	}
+};
+
 static uint32_t frameCount = 0;
 static void FrameCallback(void)
 {
 	SDL_Event event;
+	uint8_t keyIndex;
 
 	while (SDL_PollEvent(&event))
 	{
 		switch (event.type)
 		{
 // Problem with using SDL_TEXTINPUT is that it causes key delay. :-/
+// We get key delay regardless... :-/
 #if 0
 		case SDL_TEXTINPUT:
 //Need to do some key translation here, and screen out non-apple keys as well...
@@ -568,6 +622,10 @@ static void FrameCallback(void)
 			break;
 #endif
 		case SDL_KEYDOWN:
+			// We do our own repeat handling thank you very much! :-)
+			if (event.key.repeat != 0)
+				break;
+
 			// Use CTRL+SHIFT+Q to exit, as well as the usual window decoration
 			// method
 			if ((event.key.keysym.mod & KMOD_CTRL)
@@ -580,196 +638,109 @@ static void FrameCallback(void)
 				return;
 			}
 
-			// CTRL+RESET key emulation (mapped to CTRL+`)
-// This doesn't work...
-//			if (event.key.keysym.sym == SDLK_BREAK && (event.key.keysym.mod & KMOD_CTRL))
-//			if (event.key.keysym.sym == SDLK_PAUSE && (event.key.keysym.mod & KMOD_CTRL))
+			// CTRL+RESET key emulation (mapped to CTRL+HOME)
 			if ((event.key.keysym.mod & KMOD_CTRL)
-				&& (event.key.keysym.sym == SDLK_BACKQUOTE))
+				&& (event.key.keysym.sym == SDLK_HOME))
 			{
-//NOTE that this shouldn't take place until the key is lifted... !!! FIX !!!
-//ALSO it seems to leave the machine in an inconsistent state vis-a-vis the language card...
-				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
+//seems to leave the machine in an inconsistent state vis-a-vis the language card... [does it anymore?]
+				resetKeyDown = true;
 				break;
 			}
 
-			if (event.key.keysym.sym == SDLK_RIGHT)
-				lastKeyPressed = 0x15, keyDown = true;
-			else if (event.key.keysym.sym == SDLK_LEFT)
-				lastKeyPressed = 0x08, keyDown = true;
-			else if (event.key.keysym.sym == SDLK_UP)
-				lastKeyPressed = 0x0B, keyDown = true;
-			else if (event.key.keysym.sym == SDLK_DOWN)
-				lastKeyPressed = 0x0A, keyDown = true;
-			else if (event.key.keysym.sym == SDLK_RETURN)
-				lastKeyPressed = 0x0D, keyDown = true;
-			else if (event.key.keysym.sym == SDLK_ESCAPE)
-				lastKeyPressed = 0x1B, keyDown = true;
-			else if (event.key.keysym.sym == SDLK_BACKSPACE)
-				lastKeyPressed = 0x7F, keyDown = true;
+			// There has GOT to be a better way off mapping SDLKs to our
+			// keyindex. But for now, this should suffice.
+			keyIndex = 0xFF;
 
-			// Fix CTRL+key combo...
-			if (event.key.keysym.mod & KMOD_CTRL)
+			switch (event.key.keysym.sym)
 			{
-				if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
-				{
-					lastKeyPressed = (event.key.keysym.sym - SDLK_a) + 1;
-					keyDown = true;
-//printf("Key combo pressed: CTRL+%c\n", lastKeyPressed + 0x40);
-					break;
-				}
+			case SDLK_BACKSPACE:    keyIndex =  0; break;
+			case SDLK_LEFT:         keyIndex =  1; break;
+			case SDLK_TAB:          keyIndex =  2; break;
+			case SDLK_DOWN:         keyIndex =  3; break;
+			case SDLK_UP:           keyIndex =  4; break;
+			case SDLK_RETURN:       keyIndex =  5; break;
+			case SDLK_RIGHT:        keyIndex =  6; break;
+			case SDLK_ESCAPE:       keyIndex =  7; break;
+			case SDLK_SPACE:        keyIndex =  8; break;
+			case SDLK_QUOTE:        keyIndex =  9; break;
+			case SDLK_COMMA:        keyIndex = 10; break;
+			case SDLK_MINUS:        keyIndex = 11; break;
+			case SDLK_PERIOD:       keyIndex = 12; break;
+			case SDLK_SLASH:        keyIndex = 13; break;
+			case SDLK_0:            keyIndex = 14; break;
+			case SDLK_1:            keyIndex = 15; break;
+			case SDLK_2:            keyIndex = 16; break;
+			case SDLK_3:            keyIndex = 17; break;
+			case SDLK_4:            keyIndex = 18; break;
+			case SDLK_5:            keyIndex = 19; break;
+			case SDLK_6:            keyIndex = 20; break;
+			case SDLK_7:            keyIndex = 21; break;
+			case SDLK_8:            keyIndex = 22; break;
+			case SDLK_9:            keyIndex = 23; break;
+			case SDLK_SEMICOLON:    keyIndex = 24; break;
+			case SDLK_EQUALS:       keyIndex = 25; break;
+			case SDLK_LEFTBRACKET:  keyIndex = 26; break;
+			case SDLK_BACKSLASH:    keyIndex = 27; break;
+			case SDLK_RIGHTBRACKET: keyIndex = 28; break;
+			case SDLK_BACKQUOTE:    keyIndex = 29; break;
+			case SDLK_a:            keyIndex = 30; break;
+			case SDLK_b:            keyIndex = 31; break;
+			case SDLK_c:            keyIndex = 32; break;
+			case SDLK_d:            keyIndex = 33; break;
+			case SDLK_e:            keyIndex = 34; break;
+			case SDLK_f:            keyIndex = 35; break;
+			case SDLK_g:            keyIndex = 36; break;
+			case SDLK_h:            keyIndex = 37; break;
+			case SDLK_i:            keyIndex = 38; break;
+			case SDLK_j:            keyIndex = 39; break;
+			case SDLK_k:            keyIndex = 40; break;
+			case SDLK_l:            keyIndex = 41; break;
+			case SDLK_m:            keyIndex = 42; break;
+			case SDLK_n:            keyIndex = 43; break;
+			case SDLK_o:            keyIndex = 44; break;
+			case SDLK_p:            keyIndex = 45; break;
+			case SDLK_q:            keyIndex = 46; break;
+			case SDLK_r:            keyIndex = 47; break;
+			case SDLK_s:            keyIndex = 48; break;
+			case SDLK_t:            keyIndex = 49; break;
+			case SDLK_u:            keyIndex = 50; break;
+			case SDLK_v:            keyIndex = 51; break;
+			case SDLK_w:            keyIndex = 52; break;
+			case SDLK_x:            keyIndex = 53; break;
+			case SDLK_y:            keyIndex = 54; break;
+			case SDLK_z:            keyIndex = 55; break;
 			}
 
-#if 1
-			// Fix SHIFT+key combo...
-			if (event.key.keysym.mod & KMOD_SHIFT)
+			// Stuff the key in if we have a valid one...
+			if (keyIndex != 0xFF)
 			{
-				if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z)
-				{
-					lastKeyPressed = (event.key.keysym.sym - SDLK_a) + 0x41;
-					keyDown = true;
-//printf("Key combo pressed: CTRL+%c\n", lastKeyPressed + 0x40);
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_1)
-				{
-					lastKeyPressed = '!';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_2)
-				{
-					lastKeyPressed = '@';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_3)
-				{
-					lastKeyPressed = '#';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_4)
-				{
-					lastKeyPressed = '$';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_5)
-				{
-					lastKeyPressed = '%';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_6)
-				{
-					lastKeyPressed = '^';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_7)
-				{
-					lastKeyPressed = '&';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_8)
-				{
-					lastKeyPressed = '*';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_9)
-				{
-					lastKeyPressed = '(';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_0)
-				{
-					lastKeyPressed = ')';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_MINUS)
-				{
-					lastKeyPressed = '_';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_EQUALS)
-				{
-					lastKeyPressed = '+';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_LEFTBRACKET)
-				{
-					lastKeyPressed = '{';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_RIGHTBRACKET)
-				{
-					lastKeyPressed = '}';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_BACKSLASH)
-				{
-					lastKeyPressed = '|';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_SEMICOLON)
-				{
-					lastKeyPressed = ':';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_QUOTE)
-				{
-					lastKeyPressed = '"';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_COMMA)
-				{
-					lastKeyPressed = '<';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_PERIOD)
-				{
-					lastKeyPressed = '>';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_SLASH)
-				{
-					lastKeyPressed = '?';
-					keyDown = true;
-					break;
-				}
-				else if (event.key.keysym.sym == SDLK_BACKQUOTE)
-				{
-					lastKeyPressed = '~';
-					keyDown = true;
-					break;
-				}
-			}
-#endif
+				// Handle Shift, CTRL, & Shift+CTRL combos
+				uint8_t table = 0;
 
-			// General keys...
-			if (event.key.keysym.sym >= SDLK_SPACE && event.key.keysym.sym <= SDLK_z)
-			{
-				lastKeyPressed = event.key.keysym.sym;
+				if (event.key.keysym.mod & KMOD_CTRL)
+					table |= 1;
+
+				if (event.key.keysym.mod & KMOD_SHIFT)
+					table |= 2;
+
+				lastKeyPressed = apple2e_keycode[table][keyIndex];
 				keyDown = true;
 
-				// Check for Caps Lock key...
-				if (event.key.keysym.sym >= SDLK_a && event.key.keysym.sym <= SDLK_z && capsLock)
-					lastKeyPressed -= 0x20;
+				keyDownCount++;
 
+				// Buffer the key held. Note that the last key is always
+				// stuffed into keysHeld[0].
+				if (keyDownCount >= 2)
+				{
+					keysHeld[1] = keysHeld[0];
+					keysHeldAppleCode[1] = keysHeldAppleCode[0];
+
+					if (keyDownCount > 2)
+						keyDownCount = 2;
+				}
+
+				keysHeld[0] = event.key.keysym.sym;
+				keysHeldAppleCode[0] = lastKeyPressed;
 				break;
 			}
 
@@ -788,15 +759,14 @@ static void FrameCallback(void)
 					SpawnMessage("*** RESUME ***");
 				}
 			}
-
-			// Paddle buttons 0 & 1
-			if (event.key.keysym.sym == SDLK_LALT)
+			// Buttons 0 & 1
+			else if (event.key.keysym.sym == SDLK_LALT)
 				openAppleDown = true;
-			if (event.key.keysym.sym == SDLK_RALT)
+			else if (event.key.keysym.sym == SDLK_RALT)
 				closedAppleDown = true;
-
-			if (event.key.keysym.sym == SDLK_F11)
-				dumpDis = !dumpDis;				// Toggle the disassembly process
+			// Toggle the disassembly process
+			else if (event.key.keysym.sym == SDLK_F11)
+				dumpDis = !dumpDis;
 
 /*else if (event.key.keysym.sym == SDLK_F9)
 {
@@ -809,7 +779,7 @@ static void FrameCallback(void)
 //	SpawnMessage("Image swapped...");
 }//*/
 
-			if (event.key.keysym.sym == SDLK_F2)
+			else if (event.key.keysym.sym == SDLK_F2)
 				TogglePalette();
 			else if (event.key.keysym.sym == SDLK_F3)
 				CycleScreenTypes();
@@ -841,8 +811,7 @@ static void FrameCallback(void)
 					fullscreenDebounce = true;
 				}
 			}
-
-			if (event.key.keysym.sym == SDLK_CAPSLOCK)
+			else if (event.key.keysym.sym == SDLK_CAPSLOCK)
 			{
 				if (!capsLockDebounce)
 				{
@@ -852,36 +821,73 @@ static void FrameCallback(void)
 			}
 
 			break;
+
 		case SDL_KEYUP:
 			if (event.key.keysym.sym == SDLK_F12)
 				fullscreenDebounce = false;
-			if (event.key.keysym.sym == SDLK_CAPSLOCK)
+			else if (event.key.keysym.sym == SDLK_CAPSLOCK)
 				capsLockDebounce = false;
-
 			// Paddle buttons 0 & 1
-			if (event.key.keysym.sym == SDLK_LALT)
+			else if (event.key.keysym.sym == SDLK_LALT)
 				openAppleDown = false;
-			if (event.key.keysym.sym == SDLK_RALT)
+			else if (event.key.keysym.sym == SDLK_RALT)
 				closedAppleDown = false;
+			else if ((event.key.keysym.mod & KMOD_CTRL)
+				&& (event.key.keysym.sym == SDLK_HOME))
+				resetKeyDown = false;
+			else
+			{
+				// Handle key buffering 'key up' event (2 key rollover)
+				if ((keyDownCount == 1) && (event.key.keysym.sym == keysHeld[0]))
+				{
+					keyDownCount--;
+				}
+				else if (keyDownCount == 2)
+				{
+					if (event.key.keysym.sym == keysHeld[0])
+					{
+						keyDownCount--;
+						keysHeld[0] = keysHeld[1];
+						keysHeldAppleCode[0] = keysHeldAppleCode[1];
+					}
+					else if (event.key.keysym.sym == keysHeld[1])
+					{
+						keyDownCount--;
+					}
+				}
+			}
 
 			break;
+
 		case SDL_MOUSEBUTTONDOWN:
 			GUI::MouseDown(event.motion.x, event.motion.y, event.motion.state);
 			break;
+
 		case SDL_MOUSEBUTTONUP:
 			GUI::MouseUp(event.motion.x, event.motion.y, event.motion.state);
 			break;
+
 		case SDL_MOUSEMOTION:
 			GUI::MouseMove(event.motion.x, event.motion.y, event.motion.state);
 			break;
+
 		case SDL_WINDOWEVENT:
 			if (event.window.event == SDL_WINDOWEVENT_LEAVE)
 				GUI::MouseMove(0, 0, 0);
 
 			break;
+
 		case SDL_QUIT:
 			running = false;
 		}
+	}
+
+	// Stuff the Apple keyboard buffer, if any keys are pending
+	// N.B.: May have to simulate the key repeat delay too
+	if (keyDownCount > 0)
+	{
+		lastKeyPressed = keysHeldAppleCode[0];
+		keyDown = true;
 	}
 
 	// Handle power request from the GUI
@@ -904,8 +910,8 @@ static void FrameCallback(void)
 		powerStateChangeRequested = false;
 	}
 
-	RenderVideoFrame();				// Render Apple screen to buffer
-	RenderScreenBuffer();			// Render buffer to host screen
+	// Render the Apple screen + GUI overlay
+	RenderAppleScreen(sdlRenderer);
 	GUI::Render(sdlRenderer);
 	SDL_RenderPresent(sdlRenderer);
 	SetCallbackTime(FrameCallback, 16666.66666667);
@@ -928,7 +934,7 @@ if (counter == 60)
 // This is the problem: If you set the interval to 16, it runs faster than
 // 1/60s per frame. If you set it to 17, it runs slower. What we need is to
 // have it do 16 for one frame, then 17 for two others. Then it should average
-// out to 1/60s per frame every 3 frames.
+// out to 1/60s per frame every 3 frames. [And now it does!]
 	frameCount = (frameCount + 1) % 3;
 	uint32_t waitFrameTime = 17 - (frameCount == 0 ? 1 : 0);
 

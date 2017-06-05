@@ -1,12 +1,11 @@
 //
-// VIDEO.H: Header file
+// Apple 2/host video support
 //
 
 #ifndef __VIDEO_H__
 #define __VIDEO_H__
 
 #include <SDL2/SDL.h>
-#include <stdint.h>							// For uint32_t
 
 // These are double the normal width because we use sub-pixel rendering.
 //#define VIRTUAL_SCREEN_WIDTH		280
@@ -14,16 +13,32 @@
 //#define VIRTUAL_SCREEN_HEIGHT		192
 #define VIRTUAL_SCREEN_HEIGHT		384
 
+// Global variables (exported)
+
+extern bool flash;
+extern bool textMode;
+extern bool mixedMode;
+extern bool displayPage2;
+extern bool hiRes;
+extern bool alternateCharset;
+extern bool col80Mode;
+extern SDL_Renderer * sdlRenderer;
+
+// Functions (exported)
+
+//void SetupBlurTable(void);
+void TogglePalette(void);
+void CycleScreenTypes(void);
+void SpawnMessage(const char * text, ...);
 bool InitVideo(void);
 void VideoDone(void);
-void RenderScreenBuffer(void);
+void RenderAppleScreen(SDL_Renderer *);
 void ToggleFullScreen(void);
+
 
 // Exported crap
 
-extern SDL_Renderer * sdlRenderer;
-extern uint32_t scrBuffer[];
-extern uint32_t mainScrBuffer[];
+//extern uint32_t * scrBuffer;
+//extern int scrPitch;
 
 #endif	// __VIDEO_H__
-

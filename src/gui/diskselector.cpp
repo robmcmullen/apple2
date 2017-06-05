@@ -101,7 +101,7 @@ void DiskSelector::Init(SDL_Renderer * renderer)
 		WriteLog("GUI (DiskSelector): Could not set blend mode for charStamp.\n");
 
 	for(uint32_t i=0; i<DS_WIDTH*DS_HEIGHT; i++)
-		windowPixels[i] = 0xEF00FF00;
+		windowPixels[i] = 0xEF007F00;
 
 	SDL_UpdateTexture(window, NULL, windowPixels, 128 * sizeof(Uint32));
 	FindDisks(NULL);

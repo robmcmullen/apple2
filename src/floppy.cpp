@@ -19,7 +19,8 @@
 #include <string.h>
 #include "apple2.h"
 #include "log.h"
-#include "applevideo.h"					// For message spawning... Though there's probably a better approach than this!
+#include "video.h"		// For message spawning... Though there's probably a
+						// better approach than this!
 
 // Useful enums
 

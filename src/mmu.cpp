@@ -13,10 +13,10 @@
 
 #include "mmu.h"
 #include "apple2.h"
-#include "applevideo.h"
 #include "firmware.h"
 #include "log.h"
 #include "sound.h"
+#include "video.h"
 
 
 // Debug defines
@@ -451,7 +451,9 @@ void SwitchALTCHARSET(uint16_t address, uint8_t)
 
 uint8_t ReadKeyStrobe(uint16_t)
 {
-	uint8_t byte = lastKeyPressed | ((uint8_t)keyDown << 7);
+// No character data is read from here, just the 'any key was pressed' signal...
+//	uint8_t byte = lastKeyPressed | ((uint8_t)keyDown << 7);
+	uint8_t byte = (uint8_t)keyDown << 7;
 	keyDown = false;
 	return byte;
 }
