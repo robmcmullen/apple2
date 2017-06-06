@@ -1009,7 +1009,6 @@ void ToggleFullScreen(void)
 	settings.fullscreen = !settings.fullscreen;
 
 	int retVal = SDL_SetWindowFullscreen(sdlWindow, (settings.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
-	SDL_ShowCursor(settings.fullscreen ? 0 : 1);
 
 	if (retVal != 0)
 		WriteLog("Video::ToggleFullScreen: SDL error = %s\n", SDL_GetError());

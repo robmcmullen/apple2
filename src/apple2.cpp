@@ -94,11 +94,13 @@ static bool fullscreenDebounce = false;
 static bool capsLock = false;
 static bool capsLockDebounce = false;
 static bool resetKeyDown = false;
+static int8_t hideMouseTimeout = 60;
 
 // Vars to handle the //e's 2-key rollover
 static SDL_Keycode keysHeld[2];
 static uint8_t keysHeldAppleCode[2];
 static uint8_t keyDownCount = 0;
+static uint8_t keyDelay = 0;
 
 // Local functions
 
@@ -484,61 +486,6 @@ WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
 }
 
 
-/*
-Apple II keycodes
------------------
-
-Key     Aln CTL SHF BTH
------------------------
-space	$A0	$A0	$A0 $A0		No xlation
-RETURN	$8D	$8D	$8D	$8D		No xlation
-0		$B0	$B0	$B0	$B0		Need to screen shift+0 (?)
-1!		$B1 $B1 $A1 $A1		No xlation
-2"		$B2	$B2	$A2	$A2		No xlation
-3#		$B3	$B3	$A3	$A3		No xlation
-4$		$B4	$B4	$A4	$A4		No xlation
-5%		$B5	$B5	$A5	$A5		No xlation
-6&		$B6	$B6	$A6	$A6		No xlation
-7'		$B7	$B7	$A7	$A7		No xlation
-8(		$B8	$B8	$A8	$A8		No xlation
-9)		$B9	$B9	$A9	$A9		No xlation
-:*		$BA	$BA	$AA	$AA		No xlation
-;+		$BB	$BB	$AB	$AB		No xlation
-,<		$AC	$AC	$BC	$BC		No xlation
--=		$AD	$AD	$BD	$BD		No xlation
-.>		$AE	$AE	$BE	$BE		No xlation
-/?		$AF	$AF	$BF	$BF		No xlation
-A		$C1	$81	$C1	$81
-B		$C2	$82	$C2	$82
-C		$C3	$83	$C3	$83
-D		$C4	$84	$C4	$84
-E		$C5	$85	$C5	$85
-F		$C6	$86	$C6	$86
-G		$C7	$87	$C7	$87
-H		$C8	$88	$C8	$88
-I		$C9	$89	$C9	$89
-J		$CA	$8A	$CA	$8A
-K		$CB	$8B	$CB	$8B
-L		$CC	$8C	$CC	$8C
-M		$CD	$8D	$DD	$9D		-> ODD
-N^		$CE	$8E	$DE	$9E		-> ODD
-O		$CF	$8F	$CF	$8F
-P@		$D0	$90	$C0	$80		Need to xlate CTL+SHFT+P & SHFT+P (?)
-Q		$D1	$91	$D1	$91
-R		$D2	$92	$D2	$92
-S		$D3	$93	$D3	$93
-T		$D4	$94	$D4	$94
-U		$D5	$95	$D5	$95
-V		$D6	$96	$D6	$96
-W		$D7	$97	$D7	$97
-X		$D8	$98	$D8	$98
-Y		$D9	$99	$D9	$99
-Z		$DA	$9A	$DA	$9A
-<-		$88	$88	$88	$88
-->		$95	$95	$95	$95
-ESC		$9B	$9B	$9B	$9B		No xlation
-*/
-
 //
 // Apple //e scancodes. Tables are normal (0), +CTRL (1), +SHIFT (2),
 // +CTRL+SHIFT (3). Order of keys is:
@@ -600,27 +547,6 @@ static void FrameCallback(void)
 	{
 		switch (event.type)
 		{
-// Problem with using SDL_TEXTINPUT is that it causes key delay. :-/
-// We get key delay regardless... :-/
-#if 0
-		case SDL_TEXTINPUT:
-//Need to do some key translation here, and screen out non-apple keys as well...
-//(really, could do it all in SDL_KEYDOWN, would just have to get symbols &
-// everything else done separately. this is slightly easier. :-P)
-//			if (event.key.keysym.sym == SDLK_TAB)	// Prelim key screening...
-			if (event.edit.text[0] == '\t')	// Prelim key screening...
-				break;
-
-			lastKeyPressed = event.edit.text[0];
-			keyDown = true;
-
-			//kludge: should have a caps lock thingy here...
-			//or all uppercase for ][+...
-//			if (lastKeyPressed >= 'a' && lastKeyPressed <='z')
-//				lastKeyPressed &= 0xDF;		// Convert to upper case...
-
-			break;
-#endif
 		case SDL_KEYDOWN:
 			// We do our own repeat handling thank you very much! :-)
 			if (event.key.repeat != 0)
@@ -725,6 +651,15 @@ static void FrameCallback(void)
 
 				lastKeyPressed = apple2e_keycode[table][keyIndex];
 				keyDown = true;
+
+				// Handle Caps Lock
+				if (capsLock
+					&& (lastKeyPressed >= 0x61) && (lastKeyPressed <= 0x7A))
+					lastKeyPressed -= 0x20;
+
+				// Handle key repeat if the key hasn't been held
+//				if (keyDelay == 0)
+					keyDelay = 15;
 
 				keyDownCount++;
 
@@ -841,6 +776,7 @@ static void FrameCallback(void)
 				if ((keyDownCount == 1) && (event.key.keysym.sym == keysHeld[0]))
 				{
 					keyDownCount--;
+					keyDelay = 0;	// Reset key delay
 				}
 				else if (keyDownCount == 2)
 				{
@@ -869,6 +805,12 @@ static void FrameCallback(void)
 
 		case SDL_MOUSEMOTION:
 			GUI::MouseMove(event.motion.x, event.motion.y, event.motion.state);
+
+			// Handle mouse showing when the mouse is hidden...
+			if (hideMouseTimeout == -1)
+				SDL_ShowCursor(1);
+
+			hideMouseTimeout = 60;
 			break;
 
 		case SDL_WINDOWEVENT:
@@ -882,12 +824,28 @@ static void FrameCallback(void)
 		}
 	}
 
+	// Hide the mouse if it's been 1s since the last time it was moved
+	// N.B.: Should disable mouse hiding if it's over the GUI...
+	if (hideMouseTimeout > 0)
+		hideMouseTimeout--;
+	else if (hideMouseTimeout == 0)
+	{
+		hideMouseTimeout--;
+		SDL_ShowCursor(0);
+	}
+
 	// Stuff the Apple keyboard buffer, if any keys are pending
-	// N.B.: May have to simulate the key repeat delay too
+	// N.B.: May have to simulate the key repeat delay too [yup, sure do]
 	if (keyDownCount > 0)
 	{
-		lastKeyPressed = keysHeldAppleCode[0];
-		keyDown = true;
+		keyDelay--;
+
+		if (keyDelay == 0)
+		{
+			keyDelay = 3;
+			lastKeyPressed = keysHeldAppleCode[0];
+			keyDown = true;
+		}
 	}
 
 	// Handle power request from the GUI
