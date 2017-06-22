@@ -94,7 +94,7 @@ LDFLAGS =
 # Link in the gprof lib
 #LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB) -pg
 #LIBS = -L/usr/local/lib -L/usr/lib $(SDL_LIBS) -lstdc++ -lz $(GLLIB) -pg
-LIBS = $(SDL_LIBS) -lstdc++ -lz $(GLLIB) -pg
+LIBS = $(SDL_LIBS) -lstdc++ -lz -lm $(GLLIB) -pg
 
 #INCS = -I. -I./src -I/usr/local/include -I/usr/include
 INCS = -I. -I./src

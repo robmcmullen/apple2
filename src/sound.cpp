@@ -22,20 +22,17 @@
 
 #include "sound.h"
 
-#include <string.h>								// For memset, memcpy
+#include <string.h>			// For memset, memcpy
 #include <SDL2/SDL.h>
 #include "log.h"
 
 // Useful defines
 
 //#define DEBUG
-//#define WRITE_OUT_WAVE
 
-//#define SAMPLE_RATE			(44100.0)
 #define SAMPLE_RATE			(48000.0)
 #define SAMPLES_PER_FRAME	(SAMPLE_RATE / 60.0)
 #define CYCLES_PER_SAMPLE	(1024000.0 / SAMPLE_RATE)
-//#define SOUND_BUFFER_SIZE	(8192)
 // 32K ought to be enough for anybody
 #define SOUND_BUFFER_SIZE	(32768)
 
@@ -56,11 +53,8 @@ static SDL_mutex * mutex = NULL;
 static SDL_mutex * mutex2 = NULL;
 static int16_t sample;
 static uint8_t ampPtr = 12;						// Start with -2047 - +2047
-static int16_t amplitude[17] = { 0, 1, 2, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047,
-	4095, 8191, 16383, 32767 };
-#ifdef WRITE_OUT_WAVE
-static FILE * fp = NULL;
-#endif
+static int16_t amplitude[17] = { 0, 1, 2, 3, 7, 15, 31, 63, 127, 255,
+	511, 1023, 2047, 4095, 8191, 16383, 32767 };
 
 // Private function prototypes
 
@@ -72,10 +66,6 @@ static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length);
 //
 void SoundInit(void)
 {
-#if 0
-// To weed out problems for now...
-return;
-#endif
 	SDL_zero(desired);
 	desired.freq = SAMPLE_RATE;					// SDL will do conversion on the fly, if it can't get the exact rate. Nice!
 	desired.format = AUDIO_S16SYS;				// This uses the native endian (for portability)...
@@ -101,10 +91,6 @@ return;
 	SDL_PauseAudioDevice(device, 0);			// Start playback!
 	soundInitialized = true;
 	WriteLog("Sound: Successfully initialized.\n");
-
-#ifdef WRITE_OUT_WAVE
-	fp = fopen("./apple2.wav", "wb");
-#endif
 }
 
 
@@ -121,10 +107,6 @@ void SoundDone(void)
 		SDL_DestroyMutex(mutex);
 		SDL_DestroyMutex(mutex2);
 		WriteLog("Sound: Done.\n");
-
-#ifdef WRITE_OUT_WAVE
-		fclose(fp);
-#endif
 	}
 }
 
@@ -201,7 +183,7 @@ static void SDLSoundCallback(void * /*userdata*/, Uint8 * buffer8, int length8)
 }
 
 
-// This is called by the main CPU thread every ~21.333 cycles.
+// This is called by the main CPU thread every ~21.666 cycles.
 void WriteSampleToBuffer(void)
 {
 //WriteLog("WriteSampleToBuffer(): SDL_mutexP(mutex2)\n");

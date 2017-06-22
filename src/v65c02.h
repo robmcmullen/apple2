@@ -31,15 +31,15 @@
 
 struct V65C02REGS
 {
-	uint16_t pc;						// 65C02 PC register
+	uint16_t pc;					// 65C02 PC register
 	uint8_t cc;						// 65C02 Condition Code register
 	uint8_t sp;						// 65C02 System stack pointer (bound to $01xx)
 	uint8_t a;						// 65C02 A register
 	uint8_t x;						// 65C02 X index register
 	uint8_t y;						// 65C02 Y register
 //	uint32_t clock;					// 65C02 clock (@ 1 MHz, wraps at 71.5 minutes)
-	uint64_t clock;					// 65C02 clock (@ 1 MHz, wraps at 570842 years)
-	uint8_t (* RdMem)(uint16_t);		// Address of BYTE read routine
+	uint64_t clock;					// 65C02 clock (@ 1 MHz, wraps at 570,842 years)
+	uint8_t (* RdMem)(uint16_t);	// Address of BYTE read routine
 	void (* WrMem)(uint16_t, uint8_t);	// Address of BYTE write routine
 	uint16_t cpuFlags;				// v65C02 IRQ/RESET flags
 	uint64_t overflow;				// # of cycles we went over last time through
@@ -51,7 +51,7 @@ extern bool dumpDis;
 
 // Function prototypes
 
-void Execute65C02(V65C02REGS *, uint32_t);    	// Function to execute 65C02 instructions
-uint64_t GetCurrentV65C02Clock(void);				// Get the clock of the currently executing CPU
+void Execute65C02(V65C02REGS *, uint32_t);	// Function to execute 65C02 instructions
+uint64_t GetCurrentV65C02Clock(void);		// Get the clock of the currently executing CPU
 
 #endif	// __V65C02_H__

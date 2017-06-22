@@ -87,8 +87,6 @@ const char driveLight[(5 * 5) + 1] =
 	" @@@ ";
 
 
-enum { SBS_SHOWING, SBS_HIDING, SBS_SHOWN, SBS_HIDDEN };
-
 
 SDL_Texture * GUI::overlay = NULL;
 SDL_Rect GUI::olDst;
@@ -186,8 +184,6 @@ void GUI::Init(SDL_Renderer * renderer)
 	}
 
 	DiskSelector::Init(renderer);
-//	DiskSelector::showWindow = true;
-
 	WriteLog("GUI: Successfully initialized.\n");
 }
 
@@ -491,9 +487,7 @@ void GUI::DrawSidebarIcons(SDL_Renderer * renderer)
 		stateSaveIcon, stateLoadIcon, configIcon };
 
 	icons[0] = (powerOnState ? powerOnIcon : powerOffIcon);
-
-	SDL_Rect dst;
-	dst.w = dst.h = 40, dst.x = 24, dst.y = 2 + 7;
+	SDL_Rect dst = { 24, 2 + 7, 40, 40 };
 
 	for(int i=0; i<7; i++)
 	{

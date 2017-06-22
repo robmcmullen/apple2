@@ -131,6 +131,7 @@ uint8_t ReadButton1(uint16_t);
 uint8_t ReadPaddle0(uint16_t);
 uint8_t ReadIOUDIS(uint16_t);
 uint8_t ReadDHIRES(uint16_t);
+uint8_t ReadFloatingBus(uint16_t);
 //uint8_t SwitchR(uint16_t);
 //void SwitchW(uint16_t, uint8_t);
 
@@ -168,6 +169,14 @@ AddressMap memoryMap[] = {
 	{ 0xC01D, 0xC01D, AM_READ_WRITE, 0, 0, ReadHIRES, WriteKeyStrobe },
 	{ 0xC01E, 0xC01E, AM_READ_WRITE, 0, 0, ReadALTCHARSET, WriteKeyStrobe },
 	{ 0xC01F, 0xC01F, AM_READ_WRITE, 0, 0, Read80COL, WriteKeyStrobe },
+	// $C020 is "Cassette Out (RO)"
+	{ 0xC020, 0xC02F, AM_READ, 0, 0, ReadFloatingBus, 0 },
+	// May have to put a "floating bus" read there... :-/
+	// Apparently, video RAM is put on 'non-responding address'. So will
+	// need to time those out.
+	// So... $C020-$C08F, when read, return video data.
+	// $C090-$C7FF do also, as long as the slot the range refers to is empty
+	// and last and least is $CFFF, which is the Expansion ROM disable.
 	{ 0xC030, 0xC03F, AM_READ_WRITE, 0, 0, ReadSpeaker, WriteSpeaker },
 	{ 0xC050, 0xC051, AM_READ_WRITE, 0, 0, SwitchTEXTR, SwitchTEXTW },
 	{ 0xC052, 0xC053, AM_READ_WRITE, 0, 0, SwitchMIXEDR, SwitchMIXEDW },
@@ -886,4 +895,47 @@ uint8_t ReadDHIRES(uint16_t)
 	return (uint8_t)dhires << 7;
 }
 
+
+// Whenever a read is done to a MMIO location that is unconnected to anything,
+// it actually sees the RAM access done by the video generation hardware. Some
+// programs exploit this, so we emulate it here.
+
+// N.B.: frameCycles will be off by the true amount because this only increments
+//       by the amount of a speaker cycle, not the cycle count when the access
+//       happens... !!! FIX !!!
+uint8_t ReadFloatingBus(uint16_t)
+{
+	// Get the currently elapsed cycle count for this frame
+	uint32_t frameCycles = mainCPU.clock - frameCycleStart;
+
+	// Make counters out of the cycle count. There are 65 cycles per line.
+	uint32_t numLines = frameCycles / 65;
+	uint32_t numHTicks = frameCycles - (numLines * 65);
+
+	// Convert these to H/V counters
+	uint32_t hcount = numHTicks - 1;
+
+	// HC sees zero twice:
+	if (hcount == 0xFFFFFFFF)
+		hcount = 0;
+
+	uint32_t vcount = numLines + 0xFA;
+
+	// Now do the address calculations
+	uint32_t sum = 0xD + ((hcount & 0x38) >> 3)
+		+ (((vcount & 0xC0) >> 6) | ((vcount & 0xC0) >> 4));
+	uint32_t address = ((vcount & 0x38) << 4) | ((sum & 0x0F) << 3) | (hcount & 0x07);
+
+	// Add in particulars for the gfx mode we're in...
+	if (textMode || (!textMode && !hiRes))
+		address |= (!(!store80Mode && displayPage2) ? 0x400 : 0)
+			| (!store80Mode && displayPage2 ? 0x800 : 0);
+	else
+		address |= (!(!store80Mode && displayPage2) ? 0x2000: 0)
+			| (!store80Mode && displayPage2 ? 0x4000 : 0)
+			| ((vcount & 0x07) << 10);
+
+	// The address so read is *always* in main RAM, not alt RAM
+	return ram[address];
+}
 

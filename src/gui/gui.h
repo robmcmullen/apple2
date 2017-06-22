@@ -9,6 +9,8 @@
 
 #include <SDL2/SDL.h>
 
+enum { SBS_SHOWING, SBS_HIDING, SBS_SHOWN, SBS_HIDDEN };
+
 class GUI
 {
 	public:

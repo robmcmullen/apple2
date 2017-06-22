@@ -4,10 +4,11 @@
 // by James Hammons
 // © 2017 Underground Software
 //
-// Loosely based on AppleWin by Tom Charlesworth which was based on AppleWin by
-// Oliver Schmidt which was based on AppleWin by Michael O'Brien. :-) Parts are
-// also derived from ApplePC. Too bad it was closed source--it could have been
-// *the* premier Apple II emulator out there.
+// Parts loosely inspired by AppleWin by Tom Charlesworth which was based on
+// AppleWin by Oliver Schmidt which was based on AppleWin by Michael O'Brien.
+// :-) Some parts (mainly TV rendering) are derived from ApplePC. Too bad it
+// was closed source--it could have been *the* premier Apple II emulator out
+// there.
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -29,6 +30,10 @@
 // - 128K IIe related stuff [DONE]
 // - State loading/saving
 //
+// BUGS:
+//
+// - Having a directory in the ${disks} directory causes a segfault in floppy
+//
 
 #include "apple2.h"
 
@@ -47,9 +52,9 @@
 #include "settings.h"
 #include "sound.h"
 #include "timing.h"
-#include "v65c02.h"
 #include "video.h"
 #include "gui/gui.h"
+#include "gui/diskselector.h"
 
 // Debug and misc. defines
 
@@ -68,8 +73,9 @@ V65C02REGS mainCPU;							// v65C02 execution context
 uint8_t appleType = APPLE_TYPE_IIE;
 FloppyDrive floppyDrive;
 bool powerStateChangeRequested = false;
+uint64_t frameCycleStart;
 
-// Local variables (actually, they're global since they're not static)
+// Exported variables
 
 uint8_t lastKeyPressed = 0;
 bool keyDown = false;
@@ -121,6 +127,8 @@ static SDL_sem * mainSem = NULL;
 static bool cpuFinished = false;
 
 // NB: Apple //e Manual sez 6502 is running @ 1,022,727 Hz
+//     This is a lie. At the end of each 65 cycle line, there is an elongated
+//     cycle (the so-called 'long' cycle) that throws the calcs out of whack.
 
 // Let's try a thread...
 //
@@ -147,13 +155,20 @@ WriteLog("CPU: SDL_SemWait(mainSem);\n");
 
 		// There are exactly 800 slices of 21.333 cycles per frame, so it works
 		// out evenly.
+		// [Actually, seems it's 786 slices of 21.666 cycles per frame]
+
+		// Set our frame cycle counter to the correct # of cycles at the start
+		// of this frame
+		frameCycleStart = mainCPU.clock - mainCPU.overflow;
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 #endif
-		for(int i=0; i<800; i++)
+//		for(int i=0; i<800; i++)
+		for(int i=0; i<786; i++)
 		{
 			uint32_t cycles = 21;
-			overflow += 0.333333334;
+//			overflow += 0.333333334;
+			overflow += 0.666666667;
 
 			if (overflow > 1.0)
 			{
@@ -169,9 +184,64 @@ WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 			Execute65C02(&mainCPU, cycles);
 			WriteSampleToBuffer();
 
-			// Dunno if this is correct (seems to be close enough)...
-			vbl = (i < 670 ? true : false);
+			// According to "Understanding The Apple IIe", VBL asserted after
+			// the last byte of the screen is read and let go on the first read
+			// of the first byte of the screen. We now know that the screen
+			// starts on line #6 and ends on line #197 (of the vertical
+			// counter--actual VBLANK happens on lines 230 thru 233).
+			vbl = ((i > 17) && (i < 592) ? true : false);
 		}
+/*
+Other timings from UTA2E:
+Power-up reset				32.6 msec / 512 horizontal scans
+Flash cycle					1.87 Hz / Vertical freq./32
+Delay before auto repeat	534-801 msec / 32-48 vertical scans
+Auto repeat frequency		15 Hz / Vertical freq./4
+Vertical frequency			59.94 Hz
+Horizontal frequency		15,734 Hz
+1 NTSC frame = 17030 cycles
+1 line = 65 cycles
+70 blank lines for top margin, 192 lines for screen, (35 & 35?)
+VA-C,V0-5 is upcounter starting at 011111010 ($FA) to 111111111 ($1FF)
+Horizontal counter is upcounter resets to 0000000, then jumps to 1000000 &
+counts up to 1111111 (bit 7 is Horizontal Preset Enable, which resets the counter when it goes low, the rest are H0-5)
+
+pg. 3-24 says one cycle before VBL the counters will be at
+010111111/1111111 (that doesn't look right to me...)
+
+Video address bits:
+
+A0 <- H0
+A1 <- H1
+A2 <- H2
+A3 <- SUM-A3
+A4 <- SUM-A4
+A5 <- SUM-A5
+A6 <- SUM-A6
+A7 <- V0
+A8 <- V1
+A9 <- V2
+
+SUMS are calculated like so:
+
+  1        1       0       1
+          H5      H4      H3
+  V4      V3      V4      V3
+------------------------------
+SUM-A6  SUM-A5  SUM-A4  SUM-A3
+
+In TEXT mode, A10 == (80STORE' * PAGE2)', A11 == 80STORE' * PAGE2
+A12-A15 == 0
+
+In HIRES mode, A13 == (PAGE2 * 80STORE')', A14 == PAGE2 * 80STORE'
+A10 == VA, A11 == VB, A12 == VC, A15 == 0
+
+N.B.: VA-C are lower bits than V5-0
+
+HC, from 00, 0 to 23 is the HBL interval, with horizontal retrace occuring between cycles 8 and 11.
+VC, from line 0-5 and 198-261 is the VBL interval, with vertical retrace occuring between lines 230-233
+
+*/
 
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_mutexP(cpuMutex);\n");
@@ -361,6 +431,7 @@ static void ResetApple2State(void)
 
 	// Without this, you can wedge the system :-/
 	memset(ram, 0, 0x10000);
+	memset(ram2, 0, 0x10000);
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 }
 
@@ -378,6 +449,48 @@ int main(int /*argc*/, char * /*argv*/[])
 	InitLog("./apple2.log");
 	LoadSettings();
 	srand(time(NULL));			// Initialize RNG
+
+#if 0
+// Make some timing/address tables
+
+	for(uint32_t line=0; line<262; line++)
+	{
+		WriteLog("LINE %03i: ", line);
+
+		for(uint32_t col=0; col<65; col++)
+		{
+			// Convert these to H/V counters
+			uint32_t hcount = col - 1;
+
+			// HC sees zero twice:
+			if (hcount == 0xFFFFFFFF)
+				hcount = 0;
+
+			uint32_t vcount = line + 0xFA;
+
+			// Now do the address calculations
+			uint32_t sum = 0xD + ((hcount & 0x38) >> 3)
+				+ (((vcount & 0xC0) >> 6) | ((vcount & 0xC0) >> 4));
+			uint32_t address = ((vcount & 0x38) << 4) | ((sum & 0x0F) << 3) | (hcount & 0x07);
+
+			// Add in particulars for the gfx mode we're in...
+			if (false)
+				// non hires
+				address |= (!(!store80Mode && displayPage2) ? 0x400 : 0)
+					| (!store80Mode && displayPage2 ? 0x800 : 0);
+			else
+				// hires
+				address |= (!(!store80Mode && displayPage2) ? 0x2000: 0)
+					| (!store80Mode && displayPage2 ? 0x4000 : 0)
+					| ((vcount & 0x07) << 10);
+
+			WriteLog("$%04X ", address);
+		}
+
+		WriteLog("\n");
+	}
+
+#endif
 
 	// Zero out memory
 	memset(ram, 0, 0x10000);
@@ -826,7 +939,7 @@ static void FrameCallback(void)
 
 	// Hide the mouse if it's been 1s since the last time it was moved
 	// N.B.: Should disable mouse hiding if it's over the GUI...
-	if (hideMouseTimeout > 0)
+	if ((hideMouseTimeout > 0) && !(GUI::sidebarState == SBS_SHOWN || DiskSelector::showWindow == true))
 		hideMouseTimeout--;
 	else if (hideMouseTimeout == 0)
 	{
@@ -836,6 +949,8 @@ static void FrameCallback(void)
 
 	// Stuff the Apple keyboard buffer, if any keys are pending
 	// N.B.: May have to simulate the key repeat delay too [yup, sure do]
+	//       According to "Understanding the Apple IIe", the initial delay is
+	//       between 32 & 48 jiffies and the repeat is every 4 jiffies.
 	if (keyDownCount > 0)
 	{
 		keyDelay--;
