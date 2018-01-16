@@ -59,6 +59,7 @@
 // Debug and misc. defines
 
 #define THREADED_65C02
+#undef THREADED_65C02
 #define CPU_THREAD_OVERFLOW_COMPENSATION
 #define DEBUG_LC
 //#define CPU_CLOCK_CHECKING
@@ -573,7 +574,6 @@ WriteLog("Main: SDL_SemWait(mainSem);\n");
 	if (!pauseMode)
 		// Should lock until CPU thread is waiting...
 		SDL_SemWait(mainSem);
-#endif
 
 WriteLog("Main: SDL_CondSignal(cpuCond);\n");
 	SDL_CondSignal(cpuCond);//thread is probably asleep, so wake it up
@@ -582,6 +582,7 @@ WriteLog("Main: SDL_WaitThread(cpuThread, NULL);\n");
 WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
 	SDL_DestroyCond(cpuCond);
 	SDL_DestroySemaphore(mainSem);
+#endif
 
 	// Autosave state here, if requested...
 	if (settings.autoStateSaving)
@@ -969,14 +970,18 @@ static void FrameCallback(void)
 		if (GUI::powerOnState)
 		{
 			pauseMode = false;
+#ifdef THREADED_65C02
 			// Unlock the CPU thread...
 			SDL_SemPost(mainSem);
+#endif
 		}
 		else
 		{
 			pauseMode = true;
+#ifdef THREADED_65C02
 			// Should lock until CPU thread is waiting...
 			SDL_SemWait(mainSem);
+#endif
 			ResetApple2State();
 		}
 
