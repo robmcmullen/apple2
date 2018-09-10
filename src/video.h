@@ -23,6 +23,7 @@ extern bool hiRes;
 extern bool alternateCharset;
 extern bool col80Mode;
 extern SDL_Renderer * sdlRenderer;
+extern SDL_Window * sdlWindow;
 
 // Functions (exported)
 
@@ -34,7 +35,7 @@ bool InitVideo(void);
 void VideoDone(void);
 void RenderAppleScreen(SDL_Renderer *);
 void ToggleFullScreen(void);
-
+void ToggleTickDisplay(void);
 
 // Exported crap
 

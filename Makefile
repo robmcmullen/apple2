@@ -113,6 +113,7 @@ OBJS = \
 	obj/firmware.o        \
 	obj/floppy.o          \
 	obj/log.o             \
+	obj/mos6522via.o      \
 	obj/mmu.o             \
 	obj/sdlemu_config.o   \
 	obj/settings.o        \

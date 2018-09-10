@@ -13,8 +13,10 @@
 
 #include "mmu.h"
 #include "apple2.h"
+#include "ay8910.h"
 #include "firmware.h"
 #include "log.h"
+#include "mos6522via.h"
 #include "sound.h"
 #include "video.h"
 
@@ -69,6 +71,7 @@ uint8_t * mainMemoryHGRW  = &ram[0x2000];	// $2000 - $3FFF (write)
 
 uint8_t * slotMemory      = &rom[0xC100];	// $C100 - $CFFF
 uint8_t * slot3Memory     = &rom[0xC300];	// $C300 - $C3FF
+uint8_t * slot4Memory     = &rom[0xC400];	// $C400 - $C4FF
 uint8_t * slot6Memory     = &diskROM[0];	// $C600 - $C6FF
 uint8_t * lcBankMemoryR   = &ram[0xD000];	// $D000 - $DFFF (read)
 uint8_t * lcBankMemoryW   = &ram[0xD000];	// $D000 - $DFFF (write)
@@ -126,6 +129,8 @@ void SwitchIOUDIS(uint16_t, uint8_t);
 uint8_t Slot6R(uint16_t);
 void Slot6W(uint16_t, uint8_t);
 void HandleSlot6(uint16_t, uint8_t);
+uint8_t MBRead(uint16_t);
+void MBWrite(uint16_t, uint8_t);
 uint8_t ReadButton0(uint16_t);
 uint8_t ReadButton1(uint16_t);
 uint8_t ReadPaddle0(uint16_t);
@@ -196,10 +201,10 @@ AddressMap memoryMap[] = {
 	// This will overlay the slotMemory accessors for slot 6 ROM
 	{ 0xC300, 0xC3FF, AM_ROM, &slot3Memory, 0, 0, 0 },
 	{ 0xC600, 0xC6FF, AM_ROM, &slot6Memory, 0, 0, 0 },
+	{ 0xC400, 0xC4FF, AM_READ_WRITE, 0, 0, MBRead, MBWrite },
 
 	{ 0xD000, 0xDFFF, AM_BANKED, &lcBankMemoryR, &lcBankMemoryW, 0, 0 },
 	{ 0xE000, 0xFFFF, AM_BANKED, &upperMemoryR, &upperMemoryW, 0, 0 },
-//	{ 0x0000, 0x0000, AM_END_OF_LIST, 0, 0, 0, 0 }
 	ADDRESS_MAP_END
 };
 
@@ -861,6 +866,208 @@ void HandleSlot6(uint16_t address, uint8_t byte)
 }
 
 
+uint8_t MBRead(uint16_t address)
+{
+#if 1
+	// Not sure [Seems to work OK]
+	if (!slotCXROM)
+	{
+		return slot4Memory[address & 0x00FF];
+	}
+#endif
+
+	uint8_t regNum = address & 0x0F;
+	uint8_t chipNum = (address & 0x80) >> 7;
+
+#if 0
+	WriteLog("MBRead: address = %X [chip %d, reg %X, clock=$%X]\n", address & 0xFF, chipNum, regNum, GetCurrentV65C02Clock());
+#endif
+
+	switch (regNum)
+	{
+	case 0x00:
+		return mbvia[chipNum].orb & mbvia[chipNum].ddrb;
+
+	case 0x01:
+		return mbvia[chipNum].ora & mbvia[chipNum].ddra;
+
+	case 0x02:
+		return mbvia[chipNum].ddrb;
+
+	case 0x03:
+		return mbvia[chipNum].ddra;
+
+	case 0x04:
+		return mbvia[chipNum].timer1counter & 0xFF;
+
+	case 0x05:
+		return (mbvia[chipNum].timer1counter & 0xFF00) >> 8;
+
+	case 0x06:
+		return mbvia[chipNum].timer1latch & 0xFF;
+
+	case 0x07:
+		return (mbvia[chipNum].timer1latch & 0xFF00) >> 8;
+
+	case 0x08:
+		return mbvia[chipNum].timer2counter & 0xFF;
+
+	case 0x09:
+		return (mbvia[chipNum].timer2counter & 0xFF00) >> 8;
+
+	case 0x0B:
+		return mbvia[chipNum].acr;
+
+	case 0x0D:
+		return (mbvia[chipNum].ifr & 0x7F)
+			| (mbvia[chipNum].ifr & 0x7F ? 0x80 : 0);
+
+	case 0x0E:
+		return mbvia[chipNum].ier | 0x80;
+
+	default:
+		WriteLog("Unhandled 6522 register %X read (chip %d)\n", regNum, chipNum);
+	}
+
+	return 0;
+}
+
+
+static uint8_t regLatch[2];
+void MBWrite(uint16_t address, uint8_t byte)
+{
+	uint8_t regNum = address & 0x0F;
+	uint8_t chipNum = (address & 0x80) >> 7;
+/*
+NOTES:
+bit 7 = L/R channel select (AY chip 1 versus AY chip 2)
+        0 = Left, 1 = Right
+
+Reg. B is connected to BC1, BDIR, RST' (bits 0, 1, 2)
+
+Left VIA IRQ line is tied to 6502 IRQ line
+Rght VIA IRQ line is tied to 6502 NMI line
+
+Register  Function
+--------  -------------------------
+0         Output Register B
+1         Output Register A
+2         Data Direction Register B
+3         Data Direction Register A
+4         Timer 1 Low byte counter (& latch)
+5         Timer 1 Hgh byte counter (& latch)
+6         Timer 1 Low byte latch
+7         Timer 1 Hgh byte latch (& reset IRQ flag)
+B         Aux Control Register
+D         Interrupt Flag Register
+E         Interrupt Enable Register
+
+bit 6 of ACR is like so:
+0: Timed interrupt each time Timer 1 is loaded
+1: Continuous interrupts
+
+bit 7 enables PB7 (bit 6 controls output type):
+0: One shot output
+1: Square wave output
+
+
+*/
+#if 0
+	WriteLog("MBWrite: address = %X, byte= %X [clock=$%X]", address & 0xFF, byte, GetCurrentV65C02Clock());
+
+	if (regNum == 0)
+		WriteLog("[OUTB -> %s%s%s]\n", (byte & 0x01 ? "BC1" : ""), (byte & 0x02 ? " BDIR" : ""), (byte & 0x04 ? " RST'" : ""));
+	else if (regNum == 1)
+		WriteLog("[OUTA -> %02X]\n", byte);
+	else if (regNum == 2)
+		WriteLog("[DDRB -> %02X]\n", byte);
+	else if (regNum == 3)
+		WriteLog("[DDRA -> %02X]\n", byte);
+	else
+		WriteLog("\n");
+#endif
+
+	switch (regNum)
+	{
+	case 0x00:
+		// Control of the AY-3-8912 is thru this port pretty much...
+		mbvia[chipNum].orb = byte;
+
+		if ((byte & 0x04) == 0)
+#ifdef USE_NEW_AY8910
+			AYReset(chipNum);
+#else
+			AY8910_reset(chipNum);
+#endif
+		else if ((byte & 0x03) == 0x03)
+			regLatch[chipNum] = mbvia[chipNum].ora;
+		else if ((byte & 0x03) == 0x02)
+#ifdef USE_NEW_AY8910
+			AYWrite(chipNum, regLatch[chipNum], mbvia[chipNum].ora);
+#else
+			_AYWriteReg(chipNum, regLatch[chipNum], mbvia[chipNum].ora);
+#endif
+
+		break;
+
+	case 0x01:
+		mbvia[chipNum].ora = byte;
+		break;
+
+	case 0x02:
+		mbvia[chipNum].ddrb = byte;
+		break;
+
+	case 0x03:
+		mbvia[chipNum].ddra = byte;
+		break;
+
+	case 0x04:
+		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0xFF00)
+			| byte;
+		break;
+
+	case 0x05:
+		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0x00FF)
+			| (((uint16_t)byte) << 8);
+		mbvia[chipNum].timer1counter = mbvia[chipNum].timer1latch;
+		mbvia[chipNum].ifr &= 0x3F; // Clear T1 interrupt flag
+		break;
+
+	case 0x06:
+		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0xFF00)
+			| byte;
+		break;
+
+	case 0x07:
+		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0x00FF)
+			| (((uint16_t)byte) << 8);
+		mbvia[chipNum].ifr &= 0x3F; // Clear T1 interrupt flag
+		break;
+
+	case 0x0B:
+		mbvia[chipNum].acr = byte;
+		break;
+
+	case 0x0D:
+		mbvia[chipNum].ifr &= ~byte;
+		break;
+
+	case 0x0E:
+		if (byte & 0x80)
+			// Setting bits in the IER
+			mbvia[chipNum].ier |= byte;
+		else
+			// Clearing bits in the IER
+			mbvia[chipNum].ier &= ~byte;
+
+		break;
+	default:
+		WriteLog("Unhandled 6522 register $%X write $%02X (chip %d)\n", regNum, byte, chipNum);
+	}
+}
+
+
 uint8_t ReadButton0(uint16_t)
 {
 	return (uint8_t)openAppleDown << 7;
@@ -900,9 +1107,9 @@ uint8_t ReadDHIRES(uint16_t)
 // it actually sees the RAM access done by the video generation hardware. Some
 // programs exploit this, so we emulate it here.
 
-// N.B.: frameCycles will be off by the true amount because this only increments
-//       by the amount of a speaker cycle, not the cycle count when the access
-//       happens... !!! FIX !!!
+// N.B.: frameCycles will be off by the true amount because this only
+//       increments by the amount of a speaker cycle, not the cycle count when
+//       the access happens... !!! FIX !!!
 uint8_t ReadFloatingBus(uint16_t)
 {
 	// Get the currently elapsed cycle count for this frame

@@ -132,6 +132,7 @@ static uint8_t CPUCycles[256] = {
 	2, 5, 5, 2, 4, 4, 6, 2, 2, 4, 4, 2, 4, 4, 6, 2 };
 #endif
 
+#if 0
 static uint8_t _6502Cycles[256] = {
 	7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
 	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 6, 7,
@@ -167,6 +168,7 @@ static uint8_t _65C02Cycles[256] = {
 	2, 5, 5, 2, 4, 4, 6, 2, 2, 4, 3, 2, 4, 4, 6, 2,
 	2, 6, 2, 2, 3, 3, 5, 2, 2, 2, 2, 2, 4, 4, 6, 2,
 	2, 5, 5, 2, 4, 4, 6, 2, 2, 4, 4, 2, 4, 4, 6, 2 };
+#endif
 
 #if 0
 // ExtraCycles:
@@ -1128,9 +1130,10 @@ BEQ	Relative	BEQ Oper	F0	2	2
 
 #define HANDLE_BRANCH_TAKEN(m)      \
 {                                   \
-	uint16_t oldpc = regs.pc;         \
+	uint16_t oldpc = regs.pc;       \
 	regs.pc += m;                   \
 	regs.clock++;                   \
+\
 	if ((oldpc ^ regs.pc) & 0xFF00) \
 		regs.clock++;               \
 }
@@ -2888,6 +2891,23 @@ void Execute65C02(V65C02REGS * context, uint32_t cycles)
 	while (regs.clock < endCycles)
 	{
 #if 0
+static bool weGo = false;
+if (regs.pc == 0x80AE)
+{
+	dumpDis = true;
+	weGo = true;
+}
+else if (regs.pc == 0xFCA8 && weGo)
+{
+	dumpDis = false;
+	WriteLog("\n*** DELAY (A=$%02X)\n\n", regs.a);
+}
+else if (regs.pc == 0xFCB3 && weGo)
+{
+	dumpDis = true;
+}
+#endif
+#if 0
 /*if (regs.pc == 0x4007)
 {
 	dumpDis = true;
@@ -3012,12 +3032,22 @@ if (dumpDis)
 //if (!(regs.cpuFlags & V65C02_STATE_ILLEGAL_INST))
 //instCount[opcode]++;
 
-		exec_op[opcode]();								// Execute that opcode...
+		// We need this because the opcode execute could add 1 or 2 cycles
+		uint64_t clockSave = regs.clock;
+
+		// Execute that opcode...
+		exec_op[opcode]();
 		regs.clock += CPUCycles[opcode];
+
+		// Tell the timer function how many PHI2s have elapsed
+		if (regs.Timer)
+//			regs.Timer(CPUCycles[opcode]);
+			regs.Timer(regs.clock - clockSave);
+
 #ifdef __DEBUG__
 if (dumpDis)
-	WriteLog(" [PC=%04X, SP=%04X, CC=%s%s.%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
-		regs.pc, 0x0100 + regs.sp,
+	WriteLog(" [PC=%04X, SP=01%02X, CC=%s%s.%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
+		regs.pc, regs.sp,
 		(regs.cc & FLAG_N ? "N" : "-"), (regs.cc & FLAG_V ? "V" : "-"),
 		(regs.cc & FLAG_B ? "B" : "-"), (regs.cc & FLAG_D ? "D" : "-"),
 		(regs.cc & FLAG_I ? "I" : "-"), (regs.cc & FLAG_Z ? "Z" : "-"),
@@ -3052,11 +3082,9 @@ if (regs.pc == 0xFBD8)
 		{
 			// Not sure about this...
 			regs.sp = 0xFF;
-			regs.cc = FLAG_B | FLAG_I;		// Reset the CC register
+			regs.cc = FLAG_I;				// Reset the CC register
 			regs.pc = RdMemW(0xFFFC);		// And load PC with the RESET vector
 
-//			context->cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
-//			regs.cpuFlags &= ~V65C02_ASSERT_LINE_RESET;
 			context->cpuFlags = 0;			// Clear CPU flags...
 			regs.cpuFlags = 0;
 #ifdef __DEBUG__
@@ -3085,6 +3113,8 @@ WriteLog("\n*** NMI ***\n\n");
 			{
 #ifdef __DEBUG__
 WriteLog("\n*** IRQ ***\n\n");
+WriteLog("Clock=$%X\n", regs.clock);
+//dumpDis = true;
 #endif
 				regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);	// Save PC and CC
 				regs.WrMem(0x0100 + regs.sp--, regs.pc & 0xFF);
@@ -3116,5 +3146,14 @@ WriteLog("\n*** IRQ ***\n\n");
 uint64_t GetCurrentV65C02Clock(void)
 {
 	return regs.clock;
+}
+
+
+//
+// Assert 65C02 line in current context
+//
+void AssertLine(uint16_t flags)
+{
+	regs.cpuFlags |= flags;
 }
 

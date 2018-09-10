@@ -4,7 +4,7 @@
 // All the video modes that a real Apple 2 supports are handled here
 //
 // by James Hammons
-// (c) 2005-2017 Underground Software
+// (c) 2005-2018 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -20,7 +20,8 @@
 //   like white mono does [DONE]
 // - Double HiRes [DONE]
 // - 80 column text [DONE]
-// - Fix OSD text display so that it's visible no matter what background is there [DONE]
+// - Fix OSD text display so that it's visible no matter what background is
+//   there [DONE]
 //
 
 // Display routines seem MUCH slower now... !!! INVESTIGATE !!! [not anymore]
@@ -74,13 +75,14 @@ bool hiRes = false;
 bool alternateCharset = false;
 bool col80Mode = false;
 SDL_Renderer * sdlRenderer = NULL;
+SDL_Window * sdlWindow = NULL;
 
 // Local variables
 
-static SDL_Window * sdlWindow = NULL;
 static SDL_Texture * sdlTexture = NULL;
 static uint32_t * scrBuffer;
 static int scrPitch;
+static bool showFrameTicks = false;
 
 // We set up the colors this way so that they'll be endian safe
 // when we cast them to a uint32_t. Note that the format is RGBA.
@@ -236,7 +238,6 @@ uint16_t appleHiresToMono[0x200] = {
 	0x207F, 0x387F, 0x267F, 0x3E7F, 0x21FF, 0x39FF, 0x27FF, 0x3FFF	// $Fx
 };
 
-//static uint8_t blurTable[0x800][8];				// Color TV blur table
 static uint8_t blurTable[0x80][8];				// Color TV blur table
 static uint8_t mirrorTable[0x100];
 static uint32_t * palette = (uint32_t *)altColors;
@@ -262,34 +263,6 @@ void SetupBlurTable(void)
 	//       Odd. Doing the bit patterns from 0-$7F doesn't work, but going
 	//       from 0-$7FF stepping by 16 does. Hm.
 	//       Well, it seems that going from 0-$7F doesn't have enough precision to do the job.
-#if 0
-//	for(uint16_t bitPat=0; bitPat<0x800; bitPat++)
-	for(uint16_t bitPat=0; bitPat<0x80; bitPat++)
-	{
-/*		uint16_t w3 = bitPat & 0x888;
-		uint16_t w2 = bitPat & 0x444;
-		uint16_t w1 = bitPat & 0x222;
-		uint16_t w0 = bitPat & 0x111;*/
-		uint16_t w3 = bitPat & 0x88;
-		uint16_t w2 = bitPat & 0x44;
-		uint16_t w1 = bitPat & 0x22;
-		uint16_t w0 = bitPat & 0x11;
-
-		uint16_t blurred3 = (w3 | (w3 >> 1) | (w3 >> 2) | (w3 >> 3)) & 0x00FF;
-		uint16_t blurred2 = (w2 | (w2 >> 1) | (w2 >> 2) | (w2 >> 3)) & 0x00FF;
-		uint16_t blurred1 = (w1 | (w1 >> 1) | (w1 >> 2) | (w1 >> 3)) & 0x00FF;
-		uint16_t blurred0 = (w0 | (w0 >> 1) | (w0 >> 2) | (w0 >> 3)) & 0x00FF;
-
-		for(int8_t i=7; i>=0; i--)
-		{
-			uint8_t color = (((blurred0 >> i) & 0x01) << 3)
-				| (((blurred1 >> i) & 0x01) << 2)
-				| (((blurred2 >> i) & 0x01) << 1)
-				| ((blurred3 >> i) & 0x01);
-			blurTable[bitPat][7 - i] = color;
-		}
-	}
-#else
 	for(uint16_t bitPat=0; bitPat<0x800; bitPat+=0x10)
 	{
 		uint16_t w0 = bitPat & 0x111, w1 = bitPat & 0x222, w2 = bitPat & 0x444, w3 = bitPat & 0x888;
@@ -308,7 +281,6 @@ void SetupBlurTable(void)
 			blurTable[bitPat >> 4][7 - i] = color;
 		}
 	}
-#endif
 
 	for(int i=0; i<256; i++)
 	{
@@ -352,6 +324,12 @@ void CycleScreenTypes(void)
 }
 
 
+void ToggleTickDisplay(void)
+{
+	showFrameTicks = !showFrameTicks;
+}
+
+
 static uint32_t msgTicks = 0;
 static char message[4096];
 
@@ -367,31 +345,39 @@ void SpawnMessage(const char * text, ...)
 }
 
 
-static void DrawString2(uint32_t x, uint32_t y, uint32_t color);
+static void DrawString2(uint32_t x, uint32_t y, uint32_t color, char * msg);
 static void DrawString(void)
 {
 //This approach works, and seems to be fast enough... Though it probably would
 //be better to make the oversized font to match this one...
 	for(uint32_t x=7; x<=9; x++)
 		for(uint32_t y=7; y<=9; y++)
-			DrawString2(x, y, 0x00000000);
+			DrawString2(x, y, 0x00000000, message);
 
-	DrawString2(8, 8, 0x0020FF20);
+	DrawString2(8, 8, 0x0020FF20, message);
 }
 
 
-static void DrawString2(uint32_t x, uint32_t y, uint32_t color)
+static void DrawString(uint32_t x, uint32_t y, uint32_t color, char * msg)
 {
-//uint32_t x = 8, y = 8;
-	uint32_t length = strlen(message), address = x + (y * VIRTUAL_SCREEN_WIDTH);
-//	uint32_t color = 0x0020FF20;
-//This could be done ahead of time, instead of on each pixel...
-//(Now it is!)
+//This approach works, and seems to be fast enough... Though it probably would
+//be better to make the oversized font to match this one...
+	for(uint32_t xx=x-1; xx<=x+1; xx++)
+		for(uint32_t yy=y-1; yy<=y+1; yy++)
+			DrawString2(xx, yy, 0x00000000, msg);
+
+	DrawString2(x, y, color, msg);
+}
+
+
+static void DrawString2(uint32_t x, uint32_t y, uint32_t color, char * msg)
+{
+	uint32_t length = strlen(msg), address = x + (y * VIRTUAL_SCREEN_WIDTH);
 	uint8_t nBlue = (color >> 16) & 0xFF, nGreen = (color >> 8) & 0xFF, nRed = color & 0xFF;
 
 	for(uint32_t i=0; i<length; i++)
 	{
-		uint8_t c = message[i];
+		uint8_t c = msg[i];
 		c = (c < 32 ? 0 : c - 32);
 		uint32_t fontAddr = (uint32_t)c * FONT_WIDTH * FONT_HEIGHT;
 
@@ -399,14 +385,6 @@ static void DrawString2(uint32_t x, uint32_t y, uint32_t color)
 		{
 			for(uint32_t xx=0; xx<FONT_WIDTH; xx++)
 			{
-/*				uint8_t fontTrans = font1[fontAddr++];
-//				uint32_t newTrans = (fontTrans * transparency / 255) << 24;
-				uint32_t newTrans = fontTrans << 24;
-				uint32_t pixel = newTrans | color;
-
-				*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = pixel;//*/
-
-//				uint8_t trans = font1[fontAddr++];
 				uint8_t trans = font2[fontAddr++];
 
 				if (trans)
@@ -435,6 +413,65 @@ static void DrawString2(uint32_t x, uint32_t y, uint32_t color)
 
 		address += FONT_WIDTH;
 	}
+}
+
+
+static void DrawFrameTicks(void)
+{
+	uint32_t color = 0x00FF2020;
+	uint32_t address = 8 + (24 * VIRTUAL_SCREEN_WIDTH);
+
+	for(uint32_t i=0; i<17; i++)
+	{
+		for(uint32_t yy=0; yy<5; yy++)
+		{
+			for(uint32_t xx=0; xx<9; xx++)
+			{
+//THIS IS NOT ENDIAN SAFE
+//NB: Setting the alpha channel here does nothing.
+				*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = 0x7F000000;
+			}
+		}
+
+		address += (5 * VIRTUAL_SCREEN_WIDTH);
+	}
+
+	address = 8 + (24 * VIRTUAL_SCREEN_WIDTH);
+
+	// frameTicks is the amount of time remaining; so to show the amount
+	// consumed, we subtract it from 17.
+	uint32_t bars = 17 - frameTicks;
+
+	if (bars & 0x80000000)
+		bars = 0;
+
+	for(uint32_t i=0; i<17; i++)
+	{
+		for(uint32_t yy=1; yy<4; yy++)
+		{
+			for(uint32_t xx=1; xx<8; xx++)
+			{
+//THIS IS NOT ENDIAN SAFE
+//NB: Setting the alpha channel here does nothing.
+				*(scrBuffer + address + xx + (yy * VIRTUAL_SCREEN_WIDTH)) = (i < bars ? color : 0x003F0000);
+			}
+		}
+
+		address += (5 * VIRTUAL_SCREEN_WIDTH);
+	}
+
+	static char msg[32];
+
+	if ((frameTimePtr % 15) == 0)
+	{
+//		uint32_t prevClock = (frameTimePtr + 1) % 60;
+		uint64_t prevClock = (frameTimePtr + 1) % 60;
+//		float fps = 59.0f / (((float)frameTime[frameTimePtr] - (float)frameTime[prevClock]) / 1000.0f);
+		double fps = 59.0 / ((double)(frameTime[frameTimePtr] - frameTime[prevClock]) / (double)SDL_GetPerformanceFrequency());
+		sprintf(msg, "%.1lf FPS", fps);
+	}
+
+	DrawString(20, 24, color, msg);
 }
 
 
@@ -1090,6 +1127,9 @@ void RenderVideoFrame(void)
 		DrawString();
 		msgTicks--;
 	}
+
+	if (showFrameTicks)
+		DrawFrameTicks();
 }
 
 
@@ -1104,19 +1144,35 @@ bool InitVideo(void)
 		return false;
 	}
 
-//	int retVal = SDL_CreateWindowAndRenderer(VIRTUAL_SCREEN_WIDTH * 2, VIRTUAL_SCREEN_HEIGHT * 2, SDL_WINDOW_OPENGL, &sdlWindow, &sdlRenderer);
+#if 0
 	int retVal = SDL_CreateWindowAndRenderer(VIRTUAL_SCREEN_WIDTH * 2, VIRTUAL_SCREEN_HEIGHT * 2, 0, &sdlWindow, &sdlRenderer);
 //	int retVal = SDL_CreateWindowAndRenderer(VIRTUAL_SCREEN_WIDTH * 1, VIRTUAL_SCREEN_HEIGHT * 1, 0, &sdlWindow, &sdlRenderer);
 
 	if (retVal != 0)
 	{
-		WriteLog("Video: Could not window and/or renderer: %s\n", SDL_GetError());
+		WriteLog("Video: Could not create window and/or renderer: %s\n", SDL_GetError());
+		return false;
+	}
+#else
+	sdlWindow = SDL_CreateWindow("Apple2", settings.winX, settings.winY, VIRTUAL_SCREEN_WIDTH * 2, VIRTUAL_SCREEN_HEIGHT * 2, 0);
+
+	if (sdlWindow == NULL)
+	{
+		WriteLog("Video: Could not create window: %s\n", SDL_GetError());
 		return false;
 	}
 
-	// Make the scaled rendering look smoother.
+	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+	if (sdlRenderer == NULL)
+	{
+		WriteLog("Video: Could not create renderer: %s\n", SDL_GetError());
+		return false;
+	}
+#endif
+
+	// Make sure what we put there is what we get:
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-//	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 	SDL_RenderSetLogicalSize(sdlRenderer, VIRTUAL_SCREEN_WIDTH, VIRTUAL_SCREEN_HEIGHT);
 
 	// Set the application's icon & title...

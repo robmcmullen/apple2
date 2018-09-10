@@ -32,6 +32,11 @@ struct Settings
 	uint32_t renderType;
 	bool autoStateSaving;		// Auto-state loading/saving on entry/exit
 
+	// Window settings
+
+	int winX;
+	int winY;
+
 	// Keybindings in order of U, D, L, R, C, B, A, Op, Pa, 0-9, #, *
 
 	uint16_t p1KeyBindings[21];

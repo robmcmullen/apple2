@@ -35,4 +35,12 @@ extern bool ioudis;
 extern bool dhires;
 extern uint8_t lcState;
 extern uint64_t frameCycleStart;
+#if 0
+extern uint32_t frameTicks;
+extern uint32_t frameTime[];
+#else
+extern uint64_t frameTicks;
+extern uint64_t frameTime[];
+#endif
+extern uint32_t frameTimePtr;
 

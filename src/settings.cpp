@@ -18,6 +18,7 @@
 #include <SDL2/SDL.h>
 #include "sdlemu_config.h"
 #include "log.h"
+#include "video.h"
 
 using namespace std;
 
@@ -52,6 +53,9 @@ void LoadSettings(void)
 	settings.glFilter = sdlemu_getval_int("glFilterType", 0);
 	settings.renderType = sdlemu_getval_int("renderType", 0);
 	settings.autoStateSaving = sdlemu_getval_bool("autoSaveState", true);
+
+	settings.winX = sdlemu_getval_int("windowX", 250);
+	settings.winY = sdlemu_getval_int("windowY", 100);
 
 	// Keybindings in order of U, D, L, R, C, B, A, Op, Pa, 0-9, #, *
 	settings.p1KeyBindings[0] = sdlemu_getval_int("p1k_up", SDL_SCANCODE_UP);
@@ -110,6 +114,7 @@ void LoadSettings(void)
 //
 void SaveSettings(void)
 {
+	SDL_GetWindowPosition(sdlWindow, &settings.winX, &settings.winY);
 }
 
 

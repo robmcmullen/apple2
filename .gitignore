@@ -1,7 +1,15 @@
 apple2
-apple2.log
+*.log
+*.zip
+*.state*
+*.bak
 disks/
 gmon.out
 obj/
 bugs/
 reference/
+src/gui/foooked/
+ROMs/bin2c
+ROMs/from-applewin/
+res/
+docs/

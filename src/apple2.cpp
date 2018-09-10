@@ -2,7 +2,7 @@
 // Apple 2 SDL Portable Apple Emulator
 //
 // by James Hammons
-// © 2017 Underground Software
+// © 2018 Underground Software
 //
 // Parts loosely inspired by AppleWin by Tom Charlesworth which was based on
 // AppleWin by Oliver Schmidt which was based on AppleWin by Michael O'Brien.
@@ -24,11 +24,11 @@
 // STILL TO DO:
 //
 // - Port to SDL [DONE]
-// - GUI goodies
 // - Weed out unneeded functions [DONE]
 // - Disk I/O [DONE]
 // - 128K IIe related stuff [DONE]
-// - State loading/saving
+// - State loading/saving [DONE]
+// - GUI goodies
 //
 // BUGS:
 //
@@ -45,9 +45,11 @@
 #include <stdlib.h>
 #include <string>
 #include <time.h>
+#include "ay8910.h"
 #include "firmware.h"
 #include "floppy.h"
 #include "log.h"
+#include "mos6522via.h"
 #include "mmu.h"
 #include "settings.h"
 #include "sound.h"
@@ -75,6 +77,15 @@ FloppyDrive floppyDrive;
 bool powerStateChangeRequested = false;
 uint64_t frameCycleStart;
 
+#if 0
+uint32_t frameTicks = 0;
+uint32_t frameTime[60];
+#else
+uint64_t frameTicks = 0;
+uint64_t frameTime[60];
+#endif
+uint32_t frameTimePtr = 0;
+
 // Exported variables
 
 uint8_t lastKeyPressed = 0;
@@ -94,11 +105,15 @@ bool dhires = false;
 uint8_t lcState = 0x02;
 
 static bool running = true;					// Machine running state flag...
+#if 0
 static uint32_t startTicks;
+#else
+static uint64_t startTicks;
+#endif
 static bool pauseMode = false;
 static bool fullscreenDebounce = false;
-static bool capsLock = false;
-static bool capsLockDebounce = false;
+//static bool capsLock = false;
+//static bool capsLockDebounce = false;
 static bool resetKeyDown = false;
 static int8_t hideMouseTimeout = 60;
 
@@ -113,6 +128,7 @@ static uint8_t keyDelay = 0;
 static void SaveApple2State(const char * filename);
 static bool LoadApple2State(const char * filename);
 static void ResetApple2State(void);
+static void AppleTimer(uint16_t);
 
 // Local timer callback functions
 
@@ -129,12 +145,15 @@ static bool cpuFinished = false;
 // NB: Apple //e Manual sez 6502 is running @ 1,022,727 Hz
 //     This is a lie. At the end of each 65 cycle line, there is an elongated
 //     cycle (the so-called 'long' cycle) that throws the calcs out of whack.
+//     So actually, it's supposed to be 1,020,484.32 Hz
 
 // Let's try a thread...
 //
 // Here's how it works: Execute 1 frame's worth, then sleep. Other stuff wakes
 // it up.
 //
+static uint32_t sampleCount;
+static uint64_t sampleClock, lastSampleClock;
 int CPUThreadFunc(void * data)
 {
 	// Mutex must be locked for conditional to work...
@@ -142,11 +161,15 @@ int CPUThreadFunc(void * data)
 	SDL_mutex * cpuMutex = SDL_CreateMutex();
 
 #ifdef CPU_THREAD_OVERFLOW_COMPENSATION
-	float overflow = 0.0;
+//	float overflow = 0.0;
 #endif
 
 	do
 	{
+uint64_t cpuFrameTickStart = SDL_GetPerformanceCounter();
+uint64_t oldClock = mainCPU.clock;
+sampleCount = 0;
+sampleClock = lastSampleClock = mainCPU.clock;
 // decrement mainSem...
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: SDL_SemWait(mainSem);\n");
@@ -163,43 +186,48 @@ WriteLog("CPU: SDL_SemWait(mainSem);\n");
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 #endif
-//		for(int i=0; i<800; i++)
-		for(int i=0; i<786; i++)
+//		for(int i=0; i<786; i++)
+		for(int i=0; i<262; i++)
 		{
-			uint32_t cycles = 21;
-//			overflow += 0.333333334;
-			overflow += 0.666666667;
+//			uint32_t cycles = 21;
+//			overflow += 0.666666667;
 
-			if (overflow > 1.0)
-			{
-				cycles++;
-				overflow -= 1.0;
-			}
+//			if (overflow > 1.0)
+//			{
+//				cycles++;
+//				overflow -= 1.0;
+//			}
 
 			// If the CTRL+Reset key combo is being held, make sure the RESET
 			// line stays asserted:
 			if (resetKeyDown)
 				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
-			Execute65C02(&mainCPU, cycles);
-			WriteSampleToBuffer();
+//			Execute65C02(&mainCPU, cycles);
+			Execute65C02(&mainCPU, 65);
+//			WriteSampleToBuffer();
 
 			// According to "Understanding The Apple IIe", VBL asserted after
 			// the last byte of the screen is read and let go on the first read
 			// of the first byte of the screen. We now know that the screen
 			// starts on line #6 and ends on line #197 (of the vertical
 			// counter--actual VBLANK happens on lines 230 thru 233).
-			vbl = ((i > 17) && (i < 592) ? true : false);
+//			vbl = ((i > 17) && (i < 592) ? true : false);
+			vbl = ((i >= 6) && (i <= 197) ? true : false);
 		}
+
+WriteLog("*** Frame ran for %d cycles (%.3lf µs, %d samples).\n", mainCPU.clock - oldClock, ((double)(SDL_GetPerformanceCounter() - cpuFrameTickStart) * 1000000.0) / (double)SDL_GetPerformanceFrequency(), sampleCount);
+//	frameTicks = ((SDL_GetPerformanceCounter() - startTicks) * 1000) / SDL_GetPerformanceFrequency();
 /*
 Other timings from UTA2E:
 Power-up reset				32.6 msec / 512 horizontal scans
 Flash cycle					1.87 Hz / Vertical freq./32
 Delay before auto repeat	534-801 msec / 32-48 vertical scans
 Auto repeat frequency		15 Hz / Vertical freq./4
-Vertical frequency			59.94 Hz
-Horizontal frequency		15,734 Hz
-1 NTSC frame = 17030 cycles
+Vertical frequency			59.94 Hz (actually, 59.92 Hz [59.92274339401])
+Horizontal frequency		15,734 Hz (actually, 15700 Hz)
+1 NTSC frame = 17030 cycles (N.B.: this works out to 1021800 cycles per sec.)
+NTSC clock frequency ("composite" freq.) is 1.02048432 MHz, which is 14.31818 x (65 / (65 x 14 + 2)) MHz.
 1 line = 65 cycles
 70 blank lines for top margin, 192 lines for screen, (35 & 35?)
 VA-C,V0-5 is upcounter starting at 011111010 ($FA) to 111111111 ($1FF)
@@ -297,7 +325,7 @@ bool LoadImg(char * filename, uint8_t * ram, int size)
 }
 
 
-const uint8_t stateHeader[19] = "APPLE2SAVESTATE1.0";
+const uint8_t stateHeader[19] = "APPLE2SAVESTATE1.1";
 static void SaveApple2State(const char * filename)
 {
 	WriteLog("Main: Saving Apple2 state...\n");
@@ -406,6 +434,7 @@ static bool LoadApple2State(const char * filename)
 	// Make sure things are in a sane state before execution :-P
 	mainCPU.RdMem = AppleReadMem;
 	mainCPU.WrMem = AppleWriteMem;
+	mainCPU.Timer = AppleTimer;
 	ResetMMUPointers();
 
 	return true;
@@ -428,11 +457,89 @@ static void ResetApple2State(void)
 	dhires = false;
 	lcState = 0x02;
 	ResetMMUPointers();
+	ResetMBVIAs();
+#ifdef USE_NEW_AY8910
+	AYReset(0);
+	AYReset(1);
+#else
+	AY8910_reset(0);
+	AY8910_reset(1);
+#endif
 
 	// Without this, you can wedge the system :-/
 	memset(ram, 0, 0x10000);
 	memset(ram2, 0, 0x10000);
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
+}
+
+
+static double cyclesForSample = 0;
+static void AppleTimer(uint16_t cycles)
+{
+	// Handle PHI2 clocked stuff here...
+	bool via1T1HitZero = (mbvia[0].timer1counter <= cycles ? true : false);
+	bool via2T1HitZero = (mbvia[1].timer1counter <= cycles ? true : false);
+
+	mbvia[0].timer1counter -= cycles;
+	mbvia[0].timer2counter -= cycles;
+	mbvia[1].timer1counter -= cycles;
+	mbvia[1].timer2counter -= cycles;
+
+	if (via1T1HitZero)
+	{
+		if (mbvia[0].acr & 0x40)
+		{
+			mbvia[0].timer1counter += mbvia[0].timer1latch;
+
+			if (mbvia[0].ier & 0x40)
+			{
+				mbvia[0].ifr |= (0x80 | 0x40);
+				AssertLine(V65C02_ASSERT_LINE_IRQ);
+			}
+		}
+		else
+		{
+			mbvia[0].ier &= 0x3F; // Disable T1 interrupt (VIA #1)
+		}
+	}
+
+	if (via2T1HitZero)
+	{
+		if (mbvia[1].acr & 0x40)
+		{
+			mbvia[1].timer1counter += mbvia[1].timer1latch;
+
+			if (mbvia[1].ier & 0x40)
+			{
+				mbvia[1].ifr |= (0x80 | 0x40);
+				AssertLine(V65C02_ASSERT_LINE_NMI);
+			}
+		}
+		else
+		{
+			mbvia[1].ier &= 0x3F; // Disable T1 interrupt (VIA #2)
+		}
+	}
+
+#if 1
+	// Handle sound
+	// 21.26009 cycles per sample @ 48000 (running @ 1,020,484.32 Hz)
+	// Noooooope.  We need ~801 cycles per frame.  Averaging about 786, so missing 15 or so.
+	// 16.688154500083 ms = 1 frame
+	cyclesForSample += (double)cycles;
+
+	if (cyclesForSample >= 21.26009)
+	{
+#if 0
+sampleClock = GetCurrentV65C02Clock();
+WriteLog("    cyclesForSample = %lf (%d samples, cycles=%d)\n", cyclesForSample, sampleClock - lastSampleClock, cycles);
+sampleCount++;
+lastSampleClock = sampleClock;
+#endif
+		WriteSampleToBuffer();
+		cyclesForSample -= 21.26009;
+	}
+#endif
 }
 
 
@@ -501,10 +608,21 @@ int main(int /*argc*/, char * /*argv*/[])
 	SetupAddressMap();
 	ResetMMUPointers();
 
+	// Set up Mockingboard
+	memset(&mbvia[0], 0, sizeof(MOS6522VIA));
+	memset(&mbvia[1], 0, sizeof(MOS6522VIA));
+//(at some point this shite will have to go into the state file...)
+#ifdef USE_NEW_AY8910
+	AYInit();
+#else
+	AY8910_InitAll(1020484, 48000);
+#endif
+
 	// Set up V65C02 execution context
 	memset(&mainCPU, 0, sizeof(V65C02REGS));
 	mainCPU.RdMem = AppleReadMem;
 	mainCPU.WrMem = AppleWriteMem;
+	mainCPU.Timer = AppleTimer;
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
 	if (!LoadImg(settings.BIOSPath, rom + 0xC000, 0x4000))
@@ -522,6 +640,7 @@ int main(int /*argc*/, char * /*argv*/[])
 	}
 
 	GUI::Init(sdlRenderer);
+
 	WriteLog("About to initialize audio...\n");
 	SoundInit();
 
@@ -531,6 +650,20 @@ int main(int /*argc*/, char * /*argv*/[])
 		if (!LoadApple2State(settings.autoStatePath))
 			WriteLog("Unable to use Apple2 state file \"%s\"!\n", settings.autoStatePath);
 	}
+
+/*
+So, how to run this then?  Right now, we have two separate threads, one for the CPU and one for audio.  The screen refresh is tied to the CPU thread.
+
+To do this properly, however, we need to execute approximately 1,020,484.32 cycles per second, and we need to tie the AY/regular sound to this rate.  Video should happen still approximately 60 times a second, even though the real thing has a frame rate of 59.92 Hz.
+
+Right now, the speed of the CPU is tied to the host system's refresh rate (which seems to be somewhere around 59.9 Hz).  Under this regime, the sound thread is starved much of the time, which means there's a timing mismatch somewhere between the sound thread and the CPU thread and the video (main) thread.
+
+Other considerations: Even though we know the exact amount of cycles for one frame (17030 cycles to be exact), because the video frame rate is slightly under 60 (~59.92) the amount of time those cycles take can't be tied to the host system refresh rate, as they won't be the same (it will have about 8,000 or so more cycles in one second than it should have using 60 frames per second as the base frequency).  However, we do know that the system clock is 14.318180 MHz, and we do know that 1 out of every 65 cycles will take 2 extra ticks of the system clock (cycles are normally 14 ticks of the system clock).  So, by virtue of this, we know how long one frame is in seconds exactly (which would be (((65 * 14) + 2) * 262) / 14318180 = 16.688154500083 milliseconds).
+
+So we need to decouple the CPU thread from the host video thread, and have the CPU frame run at its rate so that it will complete its running in its alloted time.  We also need to have a little bit of cushion for the sound thread, so that its buffer doesn't starve.  Assuming we get the timing correct, it will pull ahead and fall behind and all average out in the end.
+
+
+*/
 
 	running = true;
 	InitializeEventList();
@@ -553,7 +686,9 @@ int main(int /*argc*/, char * /*argv*/[])
 
 	while (running)
 	{
+#ifdef CPU_CLOCK_CHECKING
 		double timeToNextEvent = GetTimeToNextEvent();
+#endif
 #ifndef THREADED_65C02
 		Execute65C02(&mainCPU, USEC_TO_M6502_CYCLES(timeToNextEvent));
 
@@ -609,7 +744,8 @@ WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
 // Letters a-z (lowercase)
 //
 // N.B.: The Apple //e keyboard maps its shift characters like most modern US
-//       keyboards, so this table should suffice for the shifted keys just fine.
+//       keyboards, so this table should suffice for the shifted keys just
+//       fine.
 //
 uint8_t apple2e_keycode[4][56] = {
 	{	// Normal
@@ -655,6 +791,9 @@ static void FrameCallback(void)
 {
 	SDL_Event event;
 	uint8_t keyIndex;
+
+	frameTimePtr = (frameTimePtr + 1) % 60;
+	frameTime[frameTimePtr] = startTicks;
 
 	while (SDL_PollEvent(&event))
 	{
@@ -766,7 +905,7 @@ static void FrameCallback(void)
 				keyDown = true;
 
 				// Handle Caps Lock
-				if (capsLock
+				if ((SDL_GetModState() & KMOD_CAPS)
 					&& (lastKeyPressed >= 0x61) && (lastKeyPressed <= 0x7A))
 					lastKeyPressed -= 0x20;
 
@@ -814,7 +953,15 @@ static void FrameCallback(void)
 				closedAppleDown = true;
 			// Toggle the disassembly process
 			else if (event.key.keysym.sym == SDLK_F11)
+			{
 				dumpDis = !dumpDis;
+				SpawnMessage("Trace: %s", (dumpDis ? "ON" : "off"));
+			}
+			else if (event.key.keysym.sym == SDLK_F12)
+			{
+				logAYInternal = !logAYInternal;
+				SpawnMessage("AY Trace: %s", (logAYInternal ? "ON" : "off"));
+			}
 
 /*else if (event.key.keysym.sym == SDLK_F9)
 {
@@ -831,6 +978,8 @@ static void FrameCallback(void)
 				TogglePalette();
 			else if (event.key.keysym.sym == SDLK_F3)
 				CycleScreenTypes();
+			else if (event.key.keysym.sym == SDLK_F4)
+				ToggleTickDisplay();
 			else if (event.key.keysym.sym == SDLK_F5)
 			{
 				VolumeDown();
@@ -851,6 +1000,17 @@ static void FrameCallback(void)
 
 				SpawnMessage("Volume: %s", volStr);
 			}
+			else if (event.key.keysym.sym == SDLK_F7)
+			{
+				// 4th root of 2 is ~1.18920711500272 (~1.5 dB)
+				maxVolume /= 1.4142135f;	// This attenuates by ~3 dB
+				SpawnMessage("MB Volume: %d", (int)maxVolume);
+			}
+			else if (event.key.keysym.sym == SDLK_F8)
+			{
+				maxVolume *= 1.4142135f;
+				SpawnMessage("MB Volume: %d", (int)maxVolume);
+			}
 			else if (event.key.keysym.sym == SDLK_F12)
 			{
 				if (!fullscreenDebounce)
@@ -859,22 +1019,12 @@ static void FrameCallback(void)
 					fullscreenDebounce = true;
 				}
 			}
-			else if (event.key.keysym.sym == SDLK_CAPSLOCK)
-			{
-				if (!capsLockDebounce)
-				{
-					capsLock = !capsLock;
-					capsLockDebounce = true;
-				}
-			}
 
 			break;
 
 		case SDL_KEYUP:
 			if (event.key.keysym.sym == SDLK_F12)
 				fullscreenDebounce = false;
-			else if (event.key.keysym.sym == SDLK_CAPSLOCK)
-				capsLockDebounce = false;
 			// Paddle buttons 0 & 1
 			else if (event.key.keysym.sym == SDLK_LALT)
 				openAppleDown = false;
@@ -1005,17 +1155,29 @@ if (counter == 60)
 #endif
 
 // This is the problem: If you set the interval to 16, it runs faster than
-// 1/60s per frame. If you set it to 17, it runs slower. What we need is to
-// have it do 16 for one frame, then 17 for two others. Then it should average
-// out to 1/60s per frame every 3 frames. [And now it does!]
+// 1/60s per frame.  If you set it to 17, it runs slower.  What we need is to
+// have it do 16 for one frame, then 17 for two others.  Then it should average
+// out to 1/60s per frame every 3 frames.  [And now it does!]
+// Maybe we need a higher resolution timer, as the SDL_GetTicks() (in ms) seems
+// to jitter all over the place...
 	frameCount = (frameCount + 1) % 3;
-	uint32_t waitFrameTime = 17 - (frameCount == 0 ? 1 : 0);
+//	uint32_t waitFrameTime = 17 - (frameCount == 0 ? 1 : 0);
+	// Get number of ticks burned in this frame, for displaying elsewhere
+#if 0
+	frameTicks = SDL_GetTicks() - startTicks;
+#else
+	frameTicks = ((SDL_GetPerformanceCounter() - startTicks) * 1000) / SDL_GetPerformanceFrequency();
+#endif
 
 	// Wait for next frame...
-	while (SDL_GetTicks() - startTicks < waitFrameTime)
-		SDL_Delay(1);
+//	while (SDL_GetTicks() - startTicks < waitFrameTime)
+//		SDL_Delay(1);
 
+#if 0
 	startTicks = SDL_GetTicks();
+#else
+	startTicks = SDL_GetPerformanceCounter();
+#endif
 #if 0
 	uint64_t cpuCycles = GetCurrentV65C02Clock();
 	uint32_t cyclesBurned = (uint32_t)(cpuCycles - lastCPUCycles);
