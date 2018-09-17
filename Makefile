@@ -2,7 +2,7 @@
 # Unified Makefile for Apple 2 SDL
 #
 # by James Hammons
-# (C) 2005-17 Underground Software
+# (C) 2005-2018 Underground Software
 # This software is licensed under the GPL v3
 #
 
@@ -109,6 +109,7 @@ OBJS = \
 	obj/apple2-icon-64x64.o \
 	obj/ay8910.o          \
 	obj/charset.o         \
+	obj/crc32.o           \
 	obj/dis65c02.o        \
 	obj/firmware.o        \
 	obj/floppy.o          \

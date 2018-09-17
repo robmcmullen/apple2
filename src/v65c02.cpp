@@ -1,8 +1,8 @@
 //
-// Virtual 65C02 Emulator v1.0
+// Virtual 65C02 Emulator v1.1
 //
 // by James Hammons
-// (c) 2005 Underground Software
+// (c) 2005-2018 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -28,73 +28,71 @@
 #include "log.h"
 #endif
 
-// Various macros
 
-#define CLR_Z				(regs.cc &= ~FLAG_Z)
-#define CLR_ZN				(regs.cc &= ~(FLAG_Z | FLAG_N))
-#define CLR_ZNC				(regs.cc &= ~(FLAG_Z | FLAG_N | FLAG_C))
-#define CLR_V				(regs.cc &= ~FLAG_V)
-#define CLR_N				(regs.cc &= ~FLAG_N)
-#define SET_Z(r)			(regs.cc = ((r) == 0 ? regs.cc | FLAG_Z : regs.cc & ~FLAG_Z))
-#define SET_N(r)			(regs.cc = ((r) & 0x80 ? regs.cc | FLAG_N : regs.cc & ~FLAG_N))
+// Various helper macros
+
+#define CLR_Z				(regs->cc &= ~FLAG_Z)
+#define CLR_ZN				(regs->cc &= ~(FLAG_Z | FLAG_N))
+#define CLR_ZNC				(regs->cc &= ~(FLAG_Z | FLAG_N | FLAG_C))
+#define CLR_V				(regs->cc &= ~FLAG_V)
+#define CLR_N				(regs->cc &= ~FLAG_N)
+#define CLR_D				(regs->cc &= ~FLAG_D)
+#define SET_Z(r)			(regs->cc = ((r) == 0 ? regs->cc | FLAG_Z : regs->cc & ~FLAG_Z))
+#define SET_N(r)			(regs->cc = ((r) & 0x80 ? regs->cc | FLAG_N : regs->cc & ~FLAG_N))
+#define SET_I				(regs->cc |= FLAG_I)
 
 //Not sure that this code is computing the carry correctly... Investigate! [Seems to be]
-#define SET_C_ADD(a,b)		(regs.cc = ((uint8_t)(b) > (uint8_t)(~(a)) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
-//#define SET_C_SUB(a,b)		(regs.cc = ((uint8_t)(b) >= (uint8_t)(a) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
-#define SET_C_CMP(a,b)		(regs.cc = ((uint8_t)(b) >= (uint8_t)(a) ? regs.cc | FLAG_C : regs.cc & ~FLAG_C))
+#define SET_C_ADD(a,b)		(regs->cc = ((uint8_t)(b) > (uint8_t)(~(a)) ? regs->cc | FLAG_C : regs->cc & ~FLAG_C))
+#define SET_C_CMP(a,b)		(regs->cc = ((uint8_t)(b) >= (uint8_t)(a) ? regs->cc | FLAG_C : regs->cc & ~FLAG_C))
 #define SET_ZN(r)			SET_N(r); SET_Z(r)
 #define SET_ZNC_ADD(a,b,r)	SET_N(r); SET_Z(r); SET_C_ADD(a,b)
-//#define SET_ZNC_SUB(a,b,r)	SET_N(r); SET_Z(r); SET_C_SUB(a,b)
 #define SET_ZNC_CMP(a,b,r)	SET_N(r); SET_Z(r); SET_C_CMP(a,b)
 
-//Small problem with the EA_ macros: ABS macros don't increment the PC!!! !!! FIX !!!
-//NB: It's properly handled by everything that uses it, so it works, even if it's klunky
-//Small problem with fixing it is that you can't do it in a single instruction, i.e.,
-//you have to read the value THEN you have to increment the PC. Unless there's another
-//way to do that
-//[DONE]
-#define EA_IMM				regs.pc++
-#define EA_ZP				regs.RdMem(regs.pc++)
-#define EA_ZP_X				(regs.RdMem(regs.pc++) + regs.x) & 0xFF
-#define EA_ZP_Y				(regs.RdMem(regs.pc++) + regs.y) & 0xFF
-#define EA_ABS				FetchMemW(regs.pc)
-#define EA_ABS_X			FetchMemW(regs.pc) + regs.x
-#define EA_ABS_Y			FetchMemW(regs.pc) + regs.y
-#define EA_IND_ZP_X			RdMemW((regs.RdMem(regs.pc++) + regs.x) & 0xFF)
-#define EA_IND_ZP_Y			RdMemW(regs.RdMem(regs.pc++)) + regs.y
-#define EA_IND_ZP			RdMemW(regs.RdMem(regs.pc++))
+#define EA_IMM				regs->pc++
+#define EA_ZP				regs->RdMem(regs->pc++)
+#define EA_ZP_X				(regs->RdMem(regs->pc++) + regs->x) & 0xFF
+#define EA_ZP_Y				(regs->RdMem(regs->pc++) + regs->y) & 0xFF
+#define EA_ABS				FetchMemW(regs->pc)
+#define EA_ABS_X			FetchMemW(regs->pc) + regs->x
+#define EA_ABS_Y			FetchMemW(regs->pc) + regs->y
+#define EA_IND_ZP_X			RdMemW((regs->RdMem(regs->pc++) + regs->x) & 0xFF)
+#define EA_IND_ZP_Y			RdMemW(regs->RdMem(regs->pc++)) + regs->y
+#define EA_IND_ZP			RdMemW(regs->RdMem(regs->pc++))
 
-#define READ_IMM			regs.RdMem(EA_IMM)
-#define READ_ZP				regs.RdMem(EA_ZP)
-#define READ_ZP_X			regs.RdMem(EA_ZP_X)
-#define READ_ZP_Y			regs.RdMem(EA_ZP_Y)
-#define READ_ABS			regs.RdMem(EA_ABS)
-#define READ_ABS_X			regs.RdMem(EA_ABS_X)
-#define READ_ABS_Y			regs.RdMem(EA_ABS_Y)
-#define READ_IND_ZP_X		regs.RdMem(EA_IND_ZP_X)
-#define READ_IND_ZP_Y		regs.RdMem(EA_IND_ZP_Y)
-#define READ_IND_ZP			regs.RdMem(EA_IND_ZP)
+#define READ_IMM			regs->RdMem(EA_IMM)
+#define READ_ZP				regs->RdMem(EA_ZP)
+#define READ_ZP_X			regs->RdMem(EA_ZP_X)
+#define READ_ZP_Y			regs->RdMem(EA_ZP_Y)
+#define READ_ABS			regs->RdMem(EA_ABS)
+#define READ_ABS_X			regs->RdMem(EA_ABS_X)
+#define READ_ABS_Y			regs->RdMem(EA_ABS_Y)
+#define READ_IND_ZP_X		regs->RdMem(EA_IND_ZP_X)
+#define READ_IND_ZP_Y		regs->RdMem(EA_IND_ZP_Y)
+#define READ_IND_ZP			regs->RdMem(EA_IND_ZP)
 
-#define READ_IMM_WB(v)		uint16_t addr = EA_IMM;      v = regs.RdMem(addr)
-#define READ_ZP_WB(v)		uint16_t addr = EA_ZP;       v = regs.RdMem(addr)
-#define READ_ZP_X_WB(v)		uint16_t addr = EA_ZP_X;     v = regs.RdMem(addr)
-#define READ_ABS_WB(v)		uint16_t addr = EA_ABS;      v = regs.RdMem(addr)
-#define READ_ABS_X_WB(v)	uint16_t addr = EA_ABS_X;    v = regs.RdMem(addr)
-#define READ_ABS_Y_WB(v)	uint16_t addr = EA_ABS_Y;    v = regs.RdMem(addr)
-#define READ_IND_ZP_X_WB(v)	uint16_t addr = EA_IND_ZP_X; v = regs.RdMem(addr)
-#define READ_IND_ZP_Y_WB(v)	uint16_t addr = EA_IND_ZP_Y; v = regs.RdMem(addr)
-#define READ_IND_ZP_WB(v)	uint16_t addr = EA_IND_ZP;   v = regs.RdMem(addr)
+#define READ_IMM_WB(v)		uint16_t addr = EA_IMM;      v = regs->RdMem(addr)
+#define READ_ZP_WB(v)		uint16_t addr = EA_ZP;       v = regs->RdMem(addr)
+#define READ_ZP_X_WB(v)		uint16_t addr = EA_ZP_X;     v = regs->RdMem(addr)
+#define READ_ABS_WB(v)		uint16_t addr = EA_ABS;      v = regs->RdMem(addr)
+#define READ_ABS_X_WB(v)	uint16_t addr = EA_ABS_X;    v = regs->RdMem(addr)
+#define READ_ABS_Y_WB(v)	uint16_t addr = EA_ABS_Y;    v = regs->RdMem(addr)
+#define READ_IND_ZP_X_WB(v)	uint16_t addr = EA_IND_ZP_X; v = regs->RdMem(addr)
+#define READ_IND_ZP_Y_WB(v)	uint16_t addr = EA_IND_ZP_Y; v = regs->RdMem(addr)
+#define READ_IND_ZP_WB(v)	uint16_t addr = EA_IND_ZP;   v = regs->RdMem(addr)
 
-#define WRITE_BACK(d)		regs.WrMem(addr, (d))
+#define WRITE_BACK(d)		regs->WrMem(addr, (d))
+
 
 // Private global variables
 
-static V65C02REGS regs;
+static V65C02REGS * regs;
+
 
 //This is probably incorrect, at least WRT to the $x7 and $xF opcodes... !!! FIX !!!
-//Also this doesn't take into account the extra cycle it takes when an indirect fetch
-//(ABS, ABS X/Y, ZP) crosses a page boundary, or extra cycle for BCD add/subtract...
-#warning "Cycle counts are not accurate--!!! FIX !!!"
+//Also this doesn't take into account the extra cycle it takes when an indirect
+//fetch (ABS, ABS X/Y, ZP) crosses a page boundary, or extra cycle for BCD
+//add/subtract...
+#warning "Cycle counts are not 100% accurate--!!! FIX !!!"
 static uint8_t CPUCycles[256] = {
 #if 0
 	7, 6, 1, 1, 5, 3, 5, 1, 3, 2, 2, 1, 6, 4, 6, 1,
@@ -170,27 +168,6 @@ static uint8_t _65C02Cycles[256] = {
 	2, 5, 5, 2, 4, 4, 6, 2, 2, 4, 4, 2, 4, 4, 6, 2 };
 #endif
 
-#if 0
-// ExtraCycles:
-// +1 if branch taken
-// +1 if page boundary crossed
-#define BRANCH_TAKEN {					\
-			 base = regs.pc;		\
-			 regs.pc += addr;		\
-			 if ((base ^ regs.pc) & 0xFF00) \
-			     uExtraCycles=2;		\
-			 else				\
-			     uExtraCycles=1;		\
-		     }
-
-{
-	oldpc = regs.pc;
-	regs.pc += v;
-	if ((oldc ^ regs.pc) & 0xFF00)
-		regs.clock++;
-	regs.clock++;
-}
-#endif
 
 /*
 6502 cycles (includes illegal opcodes):
@@ -713,26 +690,23 @@ static uint8_t _65C02Cycles[256] = {
 		case 0xFF:   INV NOP	     CYC(2)  break;
 */
 
-// Private function prototypes
-
-static uint16_t RdMemW(uint16_t);
-static uint16_t FetchMemW(uint16_t addr);
 
 //
 // Read a uint16_t out of 65C02 memory (big endian format)
 //
 static inline uint16_t RdMemW(uint16_t address)
 {
-	return (uint16_t)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
+	return (uint16_t)(regs->RdMem(address + 1) << 8) | regs->RdMem(address + 0);
 }
+
 
 //
 // Read a uint16_t out of 65C02 memory (big endian format) and increment PC
 //
 static inline uint16_t FetchMemW(uint16_t address)
 {
-	regs.pc += 2;
-	return (uint16_t)(regs.RdMem(address + 1) << 8) | regs.RdMem(address + 0);
+	regs->pc += 2;
+	return (uint16_t)(regs->RdMem(address + 1) << 8) | regs->RdMem(address + 0);
 }
 
 
@@ -763,9 +737,9 @@ ADC			Immediate		ADC #Oper	69		2		2
 
 //This is non-optimal, but it works--optimize later. :-)
 #define OP_ADC_HANDLER(m) \
-	uint16_t sum = (uint16_t)regs.a + (m) + (uint16_t)(regs.cc & FLAG_C); \
+	uint16_t sum = (uint16_t)regs->a + (m) + (uint16_t)(regs->cc & FLAG_C); \
 \
-	if (regs.cc & FLAG_D) \
+	if (regs->cc & FLAG_D) \
 	{ \
 		if ((sum & 0x0F) > 0x09) \
 			sum += 0x06; \
@@ -774,12 +748,10 @@ ADC			Immediate		ADC #Oper	69		2		2
 			sum += 0x60; \
 	} \
 \
-	regs.cc = (regs.cc & ~FLAG_C) | (sum >> 8); \
-	regs.cc = (~(regs.a ^ (m)) & (regs.a ^ sum) & 0x80 ? regs.cc | FLAG_V : regs.cc & ~FLAG_V); \
-	regs.a = sum & 0xFF; \
-	SET_ZN(regs.a)
-
-//OLD V detection: regs.cc = ((regs.a ^ (m) ^ sum ^ (regs.cc << 7)) & 0x80 ? regs.cc | FLAG_V : regs.cc & ~FLAG_V);
+	regs->cc = (regs->cc & ~FLAG_C) | (sum >> 8); \
+	regs->cc = (~(regs->a ^ (m)) & (regs->a ^ sum) & 0x80 ? regs->cc | FLAG_V : regs->cc & ~FLAG_V); \
+	regs->a = sum & 0xFF; \
+	SET_ZN(regs->a)
 
 static void Op69(void)							// ADC #
 {
@@ -850,8 +822,8 @@ Absolute,Y		AND Abs,Y	39	3	4
 // AND opcodes
 
 #define OP_AND_HANDLER(m) \
-	regs.a &= m; \
-	SET_ZN(regs.a)
+	regs->a &= m; \
+	SET_ZN(regs->a)
 
 static void Op29(void)							// AND #
 {
@@ -915,28 +887,16 @@ Absolute		ASL Abs		0E	3	6
 Absolute,X		ASL Abs,X	1E	3	7
 */
 
-/*static void Op78(void)  // LSL ABS
-{
-	uint8_t tmp;  uint16_t addr;
-	addr = FetchW();
-	tmp = regs.RdMem(addr);
-	(tmp&0x80 ? regs.cc |= 0x01 : regs.cc &= 0xFE);  // Shift hi bit into Carry
-	tmp <<= 1;
-	regs.WrMem(addr, tmp);
-	(tmp == 0 ? regs.cc |= 0x04 : regs.cc &= 0xFB);  // Adjust Zero flag
-	(tmp&0x80 ? regs.cc |= 0x08 : regs.cc &= 0xF7);  // Adjust Negative flag
-}*/
-
 // ASL opcodes
 
 #define OP_ASL_HANDLER(m) \
-	regs.cc = ((m) & 0x80 ? regs.cc | FLAG_C : regs.cc & ~FLAG_C); \
+	regs->cc = ((m) & 0x80 ? regs->cc | FLAG_C : regs->cc & ~FLAG_C); \
 	(m) <<= 1; \
 	SET_ZN((m))
 
 static void Op0A(void)							// ASL A
 {
-	OP_ASL_HANDLER(regs.a);
+	OP_ASL_HANDLER(regs->a);
 }
 
 static void Op06(void)							// ASL ZP
@@ -996,128 +956,128 @@ static void Op0F(void)							// BBR0
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x01))
-		regs.pc += m;
+	if (!(regs->a & 0x01))
+		regs->pc += m;
 }
 
 static void Op1F(void)							// BBR1
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x02))
-		regs.pc += m;
+	if (!(regs->a & 0x02))
+		regs->pc += m;
 }
 
 static void Op2F(void)							// BBR2
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x04))
-		regs.pc += m;
+	if (!(regs->a & 0x04))
+		regs->pc += m;
 }
 
 static void Op3F(void)							// BBR3
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x08))
-		regs.pc += m;
+	if (!(regs->a & 0x08))
+		regs->pc += m;
 }
 
 static void Op4F(void)							// BBR4
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x10))
-		regs.pc += m;
+	if (!(regs->a & 0x10))
+		regs->pc += m;
 }
 
 static void Op5F(void)							// BBR5
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x20))
-		regs.pc += m;
+	if (!(regs->a & 0x20))
+		regs->pc += m;
 }
 
 static void Op6F(void)							// BBR6
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x40))
-		regs.pc += m;
+	if (!(regs->a & 0x40))
+		regs->pc += m;
 }
 
 static void Op7F(void)							// BBR7
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.a & 0x80))
-		regs.pc += m;
+	if (!(regs->a & 0x80))
+		regs->pc += m;
 }
 
 static void Op8F(void)							// BBS0
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x01)
-		regs.pc += m;
+	if (regs->a & 0x01)
+		regs->pc += m;
 }
 
 static void Op9F(void)							// BBS1
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x02)
-		regs.pc += m;
+	if (regs->a & 0x02)
+		regs->pc += m;
 }
 
 static void OpAF(void)							// BBS2
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x04)
-		regs.pc += m;
+	if (regs->a & 0x04)
+		regs->pc += m;
 }
 
 static void OpBF(void)							// BBS3
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x08)
-		regs.pc += m;
+	if (regs->a & 0x08)
+		regs->pc += m;
 }
 
 static void OpCF(void)							// BBS4
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x10)
-		regs.pc += m;
+	if (regs->a & 0x10)
+		regs->pc += m;
 }
 
 static void OpDF(void)							// BBS5
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x20)
-		regs.pc += m;
+	if (regs->a & 0x20)
+		regs->pc += m;
 }
 
 static void OpEF(void)							// BBS6
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x40)
-		regs.pc += m;
+	if (regs->a & 0x40)
+		regs->pc += m;
 }
 
 static void OpFF(void)							// BBS7
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.a & 0x80)
-		regs.pc += m;
+	if (regs->a & 0x80)
+		regs->pc += m;
 }
 
 /*
@@ -1130,12 +1090,12 @@ BEQ	Relative	BEQ Oper	F0	2	2
 
 #define HANDLE_BRANCH_TAKEN(m)      \
 {                                   \
-	uint16_t oldpc = regs.pc;       \
-	regs.pc += m;                   \
-	regs.clock++;                   \
+	uint16_t oldpc = regs->pc;       \
+	regs->pc += m;                   \
+	regs->clock++;                   \
 \
-	if ((oldpc ^ regs.pc) & 0xFF00) \
-		regs.clock++;               \
+	if ((oldpc ^ regs->pc) & 0xFF00) \
+		regs->clock++;               \
 }
 
 // Branch opcodes
@@ -1144,7 +1104,7 @@ static void Op90(void)							// BCC
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.cc & FLAG_C))
+	if (!(regs->cc & FLAG_C))
 		HANDLE_BRANCH_TAKEN(m)
 }
 
@@ -1152,7 +1112,7 @@ static void OpB0(void)							// BCS
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.cc & FLAG_C)
+	if (regs->cc & FLAG_C)
 		HANDLE_BRANCH_TAKEN(m)
 }
 
@@ -1160,7 +1120,7 @@ static void OpF0(void)							// BEQ
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.cc & FLAG_Z)
+	if (regs->cc & FLAG_Z)
 		HANDLE_BRANCH_TAKEN(m)
 }
 
@@ -1174,20 +1134,21 @@ Absolute,X		BIT Abs,X	3C	3	4
 
 // BIT opcodes
 
-/* 1. The BIT instruction copies bit 6 to the V flag, and bit 7 to the N flag (except in immediate
-      addressing mode where V & N are untouched.) The accumulator and the operand are ANDed and the
-      Z flag is set appropriately. */
+/* 1. The BIT instruction copies bit 6 to the V flag, and bit 7 to the N flag
+      (except in immediate addressing mode where V & N are untouched.) The
+      accumulator and the operand are ANDed and the Z flag is set
+      appropriately. */
 
 #define OP_BIT_HANDLER(m) \
-	int8_t result = regs.a & (m); \
-	regs.cc &= ~(FLAG_N | FLAG_V); \
-	regs.cc |= ((m) & 0xC0); \
+	int8_t result = regs->a & (m); \
+	regs->cc &= ~(FLAG_N | FLAG_V); \
+	regs->cc |= ((m) & 0xC0); \
 	SET_Z(result)
 
 static void Op89(void)							// BIT #
 {
 	int8_t m = READ_IMM;
-	int8_t result = regs.a & m;
+	int8_t result = regs->a & m;
 	SET_Z(result);
 }
 
@@ -1228,34 +1189,30 @@ static void Op30(void)							// BMI
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.cc & FLAG_N)
+	if (regs->cc & FLAG_N)
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 static void OpD0(void)							// BNE
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.cc & FLAG_Z))
+	if (!(regs->cc & FLAG_Z))
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 static void Op10(void)							// BPL
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.cc & FLAG_N))
+	if (!(regs->cc & FLAG_N))
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 static void Op80(void)							// BRA
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 	HANDLE_BRANCH_TAKEN(m)
-//	regs.pc += m;
 }
 
 /*
@@ -1268,20 +1225,20 @@ static void Op00(void)							// BRK
 #if 1
 WriteLog("\n*** BRK ***\n\n");
 WriteLog(" [PC=%04X, SP=%04X, CC=%s%s.%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
-	regs.pc, 0x0100 + regs.sp,
-	(regs.cc & FLAG_N ? "N" : "-"), (regs.cc & FLAG_V ? "V" : "-"),
-	(regs.cc & FLAG_B ? "B" : "-"), (regs.cc & FLAG_D ? "D" : "-"),
-	(regs.cc & FLAG_I ? "I" : "-"), (regs.cc & FLAG_Z ? "Z" : "-"),
-	(regs.cc & FLAG_C ? "C" : "-"), regs.a, regs.x, regs.y);
+	regs->pc, 0x0100 + regs->sp,
+	(regs->cc & FLAG_N ? "N" : "-"), (regs->cc & FLAG_V ? "V" : "-"),
+	(regs->cc & FLAG_B ? "B" : "-"), (regs->cc & FLAG_D ? "D" : "-"),
+	(regs->cc & FLAG_I ? "I" : "-"), (regs->cc & FLAG_Z ? "Z" : "-"),
+	(regs->cc & FLAG_C ? "C" : "-"), regs->a, regs->x, regs->y);
 #endif
-	regs.cc |= FLAG_B;							// Set B
-	regs.pc++;									// RTI comes back to the instruction one byte after the BRK
-	regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);	// Save PC and CC
-	regs.WrMem(0x0100 + regs.sp--, regs.pc & 0xFF);
-	regs.WrMem(0x0100 + regs.sp--, regs.cc);
-	regs.cc |= FLAG_I;							// Set I
-	regs.cc &= ~FLAG_D;							// & clear D
-	regs.pc = RdMemW(0xFFFE);					// Grab the IRQ vector & go...
+	regs->cc |= FLAG_B;							// Set B
+	regs->pc++;									// RTI comes back to the instruction one byte after the BRK
+	regs->WrMem(0x0100 + regs->sp--, regs->pc >> 8);	// Save PC and CC
+	regs->WrMem(0x0100 + regs->sp--, regs->pc & 0xFF);
+	regs->WrMem(0x0100 + regs->sp--, regs->cc);
+	regs->cc |= FLAG_I;							// Set I
+	regs->cc &= ~FLAG_D;							// & clear D
+	regs->pc = RdMemW(0xFFFE);					// Grab the IRQ vector & go...
 }
 
 /*
@@ -1295,18 +1252,16 @@ static void Op50(void)							// BVC
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (!(regs.cc & FLAG_V))
+	if (!(regs->cc & FLAG_V))
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 static void Op70(void)							// BVS
 {
 	int16_t m = (int16_t)(int8_t)READ_IMM;
 
-	if (regs.cc & FLAG_V)
+	if (regs->cc & FLAG_V)
 		HANDLE_BRANCH_TAKEN(m)
-//		regs.pc += m;
 }
 
 /*
@@ -1315,7 +1270,7 @@ CLC	Implied		CLC			18	1	2
 
 static void Op18(void)							// CLC
 {
-	regs.cc &= ~FLAG_C;
+	regs->cc &= ~FLAG_C;
 }
 
 /*
@@ -1324,7 +1279,7 @@ CLD	Implied		CLD			D8	1	2
 
 static void OpD8(void)							// CLD
 {
-	regs.cc &= ~FLAG_D;
+	CLR_D;
 }
 
 /*
@@ -1333,7 +1288,7 @@ CLI	Implied		CLI			58	1	2
 
 static void Op58(void)							// CLI
 {
-	regs.cc &= ~FLAG_I;
+	regs->cc &= ~FLAG_I;
 }
 
 /*
@@ -1342,7 +1297,7 @@ CLV	Implied		CLV			B8	1	2
 
 static void OpB8(void)							// CLV
 {
-	regs.cc &= ~FLAG_V;
+	regs->cc &= ~FLAG_V;
 }
 
 /*
@@ -1359,35 +1314,9 @@ Absolute,Y		CMP Abs,Y	D9	3	4
 
 // CMP opcodes
 
-/*
-Here's the latest: The CMP is NOT generating the Z flag when A=$C0!
-
-FABA: A0 07          LDY   #$07 		[PC=FABC, SP=01FF, CC=---B-IZ-, A=00, X=00, Y=07]
-FABC: C6 01          DEC   $01 		[PC=FABE, SP=01FF, CC=N--B-I--, A=00, X=00, Y=07]
-FABE: A5 01          LDA   $01 		[PC=FAC0, SP=01FF, CC=N--B-I--, A=C0, X=00, Y=07]
-FAC0: C9 C0          CMP   #$C0 		[PC=FAC2, SP=01FF, CC=N--B-I--, A=C0, X=00, Y=07]
-FAC2: F0 D7          BEQ   $FA9B 		[PC=FAC4, SP=01FF, CC=N--B-I--, A=C0, X=00, Y=07]
-FAC4: 8D F8 07       STA   $07F8 		[PC=FAC7, SP=01FF, CC=N--B-I--, A=C0, X=00, Y=07]
-FAC7: B1 00          LDA   ($00),Y
-*** Read at I/O address C007
- 		[PC=FAC9, SP=01FF, CC=---B-IZ-, A=00, X=00, Y=07]
-FAC9: D9 01 FB       CMP   $FB01,Y 		[PC=FACC, SP=01FF, CC=---B-I--, A=00, X=00, Y=07]
-FACC: D0 EC          BNE   $FABA 		[PC=FABA, SP=01FF, CC=---B-I--, A=00, X=00, Y=07]
-
-Should be fixed now... (was adding instead of subtracting!)
-
-Small problem here... First two should set the carry while the last one should clear it. !!! FIX !!! [DONE]
-
-FDF0: C9 A0          CMP   #$A0 		[PC=FDF2, SP=01F1, CC=---B-IZ-, A=A0, X=02, Y=03]
-FD7E: C9 E0          CMP   #$E0 		[PC=FD80, SP=01F4, CC=N--B-I--, A=A0, X=02, Y=03]
-FD38: C9 9B          CMP   #$9B 		[PC=FD3A, SP=01F2, CC=---B-I-C, A=A0, X=02, Y=03]
-
-Compare sets flags as if a subtraction had been carried out. If the value in the accumulator is equal or greater than the compared value, the Carry will be set. The equal (Z) and sign (S) flags will be set based on equality or lack thereof and the sign (i.e. A>=$80) of the accumulator.
-*/
-
 #define OP_CMP_HANDLER(m) \
-	uint8_t result = regs.a - (m); \
-	SET_ZNC_CMP(m, regs.a, result)
+	uint8_t result = regs->a - (m); \
+	SET_ZNC_CMP(m, regs->a, result)
 
 static void OpC9(void)							// CMP #
 {
@@ -1452,8 +1381,8 @@ Absolute		CPX Abs		EC	3	4
 // CPX opcodes
 
 #define OP_CPX_HANDLER(m) \
-	uint8_t result = regs.x - (m); \
-	SET_ZNC_CMP(m, regs.x, result)
+	uint8_t result = regs->x - (m); \
+	SET_ZNC_CMP(m, regs->x, result)
 
 static void OpE0(void)							// CPX #
 {
@@ -1482,8 +1411,8 @@ Absolute		CPY Abs		CC	3	4
 // CPY opcodes
 
 #define OP_CPY_HANDLER(m) \
-	uint8_t result = regs.y - (m); \
-	SET_ZNC_CMP(m, regs.y, result)
+	uint8_t result = regs->y - (m); \
+	SET_ZNC_CMP(m, regs->y, result)
 
 static void OpC0(void)							// CPY #
 {
@@ -1509,8 +1438,8 @@ DEA	Accumulator	DEA			3A	1	2
 
 static void Op3A(void)							// DEA
 {
-	regs.a--;
-	SET_ZN(regs.a);
+	regs->a--;
+	SET_ZN(regs->a);
 }
 
 /*
@@ -1559,27 +1488,13 @@ static void OpDE(void)							// DEC ABS, X
 }
 
 /*
-Here's one problem: DEX is setting the N flag!
-
-D3EE: A2 09          LDX   #$09 		[PC=D3F0, SP=01F7, CC=---B-I-C, A=01, X=09, Y=08]
-D3F0: 98             TYA    		[PC=D3F1, SP=01F7, CC=N--B-I-C, A=08, X=09, Y=08]
-D3F1: 48             PHA    		[PC=D3F2, SP=01F6, CC=N--B-I-C, A=08, X=09, Y=08]
-D3F2: B5 93          LDA   $93,X 		[PC=D3F4, SP=01F6, CC=---B-IZC, A=00, X=09, Y=08]
-D3F4: CA             DEX    		[PC=D3F5, SP=01F6, CC=N--B-I-C, A=00, X=08, Y=08]
-D3F5: 10 FA          BPL   $D3F1 		[PC=D3F7, SP=01F6, CC=N--B-I-C, A=00, X=08, Y=08]
-D3F7: 20 84 E4       JSR   $E484 		[PC=E484, SP=01F4, CC=N--B-I-C, A=00, X=08, Y=08]
-
-should be fixed now...
-*/
-
-/*
 DEX	Implied		DEX			CA	1	2
 */
 
 static void OpCA(void)							// DEX
 {
-	regs.x--;
-	SET_ZN(regs.x);
+	regs->x--;
+	SET_ZN(regs->x);
 }
 
 /*
@@ -1588,8 +1503,8 @@ DEY	Implied		DEY			88	1	2
 
 static void Op88(void)							// DEY
 {
-	regs.y--;
-	SET_ZN(regs.y);
+	regs->y--;
+	SET_ZN(regs->y);
 }
 
 /*
@@ -1607,8 +1522,8 @@ Absolute,Y		EOR Abs,Y	59	3	4
 // EOR opcodes
 
 #define OP_EOR_HANDLER(m) \
-	regs.a ^= m; \
-	SET_ZN(regs.a)
+	regs->a ^= m; \
+	SET_ZN(regs->a)
 
 static void Op49(void)							// EOR #
 {
@@ -1670,8 +1585,8 @@ INA	Accumulator	INA			1A	1	2
 
 static void Op1A(void)							// INA
 {
-	regs.a++;
-	SET_ZN(regs.a);
+	regs->a++;
+	SET_ZN(regs->a);
 }
 
 /*
@@ -1725,8 +1640,8 @@ INX	Implied		INX			E8	1	2
 
 static void OpE8(void)							// INX
 {
-	regs.x++;
-	SET_ZN(regs.x);
+	regs->x++;
+	SET_ZN(regs->x);
 }
 
 /*
@@ -1735,8 +1650,8 @@ INY	Implied		INY			C8	1	2
 
 static void OpC8(void)							// INY
 {
-	regs.y++;
-	SET_ZN(regs.y);
+	regs->y++;
+	SET_ZN(regs->y);
 }
 
 /*
@@ -1749,37 +1664,30 @@ JMP	Absolute	JMP Abs		4C	3	3
 
 static void Op4C(void)							// JMP ABS
 {
-	regs.pc = RdMemW(regs.pc);
+	regs->pc = RdMemW(regs->pc);
 }
 
 static void Op6C(void)							// JMP (ABS)
 {
-//	uint16_t addr = RdMemW(regs.pc);
-//#ifdef __DEBUG__
-//WriteLog("\n[JMP ABS]: addr fetched = %04X, bytes at %04X = %02X %02X (RdMemw=%04X)\n",
-//	addr, addr, regs.RdMem(addr), regs.RdMem(addr+1), RdMemW(addr));
-//#endif
-//	addr = RdMemW(addr);
-	regs.pc = RdMemW(RdMemW(regs.pc));
+	regs->pc = RdMemW(RdMemW(regs->pc));
 }
 
 static void Op7C(void)							// JMP (ABS, X)
 {
-	regs.pc = RdMemW(RdMemW(regs.pc) + regs.x);
+	regs->pc = RdMemW(RdMemW(regs->pc) + regs->x);
 }
 
 /*
 JSR	Absolute	JSR Abs		20	3	6
 */
 
-//This is not jumping to the correct address... !!! FIX !!! [DONE]
 static void Op20(void)							// JSR
 {
-	uint16_t addr = RdMemW(regs.pc);
-	regs.pc++;									// Since it pushes return address - 1...
-	regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);
-	regs.WrMem(0x0100 + regs.sp--, regs.pc & 0xFF);
-	regs.pc = addr;
+	uint16_t addr = RdMemW(regs->pc);
+	regs->pc++;									// Since it pushes return address - 1...
+	regs->WrMem(0x0100 + regs->sp--, regs->pc >> 8);
+	regs->WrMem(0x0100 + regs->sp--, regs->pc & 0xFF);
+	regs->pc = addr;
 }
 
 /*
@@ -1797,8 +1705,8 @@ Absolute,Y		LDA Abs,Y	B9	3	4
 // LDA opcodes
 
 #define OP_LDA_HANDLER(m) \
-	regs.a = m; \
-	SET_ZN(regs.a)
+	regs->a = m; \
+	SET_ZN(regs->a)
 
 static void OpA9(void)							// LDA #
 {
@@ -1865,8 +1773,8 @@ Absolute,Y		LDX Abs,Y	BE	3	4
 // LDX opcodes
 
 #define OP_LDX_HANDLER(m) \
-	regs.x = m; \
-	SET_ZN(regs.x)
+	regs->x = m; \
+	SET_ZN(regs->x)
 
 static void OpA2(void)							// LDX #
 {
@@ -1909,8 +1817,8 @@ Absolute,Y		LDY Abs,X	BC	3	4
 // LDY opcodes
 
 #define OP_LDY_HANDLER(m) \
-	regs.y = m; \
-	SET_ZN(regs.y)
+	regs->y = m; \
+	SET_ZN(regs->y)
 
 static void OpA0(void)							// LDY #
 {
@@ -1953,13 +1861,13 @@ Absolute,X		LSR Abs,X	5E	3	7
 // LSR opcodes
 
 #define OP_LSR_HANDLER(m) \
-	regs.cc = ((m) & 0x01 ? regs.cc | FLAG_C : regs.cc & ~FLAG_C); \
+	regs->cc = ((m) & 0x01 ? regs->cc | FLAG_C : regs->cc & ~FLAG_C); \
 	(m) >>= 1; \
 	CLR_N; SET_Z((m))
 
 static void Op4A(void)							// LSR A
 {
-	OP_LSR_HANDLER(regs.a);
+	OP_LSR_HANDLER(regs->a);
 }
 
 static void Op46(void)							// LSR ZP
@@ -2017,8 +1925,8 @@ Absolute,Y		ORA Abs,Y	19	3	4
 // ORA opcodes
 
 #define OP_ORA_HANDLER(m) \
-	regs.a |= m; \
-	SET_ZN(regs.a)
+	regs->a |= m; \
+	SET_ZN(regs->a)
 
 static void Op09(void)							// ORA #
 {
@@ -2080,13 +1988,13 @@ PHA	Implied		PHA			48	1	3
 
 static void Op48(void)							// PHA
 {
-	regs.WrMem(0x0100 + regs.sp--, regs.a);
+	regs->WrMem(0x0100 + regs->sp--, regs->a);
 }
 
 static void Op08(void)							// PHP
 {
-	regs.cc |= FLAG_UNK;						// Make sure that the unused bit is always set
-	regs.WrMem(0x0100 + regs.sp--, regs.cc);
+	regs->cc |= FLAG_UNK;						// Make sure that the unused bit is always set
+	regs->WrMem(0x0100 + regs->sp--, regs->cc);
 }
 
 /*
@@ -2095,7 +2003,7 @@ PHX	Implied		PHX			DA	1	3
 
 static void OpDA(void)							// PHX
 {
-	regs.WrMem(0x0100 + regs.sp--, regs.x);
+	regs->WrMem(0x0100 + regs->sp--, regs->x);
 }
 
 /*
@@ -2104,7 +2012,7 @@ PHY	Implied		PHY			5A	1	3
 
 static void Op5A(void)							// PHY
 {
-	regs.WrMem(0x0100 + regs.sp--, regs.y);
+	regs->WrMem(0x0100 + regs->sp--, regs->y);
 }
 
 /*
@@ -2113,13 +2021,13 @@ PLA	Implied		PLA			68	1	4
 
 static void Op68(void)							// PLA
 {
-	regs.a = regs.RdMem(0x0100 + ++regs.sp);
-	SET_ZN(regs.a);
+	regs->a = regs->RdMem(0x0100 + ++regs->sp);
+	SET_ZN(regs->a);
 }
 
 static void Op28(void)							// PLP
 {
-	regs.cc = regs.RdMem(0x0100 + ++regs.sp);
+	regs->cc = regs->RdMem(0x0100 + ++regs->sp);
 }
 
 /*
@@ -2128,8 +2036,8 @@ PLX	Implied		PLX			FA	1	4
 
 static void OpFA(void)							// PLX
 {
-	regs.x = regs.RdMem(0x0100 + ++regs.sp);
-	SET_ZN(regs.x);
+	regs->x = regs->RdMem(0x0100 + ++regs->sp);
+	SET_ZN(regs->x);
 }
 
 /*
@@ -2138,8 +2046,8 @@ PLY	Implied		PLY			7A	1	4
 
 static void Op7A(void)							// PLY
 {
-	regs.y = regs.RdMem(0x0100 + ++regs.sp);
-	SET_ZN(regs.y);
+	regs->y = regs->RdMem(0x0100 + ++regs->sp);
+	SET_ZN(regs->y);
 }
 
 /*
@@ -2227,14 +2135,14 @@ Absolute,X		ROL Abs,X	3E	3	7
 // ROL opcodes
 
 #define OP_ROL_HANDLER(m) \
-	uint8_t tmp = regs.cc & 0x01; \
-	regs.cc = ((m) & 0x80 ? regs.cc | FLAG_C : regs.cc & ~FLAG_C); \
+	uint8_t tmp = regs->cc & 0x01; \
+	regs->cc = ((m) & 0x80 ? regs->cc | FLAG_C : regs->cc & ~FLAG_C); \
 	(m) = ((m) << 1) | tmp; \
 	SET_ZN((m))
 
 static void Op2A(void)							// ROL A
 {
-	OP_ROL_HANDLER(regs.a);
+	OP_ROL_HANDLER(regs->a);
 }
 
 static void Op26(void)							// ROL ZP
@@ -2280,14 +2188,14 @@ Absolute,X		ROR Abs,X	7E	3	7
 // ROR opcodes
 
 #define OP_ROR_HANDLER(m) \
-	uint8_t tmp = (regs.cc & 0x01) << 7; \
-	regs.cc = ((m) & 0x01 ? regs.cc | FLAG_C : regs.cc & ~FLAG_C); \
+	uint8_t tmp = (regs->cc & 0x01) << 7; \
+	regs->cc = ((m) & 0x01 ? regs->cc | FLAG_C : regs->cc & ~FLAG_C); \
 	(m) = ((m) >> 1) | tmp; \
 	SET_ZN((m))
 
 static void Op6A(void)							// ROR A
 {
-	OP_ROR_HANDLER(regs.a);
+	OP_ROR_HANDLER(regs->a);
 }
 
 static void Op66(void)							// ROR ZP
@@ -2328,12 +2236,9 @@ RTI	Implied		RTI			40	1	6
 
 static void Op40(void)							// RTI
 {
-	regs.cc = regs.RdMem(0x0100 + ++regs.sp);
-//clear I (seems to be the case, either that or clear it in the IRQ setup...)
-//I can't find *any* verification that this is the case.
-//	regs.cc &= ~FLAG_I;
-	regs.pc = regs.RdMem(0x0100 + ++regs.sp);
-	regs.pc |= (uint16_t)(regs.RdMem(0x0100 + ++regs.sp)) << 8;
+	regs->cc = regs->RdMem(0x0100 + ++regs->sp);
+	regs->pc = regs->RdMem(0x0100 + ++regs->sp);
+	regs->pc |= (uint16_t)(regs->RdMem(0x0100 + ++regs->sp)) << 8;
 }
 
 /*
@@ -2342,11 +2247,9 @@ RTS	Implied		RTS			60	1	6
 
 static void Op60(void)							// RTS
 {
-	regs.pc = regs.RdMem(0x0100 + ++regs.sp);
-	regs.pc |= (uint16_t)(regs.RdMem(0x0100 + ++regs.sp)) << 8;
-	regs.pc++;									// Since it pushes return address - 1...
-//printf("*** RTS: PC = $%04X, SP= $1%02X\n", regs.pc, regs.sp);
-//fflush(stdout);
+	regs->pc = regs->RdMem(0x0100 + ++regs->sp);
+	regs->pc |= (uint16_t)(regs->RdMem(0x0100 + ++regs->sp)) << 8;
+	regs->pc++;									// Since it pushes return address - 1...
 }
 
 /*
@@ -2366,9 +2269,9 @@ Absolute,Y		SBC Abs,Y	F9	3	4
 //This is non-optimal, but it works--optimize later. :-)
 //This is correct except for the BCD handling... !!! FIX !!! [Possibly DONE]
 #define OP_SBC_HANDLER(m) \
-	uint16_t sum = (uint16_t)regs.a - (m) - (uint16_t)((regs.cc & FLAG_C) ^ 0x01); \
+	uint16_t sum = (uint16_t)regs->a - (m) - (uint16_t)((regs->cc & FLAG_C) ^ 0x01); \
 \
-	if (regs.cc & FLAG_D) \
+	if (regs->cc & FLAG_D) \
 	{ \
 		if ((sum & 0x0F) > 0x09) \
 			sum -= 0x06; \
@@ -2377,22 +2280,10 @@ Absolute,Y		SBC Abs,Y	F9	3	4
 			sum -= 0x60; \
 	} \
 \
-	regs.cc = (regs.cc & ~FLAG_C) | (((sum >> 8) ^ 0x01) & FLAG_C); \
-	regs.cc = ((regs.a ^ (m)) & (regs.a ^ sum) & 0x80 ? regs.cc | FLAG_V : regs.cc & ~FLAG_V); \
-	regs.a = sum & 0xFF; \
-	SET_ZN(regs.a)
-
-/*
-D5AF: 38             SEC    		[PC=D5B0, SP=01F6, CC=---B-I-C, A=4C, X=00, Y=06]
-
-*** HERE'S where it sets the D flag on a subtract... Arg!
-
-D5B0: F1 9D          SBC   ($9D),Y 	[PC=D5B2, SP=01F6, CC=N--BDI--, A=FE, X=00, Y=06]
-
-Fixed. :-)
-*/
-
-//OLD V detection: regs.cc = ((regs.a ^ (m) ^ sum ^ (regs.cc << 7)) & 0x80 ? regs.cc | FLAG_V : regs.cc & ~FLAG_V);
+	regs->cc = (regs->cc & ~FLAG_C) | (((sum >> 8) ^ 0x01) & FLAG_C); \
+	regs->cc = ((regs->a ^ (m)) & (regs->a ^ sum) & 0x80 ? regs->cc | FLAG_V : regs->cc & ~FLAG_V); \
+	regs->a = sum & 0xFF; \
+	SET_ZN(regs->a)
 
 static void OpE9(void)							// SBC #
 {
@@ -2454,7 +2345,7 @@ SEC	Implied		SEC			38	1	2
 
 static void Op38(void)							// SEC
 {
-	regs.cc |= FLAG_C;
+	regs->cc |= FLAG_C;
 }
 
 /*
@@ -2463,7 +2354,7 @@ SED	Implied		SED			F8	1	2
 
 static void OpF8(void)							// SED
 {
-	regs.cc |= FLAG_D;
+	regs->cc |= FLAG_D;
 }
 
 /*
@@ -2472,7 +2363,7 @@ SEI	Implied		SEI			78	1	2
 
 static void Op78(void)							// SEI
 {
-	regs.cc |= FLAG_I;
+	SET_I;
 }
 
 /*
@@ -2564,42 +2455,42 @@ Absolute,Y		STA Abs,Y	99	3	5
 
 static void Op85(void)
 {
-	regs.WrMem(EA_ZP, regs.a);
+	regs->WrMem(EA_ZP, regs->a);
 }
 
 static void Op95(void)
 {
-	regs.WrMem(EA_ZP_X, regs.a);
+	regs->WrMem(EA_ZP_X, regs->a);
 }
 
 static void Op8D(void)
 {
-	regs.WrMem(EA_ABS, regs.a);
+	regs->WrMem(EA_ABS, regs->a);
 }
 
 static void Op9D(void)
 {
-	regs.WrMem(EA_ABS_X, regs.a);
+	regs->WrMem(EA_ABS_X, regs->a);
 }
 
 static void Op99(void)
 {
-	regs.WrMem(EA_ABS_Y, regs.a);
+	regs->WrMem(EA_ABS_Y, regs->a);
 }
 
 static void Op81(void)
 {
-	regs.WrMem(EA_IND_ZP_X, regs.a);
+	regs->WrMem(EA_IND_ZP_X, regs->a);
 }
 
 static void Op91(void)
 {
-	regs.WrMem(EA_IND_ZP_Y, regs.a);
+	regs->WrMem(EA_IND_ZP_Y, regs->a);
 }
 
 static void Op92(void)
 {
-	regs.WrMem(EA_IND_ZP, regs.a);
+	regs->WrMem(EA_IND_ZP, regs->a);
 }
 
 /*
@@ -2612,19 +2503,17 @@ Absolute		STX Abs		8E	3	4
 
 static void Op86(void)
 {
-	regs.WrMem(EA_ZP, regs.x);
+	regs->WrMem(EA_ZP, regs->x);
 }
 
 static void Op96(void)
 {
-// BUG!!! [FIXED]
-//WAS:	regs.WrMem(EA_ZP_X, regs.x);
-	regs.WrMem(EA_ZP_Y, regs.x);
+	regs->WrMem(EA_ZP_Y, regs->x);
 }
 
 static void Op8E(void)
 {
-	regs.WrMem(EA_ABS, regs.x);
+	regs->WrMem(EA_ABS, regs->x);
 }
 
 /*
@@ -2637,17 +2526,17 @@ Absolute		STY Abs		8C	3	4
 
 static void Op84(void)
 {
-	regs.WrMem(EA_ZP, regs.y);
+	regs->WrMem(EA_ZP, regs->y);
 }
 
 static void Op94(void)
 {
-	regs.WrMem(EA_ZP_X, regs.y);
+	regs->WrMem(EA_ZP_X, regs->y);
 }
 
 static void Op8C(void)
 {
-	regs.WrMem(EA_ABS, regs.y);
+	regs->WrMem(EA_ABS, regs->y);
 }
 
 /*
@@ -2661,22 +2550,22 @@ Absolute,X		STZ Abs,X	9E	3	5
 
 static void Op64(void)
 {
-	regs.WrMem(EA_ZP, 0x00);
+	regs->WrMem(EA_ZP, 0x00);
 }
 
 static void Op74(void)
 {
-	regs.WrMem(EA_ZP_X, 0x00);
+	regs->WrMem(EA_ZP_X, 0x00);
 }
 
 static void Op9C(void)
 {
-	regs.WrMem(EA_ABS, 0x00);
+	regs->WrMem(EA_ABS, 0x00);
 }
 
 static void Op9E(void)
 {
-	regs.WrMem(EA_ABS_X, 0x00);
+	regs->WrMem(EA_ABS_X, 0x00);
 }
 
 /*
@@ -2685,8 +2574,8 @@ TAX	Implied		TAX			AA	1	2
 
 static void OpAA(void)							// TAX
 {
-	regs.x = regs.a;
-	SET_ZN(regs.x);
+	regs->x = regs->a;
+	SET_ZN(regs->x);
 }
 
 /*
@@ -2695,8 +2584,8 @@ TAY	Implied		TAY			A8	1	2
 
 static void OpA8(void)							// TAY
 {
-	regs.y = regs.a;
-	SET_ZN(regs.y);
+	regs->y = regs->a;
+	SET_ZN(regs->y);
 }
 
 /*
@@ -2707,8 +2596,8 @@ Absolute		TRB Abs		1C	3	6
 // TRB opcodes
 
 #define OP_TRB_HANDLER(m) \
-	SET_Z(m & regs.a); \
-	m &= ~regs.a
+	SET_Z(m & regs->a); \
+	m &= ~regs->a
 
 static void Op14(void)							// TRB ZP
 {
@@ -2734,8 +2623,8 @@ Absolute		TSB Abs		0C	3	6
 // TSB opcodes
 
 #define OP_TSB_HANDLER(m) \
-	SET_Z(m & regs.a); \
-	m |= regs.a
+	SET_Z(m & regs->a); \
+	m |= regs->a
 
 static void Op04(void)							// TSB ZP
 {
@@ -2759,8 +2648,8 @@ TSX	Implied		TSX			BA	1	2
 
 static void OpBA(void)							// TSX
 {
-	regs.x = regs.sp;
-	SET_ZN(regs.x);
+	regs->x = regs->sp;
+	SET_ZN(regs->x);
 }
 
 /*
@@ -2769,8 +2658,8 @@ TXA	Implied		TXA			8A	1	2
 
 static void Op8A(void)							// TXA
 {
-	regs.a = regs.x;
-	SET_ZN(regs.a);
+	regs->a = regs->x;
+	SET_ZN(regs->a);
 }
 
 /*
@@ -2779,7 +2668,7 @@ TXS	Implied		TXS			9A	1	2
 
 static void Op9A(void)							// TXS
 {
-	regs.sp = regs.x;
+	regs->sp = regs->x;
 }
 
 /*
@@ -2787,13 +2676,13 @@ TYA	Implied		TYA			98	1	2
 */
 static void Op98(void)							// TYA
 {
-	regs.a = regs.y;
-	SET_ZN(regs.a);
+	regs->a = regs->y;
+	SET_ZN(regs->a);
 }
 
 static void Op__(void)
 {
-	regs.cpuFlags |= V65C02_STATE_ILLEGAL_INST;
+	regs->cpuFlags |= V65C02_STATE_ILLEGAL_INST;
 }
 
 
@@ -2801,7 +2690,7 @@ static void Op__(void)
 // Ok, the exec_op[] array is globally defined here basically to save
 // a LOT of unnecessary typing.  Sure it's ugly, but hey, it works!
 //
-void (* exec_op[256])() = {
+static void (* exec_op[256])() = {
 	Op00, Op01, Op__, Op__, Op04, Op05, Op06, Op07, Op08, Op09, Op0A, Op__, Op0C, Op0D, Op0E, Op0F,
 	Op10, Op11, Op12, Op__, Op14, Op15, Op16, Op17, Op18, Op19, Op1A, Op__, Op1C, Op1D, Op1E, Op1F,
 	Op20, Op21, Op__, Op__, Op24, Op25, Op26, Op27, Op28, Op29, Op2A, Op__, Op2C, Op2D, Op2E, Op2F,
@@ -2820,17 +2709,6 @@ void (* exec_op[256])() = {
 	OpF0, OpF1, OpF2, Op__, Op__, OpF5, OpF6, OpF7, OpF8, OpF9, OpFA, Op__, Op__, OpFD, OpFE, OpFF
 };
 
-
-//
-// Internal "memcpy" (so we don't have to link with any external libraries!)
-//
-static void myMemcpy(void * dst, void * src, uint32_t size)
-{
-	uint8_t * d = (uint8_t *)dst, * s = (uint8_t *)src;
-
-	for(uint32_t i=0; i<size; i++)
-		d[i] = s[i];
-}
 
 /*
 FCA8: 38        698  WAIT     SEC
@@ -2864,13 +2742,6 @@ bool dumpDis = false;
 On //e, $FCAA is the delay routine. (seems to not have changed from ][+)
 */
 
-
-//Note: could enforce regs.clock to zero on starting the CPU with an Init() function...
-//bleh.
-//static uint32_t limit = 0;
-// Or, we could just say that initializing the CPU struct is the responsibility
-// of the caller. :-)
-
 #define DO_BACKTRACE
 #ifdef DO_BACKTRACE
 #define BACKTRACE_SIZE 16384
@@ -2878,69 +2749,71 @@ uint32_t btQueuePtr = 0;
 V65C02REGS btQueue[BACKTRACE_SIZE];
 uint8_t btQueueInst[BACKTRACE_SIZE][4];
 #endif
+
+
 //
 // Function to execute 65C02 for "cycles" cycles
 //
 void Execute65C02(V65C02REGS * context, uint32_t cycles)
 {
-	myMemcpy(&regs, context, sizeof(V65C02REGS));
+	regs = context;
 
-	// Execute here...
-	uint64_t endCycles = regs.clock + (uint64_t)cycles - regs.overflow;
+	// Calculate number of clock cycles to run for
+	uint64_t endCycles = regs->clock + (uint64_t)cycles - regs->overflow;
 
-	while (regs.clock < endCycles)
+	while (regs->clock < endCycles)
 	{
 #if 0
 static bool weGo = false;
-if (regs.pc == 0x80AE)
+if (regs->pc == 0x80AE)
 {
 	dumpDis = true;
 	weGo = true;
 }
-else if (regs.pc == 0xFCA8 && weGo)
+else if (regs->pc == 0xFCA8 && weGo)
 {
 	dumpDis = false;
-	WriteLog("\n*** DELAY (A=$%02X)\n\n", regs.a);
+	WriteLog("\n*** DELAY (A=$%02X)\n\n", regs->a);
 }
-else if (regs.pc == 0xFCB3 && weGo)
+else if (regs->pc == 0xFCB3 && weGo)
 {
 	dumpDis = true;
 }
 #endif
 #if 0
-/*if (regs.pc == 0x4007)
+/*if (regs->pc == 0x4007)
 {
 	dumpDis = true;
 }//*/
-if (regs.pc == 0x444B)
+if (regs->pc == 0x444B)
 {
 	WriteLog("\n*** End of wait...\n\n");
 	dumpDis = true;
 }//*/
-if (regs.pc == 0x444E)
+if (regs->pc == 0x444E)
 {
 	WriteLog("\n*** Start of wait...\n\n");
 	dumpDis = false;
 }//*/
 #endif
-/*if (regs.pc >= 0xC600 && regs.pc <=0xC6FF)
+/*if (regs->pc >= 0xC600 && regs->pc <=0xC6FF)
 {
 	dumpDis = true;
 }
 else
 	dumpDis = false;//*/
-/*if (regs.pc == 0xE039)
+/*if (regs->pc == 0xE039)
 {
 	dumpDis = true;
 }//*/
 
 #if 0
-/*if (regs.pc == 0x0801)
+/*if (regs->pc == 0x0801)
 {
 	WriteLog("\n*** DISK BOOT subroutine...\n\n");
 	dumpDis = true;
 }//*/
-if (regs.pc == 0xE000)
+if (regs->pc == 0xE000)
 {
 #if 0
 	WriteLog("\n*** Dump of $E000 routine ***\n\n");
@@ -2954,60 +2827,60 @@ if (regs.pc == 0xE000)
 	WriteLog("\n*** DISK part II subroutine...\n\n");
 	dumpDis = true;
 }//*/
-if (regs.pc == 0xD000)
+if (regs->pc == 0xD000)
 {
 	WriteLog("\n*** CUSTOM DISK READ subroutine...\n\n");
 	dumpDis = false;
 }//*/
-if (regs.pc == 0xD1BE)
+if (regs->pc == 0xD1BE)
 {
 //	WriteLog("\n*** DISK part II subroutine...\n\n");
 	dumpDis = true;
 }//*/
-if (regs.pc == 0xD200)
+if (regs->pc == 0xD200)
 {
 	WriteLog("\n*** CUSTOM SCREEN subroutine...\n\n");
 	dumpDis = false;
 }//*/
-if (regs.pc == 0xD269)
+if (regs->pc == 0xD269)
 {
 //	WriteLog("\n*** DISK part II subroutine...\n\n");
 	dumpDis = true;
 }//*/
 #endif
-//if (regs.pc == 0xE08E)
-/*if (regs.pc == 0xAD33)
+//if (regs->pc == 0xE08E)
+/*if (regs->pc == 0xAD33)
 {
 	WriteLog("\n*** After loader ***\n\n");
 	dumpDis = true;
 }//*/
-/*if (regs.pc == 0x0418)
+/*if (regs->pc == 0x0418)
 {
 	WriteLog("\n*** CUSTOM DISK READ subroutine...\n\n");
 	dumpDis = false;
 }
-if (regs.pc == 0x0)
+if (regs->pc == 0x0)
 {
 	dumpDis = true;
 }//*/
 #ifdef __DEBUGMON__
 //WAIT is commented out here because it's called by BELL1...
-if (regs.pc == 0xFCA8)
+if (regs->pc == 0xFCA8)
 {
 	WriteLog("\n*** WAIT subroutine...\n\n");
 	dumpDis = false;
 }//*/
-if (regs.pc == 0xFBD9)
+if (regs->pc == 0xFBD9)
 {
 	WriteLog("\n*** BELL1 subroutine...\n\n");
 //	dumpDis = false;
 }//*/
-if (regs.pc == 0xFC58)
+if (regs->pc == 0xFC58)
 {
 	WriteLog("\n*** HOME subroutine...\n\n");
 //	dumpDis = false;
 }//*/
-if (regs.pc == 0xFDED)
+if (regs->pc == 0xFDED)
 {
 	WriteLog("\n*** COUT subroutine...\n\n");
 	dumpDis = false;
@@ -3015,7 +2888,7 @@ if (regs.pc == 0xFDED)
 #endif
 #if 0
 // ProDOS debugging
-if (regs.pc == 0x2000)
+if (regs->pc == 0x2000)
 	dumpDis = true;
 #endif
 
@@ -3023,137 +2896,114 @@ if (regs.pc == 0x2000)
 static char disbuf[80];
 if (dumpDis)
 {
-	Decode65C02(disbuf, regs.pc);
+	Decode65C02(regs, disbuf, regs->pc);
 	WriteLog("%s", disbuf);
 }
 #endif
-		uint8_t opcode = regs.RdMem(regs.pc++);
+		uint8_t opcode = regs->RdMem(regs->pc++);
 
-//if (!(regs.cpuFlags & V65C02_STATE_ILLEGAL_INST))
+//if (!(regs->cpuFlags & V65C02_STATE_ILLEGAL_INST))
 //instCount[opcode]++;
 
-		// We need this because the opcode execute could add 1 or 2 cycles
-		uint64_t clockSave = regs.clock;
+		// We need this because the opcode function could add 1 or 2 cycles
+		// which aren't accounted for in CPUCycles[].
+		uint64_t clockSave = regs->clock;
 
 		// Execute that opcode...
 		exec_op[opcode]();
-		regs.clock += CPUCycles[opcode];
+		regs->clock += CPUCycles[opcode];
 
-		// Tell the timer function how many PHI2s have elapsed
-		if (regs.Timer)
-//			regs.Timer(CPUCycles[opcode]);
-			regs.Timer(regs.clock - clockSave);
+		// Tell the timer function (if any) how many PHI2s have elapsed...
+		if (regs->Timer)
+			regs->Timer(regs->clock - clockSave);
 
 #ifdef __DEBUG__
 if (dumpDis)
-	WriteLog(" [PC=%04X, SP=01%02X, CC=%s%s.%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
-		regs.pc, regs.sp,
-		(regs.cc & FLAG_N ? "N" : "-"), (regs.cc & FLAG_V ? "V" : "-"),
-		(regs.cc & FLAG_B ? "B" : "-"), (regs.cc & FLAG_D ? "D" : "-"),
-		(regs.cc & FLAG_I ? "I" : "-"), (regs.cc & FLAG_Z ? "Z" : "-"),
-		(regs.cc & FLAG_C ? "C" : "-"), regs.a, regs.x, regs.y);
+	WriteLog(" [SP=01%02X, CC=%s%s.%s%s%s%s%s, A=%02X, X=%02X, Y=%02X]\n",
+		regs->sp,
+		(regs->cc & FLAG_N ? "N" : "-"), (regs->cc & FLAG_V ? "V" : "-"),
+		(regs->cc & FLAG_B ? "B" : "-"), (regs->cc & FLAG_D ? "D" : "-"),
+		(regs->cc & FLAG_I ? "I" : "-"), (regs->cc & FLAG_Z ? "Z" : "-"),
+		(regs->cc & FLAG_C ? "C" : "-"), regs->a, regs->x, regs->y);
 #endif
 
 #ifdef __DEBUGMON__
-if (regs.pc == 0xFCB3)	// WAIT exit point
+if (regs->pc == 0xFCB3)	// WAIT exit point
 {
 	dumpDis = true;
 }//*/
-/*if (regs.pc == 0xFBEF)	// BELL1 exit point
+/*if (regs->pc == 0xFBEF)	// BELL1 exit point
 {
 	dumpDis = true;
 }//*/
-/*if (regs.pc == 0xFC22)	// HOME exit point
+/*if (regs->pc == 0xFC22)	// HOME exit point
 {
 	dumpDis = true;
 }//*/
-if (regs.pc == 0xFDFF)	// COUT exit point
+if (regs->pc == 0xFDFF)	// COUT exit point
 {
 	dumpDis = true;
 }
-if (regs.pc == 0xFBD8)
+if (regs->pc == 0xFBD8)
 {
 	WriteLog("\n*** BASCALC set BASL/H = $%04X\n\n", RdMemW(0x0028));
 }//*/
 #endif
 
 //These should be correct now...
-		if (regs.cpuFlags & V65C02_ASSERT_LINE_RESET)
+		if (regs->cpuFlags & V65C02_ASSERT_LINE_RESET)
 		{
 			// Not sure about this...
-			regs.sp = 0xFF;
-			regs.cc = FLAG_I;				// Reset the CC register
-			regs.pc = RdMemW(0xFFFC);		// And load PC with the RESET vector
+			regs->sp = 0xFF;
+			regs->cc = FLAG_I;				// Reset the CC register
+			regs->pc = RdMemW(0xFFFC);		// And load PC with RESET vector
 
-			context->cpuFlags = 0;			// Clear CPU flags...
-			regs.cpuFlags = 0;
+			regs->cpuFlags = 0;				// Clear CPU flags...
 #ifdef __DEBUG__
-WriteLog("\n*** RESET *** (PC = $%04X)\n\n", regs.pc);
+WriteLog("\n*** RESET *** (PC = $%04X)\n\n", regs->pc);
 #endif
 		}
-		else if (regs.cpuFlags & V65C02_ASSERT_LINE_NMI)
+		else if (regs->cpuFlags & V65C02_ASSERT_LINE_NMI)
 		{
 #ifdef __DEBUG__
 WriteLog("\n*** NMI ***\n\n");
 #endif
-			regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);	// Save PC and CC
-			regs.WrMem(0x0100 + regs.sp--, regs.pc & 0xFF);
-			regs.WrMem(0x0100 + regs.sp--, regs.cc);
-			regs.cc |= FLAG_I;							// Set I
-			regs.cc &= ~FLAG_D;							// & clear D
-			regs.pc = RdMemW(0xFFFA);					// And do it!
+			regs->WrMem(0x0100 + regs->sp--, regs->pc >> 8);	// Save PC & CC
+			regs->WrMem(0x0100 + regs->sp--, regs->pc & 0xFF);
+			regs->WrMem(0x0100 + regs->sp--, regs->cc);
+			SET_I;
+			CLR_D;
+			regs->pc = RdMemW(0xFFFA);		// Jump to NMI vector
 
-			regs.clock += 7;
-			context->cpuFlags &= ~V65C02_ASSERT_LINE_NMI;// Reset the asserted line (NMI)...
-			regs.cpuFlags &= ~V65C02_ASSERT_LINE_NMI;	// Reset the asserted line (NMI)...
+			regs->clock += 7;
+			regs->cpuFlags &= ~V65C02_ASSERT_LINE_NMI;	// Reset NMI line
 		}
-		else if (regs.cpuFlags & V65C02_ASSERT_LINE_IRQ)
+		else if ((regs->cpuFlags & V65C02_ASSERT_LINE_IRQ)
+			// IRQs are maskable, so check if the I flag is clear
+			&& (!(regs->cc & FLAG_I)))
 		{
-			if (!(regs.cc & FLAG_I))					// Process an interrupt (I=0)?
-			{
 #ifdef __DEBUG__
 WriteLog("\n*** IRQ ***\n\n");
-WriteLog("Clock=$%X\n", regs.clock);
+WriteLog("Clock=$%X\n", regs->clock);
 //dumpDis = true;
 #endif
-				regs.WrMem(0x0100 + regs.sp--, regs.pc >> 8);	// Save PC and CC
-				regs.WrMem(0x0100 + regs.sp--, regs.pc & 0xFF);
-				regs.WrMem(0x0100 + regs.sp--, regs.cc);
-				regs.cc |= FLAG_I;						// Set I
-				regs.cc &= ~FLAG_D;						// & clear D
-				regs.pc = RdMemW(0xFFFE);				// And do it!
+			regs->WrMem(0x0100 + regs->sp--, regs->pc >> 8);	// Save PC & CC
+			regs->WrMem(0x0100 + regs->sp--, regs->pc & 0xFF);
+			regs->WrMem(0x0100 + regs->sp--, regs->cc);
+			SET_I;
+			CLR_D;
+			regs->pc = RdMemW(0xFFFE);		// Jump to IRQ vector
 
-				regs.clock += 7;
-				context->cpuFlags &= ~V65C02_ASSERT_LINE_IRQ;	// Reset the asserted line (IRQ)...
-				regs.cpuFlags &= ~V65C02_ASSERT_LINE_IRQ;	// Reset the asserted line (IRQ)...
-			}
+			regs->clock += 7;
+			regs->cpuFlags &= ~V65C02_ASSERT_LINE_IRQ;	// Reset IRQ line
 		}
 	}
 
 	// If we went longer than the passed in cycles, make a note of it so we can
-	// subtract it out from a subsequent run. It's guaranteed to be positive,
-	// because the condition that exits the main loop above is written such
-	// that regs.clock has to be larger than endCycles to exit from it.
-	regs.overflow = regs.clock - endCycles;
-
-	myMemcpy(context, &regs, sizeof(V65C02REGS));
-}
-
-
-//
-// Get the clock of the currently executing CPU
-//
-uint64_t GetCurrentV65C02Clock(void)
-{
-	return regs.clock;
-}
-
-
-//
-// Assert 65C02 line in current context
-//
-void AssertLine(uint16_t flags)
-{
-	regs.cpuFlags |= flags;
+	// subtract it out from a subsequent run.  It's guaranteed to be non-
+	// negative, because the condition that exits the main loop above is
+	// written such that regs->clock has to be equal or larger than endCycles
+	// to exit from it.
+	regs->overflow = regs->clock - endCycles;
 }
 

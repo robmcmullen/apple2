@@ -15,7 +15,7 @@
 // Global variables (exported)
 
 
-// Functions
+// Exported functions
 
 void SoundInit(void);
 void SoundDone(void);

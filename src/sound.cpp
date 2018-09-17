@@ -2,7 +2,7 @@
 // Sound Interface
 //
 // by James Hammons
-// (C) 2005 Underground Software
+// (C) 2005-2018 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -47,10 +47,6 @@ static bool soundInitialized = false;
 static bool speakerState = false;
 static uint16_t soundBuffer[SOUND_BUFFER_SIZE];
 static uint32_t soundBufferPos;
-//static uint64_t lastToggleCycles;
-//static SDL_cond * conditional = NULL;
-//static SDL_mutex * mutex = NULL;
-//static SDL_mutex * mutex2 = NULL;
 static uint16_t sample;
 static uint8_t ampPtr = 12;						// Start with -2047 - +2047
 static int16_t amplitude[17] = { 0, 1, 2, 3, 7, 15, 31, 63, 127, 255,
@@ -61,6 +57,10 @@ static int16_t amplitude[17] = { 0, 1, 2, 3, 7, 15, 31, 63, 127, 255,
 static void SDLSoundCallback(void * userdata, Uint8 * buffer, int length);
 
 
+/*
+N.B: We can convert this from the current callback model to a push model by using SDL_QueueAudio(SDL_AudioDeviceID id, const void * data, Uint32 len) where id is the audio device ID, data is a pointer to the sound buffer, and len is the size of the buffer in *bytes* (not samples!).  To use this method, we need to set up things as usual but instead of putting the callback function pointer in desired.callback, we put a NULL there.  The downside is that we can't tell if the buffer is being starved or not, which is why we haven't kicked it to the curb just yet--we want to know why we're still getting buffer starvation even if it's not as frequent as it used to be.  :-/
+You can get the size of the audio already queued with SDL_GetQueuedAudioSize(SDL_AudioDeviceID id), which will return the size of the buffer in bytes (again, *not* samples!).
+*/
 //
 // Initialize the SDL sound system
 //
@@ -81,14 +81,10 @@ void SoundInit(void)
 		return;
 	}
 
-//	conditional = SDL_CreateCond();
-//	mutex = SDL_CreateMutex();
-//	mutex2 = SDL_CreateMutex();// Let's try real signalling...
 	soundBufferPos = 0;
-//	lastToggleCycles = 0;
-	sample = desired.silence;	// ? wilwok ? yes
+	sample = desired.silence;		// ? wilwok ? yes
 
-	SDL_PauseAudioDevice(device, 0);			// Start playback!
+	SDL_PauseAudioDevice(device, 0);// Start playback!
 	soundInitialized = true;
 	WriteLog("Sound: Successfully initialized.\n");
 }
@@ -103,9 +99,6 @@ void SoundDone(void)
 	{
 		SDL_PauseAudioDevice(device, 1);
 		SDL_CloseAudioDevice(device);
-//		SDL_DestroyCond(conditional);
-//		SDL_DestroyMutex(mutex);
-//		SDL_DestroyMutex(mutex2);
 		WriteLog("Sound: Done.\n");
 	}
 }
@@ -133,18 +126,11 @@ static uint32_t lastStarve = 0;
 static void SDLSoundCallback(void * /*userdata*/, Uint8 * buffer8, int length8)
 {
 sndFrmCnt++;
-//WriteLog("SDLSoundCallback(): begin (soundBufferPos=%i)\n", soundBufferPos);
-
-	// Let's try using a mutex for shared resource consumption...
-//Actually, I think Lock/UnlockAudio() does this already...
-//WriteLog("SDLSoundCallback: soundBufferPos = %i\n", soundBufferPos);
-//	SDL_mutexP(mutex2);
 
 	// Recast this as a 16-bit type...
 	uint16_t * buffer = (uint16_t *)buffer8;
 	uint32_t length = (uint32_t)length8 / 2;
 
-//WriteLog("SDLSoundCallback(): filling buffer...\n");
 	if (soundBufferPos < length)
 	{
 WriteLog("*** Sound buffer starved (%d short) *** [%d delta %d]\n", length - soundBufferPos, sndFrmCnt, sndFrmCnt - lastStarve);
@@ -177,17 +163,12 @@ lastStarve = sndFrmCnt;
 		for(uint32_t i=0; i<soundBufferPos; i++)
 			soundBuffer[i] = soundBuffer[length + i];
 	}
-
-	// Free the mutex...
-//WriteLog("SDLSoundCallback(): SDL_mutexV(mutex2)\n");
-//	SDL_mutexV(mutex2);
-	// Wake up any threads waiting for the buffer to drain...
-//	SDL_CondSignal(conditional);
-//WriteLog("SDLSoundCallback(): end\n");
 }
 
 
+//
 // This is called by the main CPU thread every ~21.666 cycles.
+//
 void WriteSampleToBuffer(void)
 {
 #ifdef USE_NEW_AY8910
@@ -202,31 +183,17 @@ void WriteSampleToBuffer(void)
 	int16_t adjustedMockingboard = (s1 / 8) + (s2 / 8) + (s3 / 8)
 		+ (s4 / 8) + (s5 / 8) + (s6 / 8);
 #endif
-//need to do this *before* mixing, as by this time, it's too late and the sample is probably already oversaturated
-//	adjustedMockingboard /= 8;
-
-//WriteLog("WriteSampleToBuffer(): SDL_mutexP(mutex2)\n");
-//	SDL_mutexP(mutex2);
 
 	// This should almost never happen, but, if it does...
 	while (soundBufferPos >= (SOUND_BUFFER_SIZE - 1))
 	{
 //WriteLog("WriteSampleToBuffer(): Waiting for sound thread. soundBufferPos=%i, SOUNDBUFFERSIZE-1=%i\n", soundBufferPos, SOUND_BUFFER_SIZE-1);
-//		SDL_mutexV(mutex2);	// Release it so sound thread can get it,
-//		SDL_mutexP(mutex);	// Must lock the mutex for the cond to work properly...
-//		SDL_CondWait(conditional, mutex);	// Sleep/wait for the sound thread
-//		SDL_mutexV(mutex);	// Must unlock the mutex for the cond to work properly...
-//		SDL_mutexP(mutex2);	// Re-lock it until we're done with it...
 		SDL_Delay(1);
 	}
 
 	SDL_LockAudioDevice(device);
 	soundBuffer[soundBufferPos++] = sample + adjustedMockingboard;
 	SDL_UnlockAudioDevice(device);
-
-//	soundBuffer[soundBufferPos++] = sample;
-//WriteLog("WriteSampleToBuffer(): SDL_mutexV(mutex2)\n");
-//	SDL_mutexV(mutex2);
 }
 
 
@@ -236,7 +203,7 @@ void ToggleSpeaker(void)
 		return;
 
 	speakerState = !speakerState;
-	sample = (speakerState ? amplitude[ampPtr] : 0);//-amplitude[ampPtr]);
+	sample = (speakerState ? amplitude[ampPtr] : 0);
 }
 
 

@@ -2,7 +2,7 @@
 // Virtual 65C02 Header file
 //
 // by James Hammons
-// (c) 2005 Underground Software
+// (c) 2005-2018 Underground Software
 //
 
 #ifndef __V65C02_H__
@@ -37,7 +37,7 @@ struct V65C02REGS
 	uint8_t a;					// 65C02 A register
 	uint8_t x;					// 65C02 X index register
 	uint8_t y;					// 65C02 Y register
-	uint64_t clock;				// 65C02 clock (@ 1 MHz, wraps at 570,842 years)
+	uint64_t clock;				// 65C02 clock (@1 MHz, wraps at 570,842 years)
 	uint8_t (* RdMem)(uint16_t);	// Address of BYTE read routine
 	void (* WrMem)(uint16_t, uint8_t);	// Address of BYTE write routine
 	void (* Timer)(uint16_t);	// Address of Timer routine
@@ -49,11 +49,9 @@ struct V65C02REGS
 
 extern bool dumpDis;
 
-// Function prototypes
+// Exported functions
 
-void Execute65C02(V65C02REGS *, uint32_t);	// Function to execute 65C02 instructions
-uint64_t GetCurrentV65C02Clock(void);		// Get the clock of the currently executing CPU
-void AssertLine(uint16_t);		// Assert 65C02 line in current context
+void Execute65C02(V65C02REGS *, uint32_t);
 
 #endif	// __V65C02_H__
 

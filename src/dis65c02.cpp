@@ -2,7 +2,7 @@
 // 65C02 disassembler
 //
 // by James Hammons
-// (c) 2005 Underground Software
+// (c) 2005-2018 Underground Software
 //
 
 #include "dis65c02.h"
@@ -10,14 +10,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "log.h"
-#include "v65c02.h"
 
 
-// External shit
-
-extern V65C02REGS mainCPU;//Hm. Shouldn't we pass this shit in? ANSWER: YES. !!! FIX !!!
-
-// Private globals variables
+// Private global variables
 
 static uint8_t op_mat[256] = {
 	14, 6,  0,  0,  2,  2,  2,  2,  14, 1,  14, 0,  8,  8,  8,  13,
@@ -77,7 +72,7 @@ static uint8_t mnemonics[256][5] = {
 //
 // Display bytes in mem in hex
 //
-static void DisplayBytes(char * outbuf, uint16_t src, uint32_t dst)
+static void DisplayBytes(V65C02REGS * regs, char * outbuf, uint16_t src, uint32_t dst)
 {
 	char buf[32];
 	sprintf(outbuf, "%04X: ", src);
@@ -89,7 +84,7 @@ static void DisplayBytes(char * outbuf, uint16_t src, uint32_t dst)
 
 	for(uint32_t i=src; i<dst; i++)
 	{
-		sprintf(buf, "%02X ", mainCPU.RdMem(i));
+		sprintf(buf, "%02X ", regs->RdMem(i));
 		strcat(outbuf, buf);
 		cnt++;
 	}
@@ -106,13 +101,13 @@ static void DisplayBytes(char * outbuf, uint16_t src, uint32_t dst)
 //
 // Decode a 65C02 instruction
 //
-int Decode65C02(char * outbuf, uint16_t pc)
+int Decode65C02(V65C02REGS * regs, char * outbuf, uint16_t pc)
 {
 	char buf[32], buf2[32];
 
 	uint16_t addr = pc;
 	uint16_t w;
-	uint8_t opcode = mainCPU.RdMem(addr++);	// Get the opcode
+	uint8_t opcode = regs->RdMem(addr++);	// Get the opcode
 
 	switch (op_mat[opcode])					// Decode the addressing mode...
 	{
@@ -120,53 +115,53 @@ int Decode65C02(char * outbuf, uint16_t pc)
 		sprintf(buf, "???");
 		break;
 	case 1:									// Immediate
-		sprintf(buf, "%s #$%02X", mnemonics[opcode], mainCPU.RdMem(addr++));
+		sprintf(buf, "%s #$%02X", mnemonics[opcode], regs->RdMem(addr++));
 		break;
 	case 2:									// Zero page
-		sprintf(buf, "%s $%02X", mnemonics[opcode], mainCPU.RdMem(addr++));
+		sprintf(buf, "%s $%02X", mnemonics[opcode], regs->RdMem(addr++));
 		break;
 	case 3:									// Zero page, X
-		sprintf(buf, "%s $%02X,X", mnemonics[opcode], mainCPU.RdMem(addr++));
+		sprintf(buf, "%s $%02X,X", mnemonics[opcode], regs->RdMem(addr++));
 		break;
 	case 4:									// Zero page, Y
-		sprintf(buf, "%s $%02X,Y", mnemonics[opcode], mainCPU.RdMem(addr++));
+		sprintf(buf, "%s $%02X,Y", mnemonics[opcode], regs->RdMem(addr++));
 		break;
 	case 5:									// Zero page indirect
-		sprintf(buf, "%s ($%02X)", mnemonics[opcode], mainCPU.RdMem(addr++));
+		sprintf(buf, "%s ($%02X)", mnemonics[opcode], regs->RdMem(addr++));
 		break;
 	case 6:									// Zero page, X indirect
-		sprintf(buf, "%s ($%02X,X)", mnemonics[opcode], mainCPU.RdMem(addr++));
+		sprintf(buf, "%s ($%02X,X)", mnemonics[opcode], regs->RdMem(addr++));
 		break;
 	case 7:									// Zero page, Y indirect
-		sprintf(buf, "%s ($%02X),Y", mnemonics[opcode], mainCPU.RdMem(addr++));
+		sprintf(buf, "%s ($%02X),Y", mnemonics[opcode], regs->RdMem(addr++));
 		break;
 	case 8:									// Absolute
-		w = mainCPU.RdMem(addr++);
-		w |= mainCPU.RdMem(addr++) << 8;
+		w = regs->RdMem(addr++);
+		w |= regs->RdMem(addr++) << 8;
 		sprintf(buf, "%s $%04X", mnemonics[opcode], w);
 		break;
 	case 9:									// Absolute, X
-		w = mainCPU.RdMem(addr++);
-		w |= mainCPU.RdMem(addr++) << 8;
+		w = regs->RdMem(addr++);
+		w |= regs->RdMem(addr++) << 8;
 		sprintf(buf, "%s $%04X,X", mnemonics[opcode], w);
 		break;
 	case 10:								// Absolute, Y
-		w = mainCPU.RdMem(addr++);
-		w |= mainCPU.RdMem(addr++) << 8;
+		w = regs->RdMem(addr++);
+		w |= regs->RdMem(addr++) << 8;
 		sprintf(buf, "%s $%04X,Y", mnemonics[opcode], w);
 		break;
 	case 11:								// Indirect
-		w = mainCPU.RdMem(addr++);
-		w |= mainCPU.RdMem(addr++) << 8;
+		w = regs->RdMem(addr++);
+		w |= regs->RdMem(addr++) << 8;
 		sprintf(buf, "%s ($%04X)", mnemonics[opcode], w);
 		break;
 	case 12:								// Indirect, X
-		w = mainCPU.RdMem(addr++);
-		w |= mainCPU.RdMem(addr++) << 8;
+		w = regs->RdMem(addr++);
+		w |= regs->RdMem(addr++) << 8;
 		sprintf(buf, "%s ($%04X,X)", mnemonics[opcode], w);
 		break;
 	case 13:								// Relative
-		sprintf(buf, "%s $%04X", mnemonics[opcode], addr + (int16_t)((int8_t)mainCPU.RdMem(addr)) + 1);
+		sprintf(buf, "%s $%04X", mnemonics[opcode], addr + (int16_t)((int8_t)regs->RdMem(addr)) + 1);
 		addr++;
 		break;
 	case 14:								// Inherent
@@ -174,7 +169,7 @@ int Decode65C02(char * outbuf, uint16_t pc)
 		break;
 	}
 
-	DisplayBytes(buf2, pc, addr);			// Show bytes
+	DisplayBytes(regs, buf2, pc, addr);		// Show bytes
 	sprintf(outbuf, "%s %-14s", buf2, buf);	// Display opcode & addressing, etc.
 
 	return addr - pc;

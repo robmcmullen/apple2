@@ -494,7 +494,7 @@ static void AppleTimer(uint16_t cycles)
 			if (mbvia[0].ier & 0x40)
 			{
 				mbvia[0].ifr |= (0x80 | 0x40);
-				AssertLine(V65C02_ASSERT_LINE_IRQ);
+				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_IRQ;
 			}
 		}
 		else
@@ -512,7 +512,7 @@ static void AppleTimer(uint16_t cycles)
 			if (mbvia[1].ier & 0x40)
 			{
 				mbvia[1].ifr |= (0x80 | 0x40);
-				AssertLine(V65C02_ASSERT_LINE_NMI);
+				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_NMI;
 			}
 		}
 		else
@@ -531,7 +531,7 @@ static void AppleTimer(uint16_t cycles)
 	if (cyclesForSample >= 21.26009)
 	{
 #if 0
-sampleClock = GetCurrentV65C02Clock();
+sampleClock = mainCPU.clock;
 WriteLog("    cyclesForSample = %lf (%d samples, cycles=%d)\n", cyclesForSample, sampleClock - lastSampleClock, cycles);
 sampleCount++;
 lastSampleClock = sampleClock;
