@@ -7,7 +7,7 @@
 
 #include <stdint.h>
 
-uint32_t CRC32(uint8_t * data, uint32_t length);
+uint32_t CRC32(const uint8_t * data, uint32_t length);
 
 #endif	// __CRC32_H__
 

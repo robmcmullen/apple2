@@ -13,10 +13,9 @@
 
 #include "mmu.h"
 #include "apple2.h"
-#include "ay8910.h"
 #include "firmware.h"
 #include "log.h"
-#include "mos6522via.h"
+#include "mockingboard.h"
 #include "sound.h"
 #include "video.h"
 
@@ -27,10 +26,6 @@
 // Address Map enumeration
 enum { AM_RAM, AM_ROM, AM_BANKED, AM_READ, AM_WRITE, AM_READ_WRITE, AM_END_OF_LIST };
 
-// Macros for function pointers
-#define READFUNC(x) uint8_t (* x)(uint16_t)
-#define WRITEFUNC(x) void (* x)(uint16_t, uint8_t)
-
 // Internal vars
 uint8_t ** addrPtrRead[0x10000];
 uint8_t ** addrPtrWrite[0x10000];
@@ -38,6 +33,14 @@ uint16_t addrOffset[0x10000];
 
 READFUNC(funcMapRead[0x10000]);
 WRITEFUNC(funcMapWrite[0x10000]);
+
+READFUNC(slotHandlerR[8]);
+WRITEFUNC(slotHandlerW[8]);
+
+READFUNC(slotHandler2KR[8]);
+WRITEFUNC(slotHandler2KW[8]);
+
+uint8_t enabledSlot;
 
 struct AddressMap
 {
@@ -69,7 +72,8 @@ uint8_t * mainMemoryTextW = &ram[0x0400];	// $0400 - $07FF (write)
 uint8_t * mainMemoryHGRR  = &ram[0x2000];	// $2000 - $3FFF (read)
 uint8_t * mainMemoryHGRW  = &ram[0x2000];	// $2000 - $3FFF (write)
 
-uint8_t * slotMemory      = &rom[0xC100];	// $C100 - $CFFF
+uint8_t * slotMemory      = &rom[0xC100];	// $C100 - $C7FF
+uint8_t * peripheralMemory= &rom[0xC800];	// $C800 - $CFFF
 uint8_t * slot3Memory     = &rom[0xC300];	// $C300 - $C3FF
 uint8_t * slot4Memory     = &rom[0xC400];	// $C400 - $C4FF
 uint8_t * slot6Memory     = &diskROM[0];	// $C600 - $C6FF
@@ -84,6 +88,10 @@ uint8_t ReadNOP(uint16_t);
 void WriteNOP(uint16_t, uint8_t);
 uint8_t ReadMemory(uint16_t);
 void WriteMemory(uint16_t, uint8_t);
+uint8_t SlotR(uint16_t address);
+void SlotW(uint16_t address, uint8_t byte);
+uint8_t Slot2KR(uint16_t address);
+void Slot2KW(uint16_t address, uint8_t byte);
 uint8_t ReadKeyboard(uint16_t);
 void Switch80STORE(uint16_t, uint8_t);
 void SwitchRAMRD(uint16_t, uint8_t);
@@ -91,6 +99,8 @@ void SwitchRAMWRT(uint16_t, uint8_t);
 void SwitchSLOTCXROM(uint16_t, uint8_t);
 void SwitchALTZP(uint16_t, uint8_t);
 void SwitchSLOTC3ROM(uint16_t, uint8_t);
+uint8_t SwitchINTC8ROMR(uint16_t);
+void SwitchINTC8ROMW(uint16_t, uint8_t);
 void Switch80COL(uint16_t, uint8_t);
 void SwitchALTCHARSET(uint16_t, uint8_t);
 uint8_t ReadKeyStrobe(uint16_t);
@@ -126,19 +136,11 @@ void SwitchHIRESW(uint16_t, uint8_t);
 uint8_t SwitchDHIRESR(uint16_t);
 void SwitchDHIRESW(uint16_t, uint8_t);
 void SwitchIOUDIS(uint16_t, uint8_t);
-uint8_t Slot6R(uint16_t);
-void Slot6W(uint16_t, uint8_t);
-void HandleSlot6(uint16_t, uint8_t);
-uint8_t MBRead(uint16_t);
-void MBWrite(uint16_t, uint8_t);
 uint8_t ReadButton0(uint16_t);
 uint8_t ReadButton1(uint16_t);
 uint8_t ReadPaddle0(uint16_t);
 uint8_t ReadIOUDIS(uint16_t);
 uint8_t ReadDHIRES(uint16_t);
-uint8_t ReadFloatingBus(uint16_t);
-//uint8_t SwitchR(uint16_t);
-//void SwitchW(uint16_t, uint8_t);
 
 
 // The main Apple //e memory map
@@ -191,22 +193,42 @@ AddressMap memoryMap[] = {
 	{ 0xC061, 0xC061, AM_READ, 0, 0, ReadButton0, 0 },
 	{ 0xC062, 0xC062, AM_READ, 0, 0, ReadButton1, 0 },
 	{ 0xC064, 0xC067, AM_READ, 0, 0, ReadPaddle0, 0 },
-//	{ 0xC07E, 0xC07F, AM_READ_WRITE, 0, 0, SwitchIOUDISR, SwitchIOUDISW },
 	{ 0xC07E, 0xC07E, AM_READ_WRITE, 0, 0, ReadIOUDIS, SwitchIOUDIS },
 	{ 0xC07F, 0xC07F, AM_READ_WRITE, 0, 0, ReadDHIRES, SwitchIOUDIS },
 	{ 0xC080, 0xC08F, AM_READ_WRITE, 0, 0, SwitchLCR, SwitchLCW },
-	{ 0xC0E0, 0xC0EF, AM_READ_WRITE, 0, 0, Slot6R, Slot6W },
-	{ 0xC100, 0xCFFF, AM_ROM, &slotMemory, 0, 0, 0 },
 
-	// This will overlay the slotMemory accessors for slot 6 ROM
-	{ 0xC300, 0xC3FF, AM_ROM, &slot3Memory, 0, 0, 0 },
-	{ 0xC600, 0xC6FF, AM_ROM, &slot6Memory, 0, 0, 0 },
-	{ 0xC400, 0xC4FF, AM_READ_WRITE, 0, 0, MBRead, MBWrite },
+	{ 0xC100, 0xC7FF, AM_READ_WRITE, 0, 0, SlotR, SlotW },
+	{ 0xC800, 0xCFFE, AM_READ_WRITE, 0, 0, Slot2KR, Slot2KW },
+	{ 0xCFFF, 0xCFFF, AM_READ_WRITE, 0, 0, SwitchINTC8ROMR, SwitchINTC8ROMW },
 
 	{ 0xD000, 0xDFFF, AM_BANKED, &lcBankMemoryR, &lcBankMemoryW, 0, 0 },
 	{ 0xE000, 0xFFFF, AM_BANKED, &upperMemoryR, &upperMemoryW, 0, 0 },
 	ADDRESS_MAP_END
 };
+/*
+Some stuff that may be useful:
+
+N.B.: Page 5-22 of UTA2E has INTC8ROM ON/OFF backwards
+INTC8ROM is turned OFF by R/W access to $CFFF
+INTC8ROM is turned ON by $C3xx access and SLOTC3ROM' (off)
+WRONG: (INTC8ROM on puts card's slot ROM/RAM(?) access in $C800-$CFFF)
+
+OK, so it's slightly more complex than that.  Basically, when there is an access to $CFFF, all peripheral cards must *stop* responding to  I/O STROBE'.  Only when a card gets an I/O SELECT' signal, can it respond to I/O STROBE'.
+
+INTC8ROM inhibits I/O STROBE' and activates the MB ROM in $C800-$CFFF
+INTC8ROM is 1 by access to $C3xx when SLOTC3ROM is 0
+INTC8ROM is 0 by access to $CFFF
+
+ICX = INTCXROM (aka SLOTCXROM), SC3 = SLOTC3ROM
+
+             ICX=0,SC3=0  ICX=0,SC3=1  ICX=1,SC3=0  ICX=1,SC3=1
+$C100-$C2FF   slot         slot         internal     internal
+$C300-$C3FF   internal     slot         internal     internal
+$C400-$CFFF   slot         slot         internal     internal
+
+Read from $C800-$CFFF causes I/O STROBE to go low (and INTCXROM and INTC8ROM are not set)
+
+*/
 
 
 void SetupAddressMap(void)
@@ -218,6 +240,14 @@ void SetupAddressMap(void)
 		addrPtrRead[i] = 0;
 		addrPtrWrite[i] = 0;
 		addrOffset[i] = 0;
+	}
+
+	for(uint32_t i=0; i<8; i++)
+	{
+		slotHandlerR[i] = ReadNOP;
+		slotHandlerW[i] = WriteNOP;
+		slotHandler2KR[i] = ReadNOP;
+		slotHandler2KW[i] = WriteNOP;
 	}
 
 	uint32_t i=0;
@@ -310,10 +340,54 @@ void ResetMMUPointers(void)
 	mainMemoryW = (ramwrt ?  &ram2[0x0200] : &ram[0x0200]);
 	mainMemoryHGRW = (ramwrt ? &ram2[0x2000] : &ram[0x2000]);
 
-	slot6Memory = (slotCXROM ? &diskROM[0] : &rom[0xC600]);
-	slot3Memory = (slotC3ROM ? &rom[0] : &rom[0xC300]);
+//	slot6Memory = (intCXROM ? &rom[0xC600] : &diskROM[0]);
+//	slot3Memory = (slotC3ROM ? &rom[0] : &rom[0xC300]);
 	pageZeroMemory = (altzp ? &ram2[0x0000] : &ram[0x0000]);
 	SwitchLC();
+#if 1
+WriteLog("RAMWRT = %s\n", (ramwrt ? "ON" : "off"));
+WriteLog("RAMRD = %s\n", (ramrd ? "ON" : "off"));
+WriteLog("SLOTCXROM = %s\n", (intCXROM ? "ON" : "off"));
+WriteLog("SLOTC3ROM = %s\n", (slotC3ROM ? "ON" : "off"));
+WriteLog("ALTZP = %s\n", (altzp ? "ON" : "off"));
+#endif
+}
+
+
+//
+// Set up slot access
+//
+void InstallSlotHandler(uint8_t slot, SlotData * slotData)
+{
+	// Sanity check
+	if (slot > 7)
+	{
+		WriteLog("InstallSlotHanlder: Caller attempted to put device into slot #%u...\n", slot);
+		return;
+	}
+
+	// Set up I/O read & write functions
+	for(uint32_t i=0; i<16; i++)
+	{
+		if (slotData->ioR)
+			funcMapRead[0xC080 + (slot * 16) + i] = slotData->ioR;
+
+		if (slotData->ioW)
+			funcMapWrite[0xC080 + (slot * 16) + i] = slotData->ioW;
+	}
+
+	// Set up memory access read/write functions
+	if (slotData->pageR)
+		slotHandlerR[slot] = slotData->pageR;
+
+	if (slotData->pageW)
+		slotHandlerW[slot] = slotData->pageW;
+
+	if (slotData->extraR)
+		slotHandler2KR[slot] = slotData->extraR;
+
+	if (slotData->extraW)
+		slotHandler2KW[slot] = slotData->extraW;
 }
 
 
@@ -322,7 +396,8 @@ void ResetMMUPointers(void)
 //
 uint8_t ReadNOP(uint16_t)
 {
-	return 0;
+	// This is for unconnected reads, and some software looks at addresses like these.  In particular, Mr. Robot and His Robot Factory failed in that it was looking at the first byte of each slots 256 byte driver space and failing if it saw a zero there.  Now I have no idea what happens in the real hardware, but I suspect it would return something that looks like ReadFloatingBus().
+	return 0xFF;
 }
 
 
@@ -357,13 +432,127 @@ void WriteMemory(uint16_t address, uint8_t byte)
 //
 uint8_t AppleReadMem(uint16_t address)
 {
+#if 0
+if (address == 0xD4 || address == 0xAC20)
+	WriteLog("Reading $%X...\n", address);
+#endif
+#if 0
+	uint8_t memRead = (*(funcMapRead[address]))(address);
+static uint16_t lastAddr = 0;
+static uint32_t lastCount = 0;
+if ((address > 0xC000 && address < 0xC100) || address == 0xC601)
+{
+	if (lastAddr == address)
+		lastCount++;
+	else
+	{
+		if (lastCount > 1)
+			WriteLog("%d times...\n", lastCount);
+
+		WriteLog("Reading $%02X from $%X ($%02X, $%02X)\n", memRead, address, diskROM[1], rom[0xC601]);
+		lastCount = 1;
+		lastAddr = address;
+	}
+}
+	return memRead;
+#else
 	return (*(funcMapRead[address]))(address);
+#endif
 }
 
 
 void AppleWriteMem(uint16_t address, uint8_t byte)
 {
+#if 0
+static uint16_t lastAddr = 0;
+static uint32_t lastCount = 0;
+if ((address > 0xC000 && address < 0xC100) || address == 0xC601)
+{
+	if (lastAddr == address)
+		lastCount++;
+	else
+	{
+		if (lastCount > 1)
+			WriteLog("%d times...\n", lastCount);
+
+		WriteLog("Writing to $%X\n", address);
+		lastCount = 1;
+		lastAddr = address;
+	}
+}
+#endif
+#if 0
+if (address == 0xD4 || address == 0xAC20)
+	WriteLog("Writing $%02X @ $%X...\n", byte, address);
+#endif
+#if 0
+//if (address >= 0x0827 && address <= 0x082A)
+if (address == 0x000D)
+	WriteLog("Writing $%02X @ $%X (PC=$%04X)...\n", byte, address, mainCPU.pc);
+#endif
 	(*(funcMapWrite[address]))(address, byte);
+}
+
+
+//
+// Generic slot handlers.  These are set up here so that we can catch INTCXROM,
+// INTC8ROM & SLOTC3ROM here instead of having to catch them in each slot handler.
+//
+uint8_t SlotR(uint16_t address)
+{
+//WriteLog("SlotR: address=$%04X, intCXROM=%d, slotC3ROM=%d, intC8ROM=%d\n", address, intCXROM, slotC3ROM, intC8ROM);
+	if (intCXROM)
+		return rom[address];
+
+	uint8_t slot = (address & 0xF00) >> 8;
+	enabledSlot = slot;
+
+	if ((slotC3ROM == 0) && (slot == 3))
+	{
+		intC8ROM = 1;
+		return rom[address];
+	}
+
+	return (*(slotHandlerR[slot]))(address & 0xFF);
+}
+
+
+void SlotW(uint16_t address, uint8_t byte)
+{
+	if (intCXROM)
+		return;
+
+	uint8_t slot = (address & 0xF00) >> 8;
+	enabledSlot = slot;
+
+	if ((slotC3ROM == 0) && (slot == 3))
+	{
+		intC8ROM = 1;
+		return;
+	}
+
+	(*(slotHandlerW[slot]))(address & 0xFF, byte);
+}
+
+
+//
+// Slot handling for 2K address space at $C800-$CFFF
+//
+uint8_t Slot2KR(uint16_t address)
+{
+	if (intCXROM || intC8ROM)
+		return rom[address];
+
+	return (*(slotHandler2KR[enabledSlot]))(address & 0x7FF);
+}
+
+
+void Slot2KW(uint16_t address, uint8_t byte)
+{
+	if (intCXROM || intC8ROM)
+		return;
+
+	(*(slotHandler2KW[enabledSlot]))(address & 0x7FF, byte);
 }
 
 
@@ -420,13 +609,39 @@ void SwitchRAMWRT(uint16_t address, uint8_t)
 }
 
 
+//
+// Since any slots that aren't populated are set to read from the ROM anyway,
+// we only concern ourselves with switching populated slots here.  (Note that
+// the MB slot is a split ROM / I/O device, and it's taken care of in the
+// MB handler.)
+//
+// N.B.: SLOTCXROM is also INTCXROM
+//
 void SwitchSLOTCXROM(uint16_t address, uint8_t)
 {
-//WriteLog("Setting SLOTCXROM to %s...\n", ((address & 0x01) ^ 0x01 ? "ON" : "off"));
-	// This is the only soft switch that breaks the usual convention.
-	slotCXROM = !((bool)(address & 0x01));
-//	slot3Memory = (slotCXROM ? &rom[0] : &rom[0xC300]);
-	slot6Memory = (slotCXROM ? &diskROM[0] : &rom[0xC600]);
+WriteLog("Setting SLOTCXROM to %s...\n", (address & 0x01 ? "ON" : "off"));
+	intCXROM = (bool)(address & 0x01);
+
+	// INTC8ROM trumps all (only in the $C800--$CFFF range... which we don't account for yet...  :-/)
+//	if (intC8ROM)
+//		return;
+#if 0
+#if 1
+	if (intCXROM)
+	{
+		slot3Memory = &rom[0xC300];
+		slot6Memory = &rom[0xC600];
+	}
+	else
+	{
+		slot3Memory = (slotC3ROM ? &rom[0] : &rom[0xC300]);
+		slot6Memory = &diskROM[0];
+	}
+#else
+//	slot3Memory = (intCXROM ? &rom[0xC300] : &rom[0]);
+	slot6Memory = (intCXROM ? &rom[0xC600] : &diskROM[0]);
+#endif
+#endif
 }
 
 
@@ -438,16 +653,54 @@ void SwitchALTZP(uint16_t address, uint8_t)
 }
 
 //extern bool dumpDis;
-
+//
+// The interpretation of this name is that if it's set then we access the ROM
+// for the card actually sitting in SLOT 3 (if any)
+//
 void SwitchSLOTC3ROM(uint16_t address, uint8_t)
 {
 //dumpDis = true;
 //WriteLog("Setting SLOTC3ROM to %s...\n", (address & 0x01 ? "ON" : "off"));
 	slotC3ROM = (bool)(address & 0x01);
+#if 1
+	if (intCXROM)
+		slot3Memory = &rom[0xC300];
+	else
+		slot3Memory = (slotC3ROM ? &rom[0] : &rom[0xC300]);
+#else
 //	slotC3ROM = false;
 // Seems the h/w forces this with an 80 column card in slot 3...
 	slot3Memory = (slotC3ROM ? &rom[0] : &rom[0xC300]);
 //	slot3Memory = &rom[0xC300];
+#endif
+}
+
+
+/*
+We need to see where this is being switched from; if we know that, we can switch in the appropriate ROM to $C800-$CFFF.  N.B.: Will probably need a custom handler routine, as some cards (like the Apple Hi-Speed SCSI card) split the 2K range into a 1K RAM space and a 1K bank switch ROM space.
+*/
+//
+// This is a problem with split ROM / I/O regions.  Because we can't do that
+// cleanly, we have to have a read handler for this.
+//
+// N.B.: We could add AM_IOREAD_WRITE and AM_READ_IOWRITE to the memory handlers
+//       to take care of split ROM / I/O regions...
+//
+uint8_t SwitchINTC8ROMR(uint16_t)
+{
+WriteLog("Hitting INTC8ROM (read)...\n");
+	intC8ROM = false;
+	return rom[0xCFFF];
+}
+
+
+//
+// This resets the INTC8ROM switch (RW)
+//
+void SwitchINTC8ROMW(uint16_t, uint8_t)
+{
+WriteLog("Hitting INTC8ROM (write)...\n");
+	intC8ROM = false;
 }
 
 
@@ -460,13 +713,14 @@ void Switch80COL(uint16_t address, uint8_t)
 void SwitchALTCHARSET(uint16_t address, uint8_t)
 {
 	alternateCharset = (bool)(address & 0x01);
+WriteLog("Setting ALTCHARSET to %s...\n", (alternateCharset ? "ON" : "off"));
 }
 
 
 uint8_t ReadKeyStrobe(uint16_t)
 {
-// No character data is read from here, just the 'any key was pressed' signal...
-//	uint8_t byte = lastKeyPressed | ((uint8_t)keyDown << 7);
+	// No character data is read from here, just the 'any key was pressed'
+	// signal...
 	uint8_t byte = (uint8_t)keyDown << 7;
 	keyDown = false;
 	return byte;
@@ -501,7 +755,7 @@ uint8_t ReadRAMWRT(uint16_t)
 
 uint8_t ReadSLOTCXROM(uint16_t)
 {
-	return (uint8_t)slotCXROM << 7;
+	return (uint8_t)intCXROM << 7;
 }
 
 
@@ -513,7 +767,6 @@ uint8_t ReadALTZP(uint16_t)
 
 uint8_t ReadSLOTC3ROM(uint16_t)
 {
-//	return 0;
 	return (uint8_t)slotC3ROM << 7;
 }
 
@@ -771,300 +1024,6 @@ WriteLog("Setting DHIRES to %s (ioudis = %s)...\n", ((address & 0x01) ^ 0x01 ? "
 void SwitchIOUDIS(uint16_t address, uint8_t)
 {
 	ioudis = !((bool)(address & 0x01));
-}
-
-
-uint8_t Slot6R(uint16_t address)
-{
-//WriteLog("Slot6R: address = %X\n", address & 0x0F);
-//	HandleSlot6(address, 0);
-//	return 0;
-	uint8_t state = address & 0x0F;
-
-	switch (state)
-	{
-	case 0x00:
-	case 0x01:
-	case 0x02:
-	case 0x03:
-	case 0x04:
-	case 0x05:
-	case 0x06:
-	case 0x07:
-		floppyDrive.ControlStepper(state);
-		break;
-	case 0x08:
-	case 0x09:
-		floppyDrive.ControlMotor(state & 0x01);
-		break;
-	case 0x0A:
-	case 0x0B:
-		floppyDrive.DriveEnable(state & 0x01);
-		break;
-	case 0x0C:
-		return floppyDrive.ReadWrite();
-		break;
-	case 0x0D:
-		return floppyDrive.GetLatchValue();
-		break;
-	case 0x0E:
-		floppyDrive.SetReadMode();
-		break;
-	case 0x0F:
-		floppyDrive.SetWriteMode();
-		break;
-	}
-
-	return 0;
-}
-
-
-void Slot6W(uint16_t address, uint8_t byte)
-{
-//WriteLog("Slot6W: address = %X, byte= %X\n", address & 0x0F, byte);
-//	HandleSlot6(address, byte);
-	uint8_t state = address & 0x0F;
-
-	switch (state)
-	{
-	case 0x00:
-	case 0x01:
-	case 0x02:
-	case 0x03:
-	case 0x04:
-	case 0x05:
-	case 0x06:
-	case 0x07:
-		floppyDrive.ControlStepper(state);
-		break;
-	case 0x08:
-	case 0x09:
-		floppyDrive.ControlMotor(state & 0x01);
-		break;
-	case 0x0A:
-	case 0x0B:
-		floppyDrive.DriveEnable(state & 0x01);
-		break;
-	case 0x0C:
-		floppyDrive.ReadWrite();
-		break;
-	case 0x0D:
-		floppyDrive.SetLatchValue(byte);
-		break;
-	case 0x0E:
-		floppyDrive.SetReadMode();
-		break;
-	case 0x0F:
-		floppyDrive.SetWriteMode();
-		break;
-	}
-}
-
-
-void HandleSlot6(uint16_t address, uint8_t byte)
-{
-}
-
-
-uint8_t MBRead(uint16_t address)
-{
-#if 1
-	// Not sure [Seems to work OK]
-	if (!slotCXROM)
-	{
-		return slot4Memory[address & 0x00FF];
-	}
-#endif
-
-	uint8_t regNum = address & 0x0F;
-	uint8_t chipNum = (address & 0x80) >> 7;
-
-#if 0
-	WriteLog("MBRead: address = %X [chip %d, reg %X, clock=$%X]\n", address & 0xFF, chipNum, regNum, GetCurrentV65C02Clock());
-#endif
-
-	switch (regNum)
-	{
-	case 0x00:
-		return mbvia[chipNum].orb & mbvia[chipNum].ddrb;
-
-	case 0x01:
-		return mbvia[chipNum].ora & mbvia[chipNum].ddra;
-
-	case 0x02:
-		return mbvia[chipNum].ddrb;
-
-	case 0x03:
-		return mbvia[chipNum].ddra;
-
-	case 0x04:
-		return mbvia[chipNum].timer1counter & 0xFF;
-
-	case 0x05:
-		return (mbvia[chipNum].timer1counter & 0xFF00) >> 8;
-
-	case 0x06:
-		return mbvia[chipNum].timer1latch & 0xFF;
-
-	case 0x07:
-		return (mbvia[chipNum].timer1latch & 0xFF00) >> 8;
-
-	case 0x08:
-		return mbvia[chipNum].timer2counter & 0xFF;
-
-	case 0x09:
-		return (mbvia[chipNum].timer2counter & 0xFF00) >> 8;
-
-	case 0x0B:
-		return mbvia[chipNum].acr;
-
-	case 0x0D:
-		return (mbvia[chipNum].ifr & 0x7F)
-			| (mbvia[chipNum].ifr & 0x7F ? 0x80 : 0);
-
-	case 0x0E:
-		return mbvia[chipNum].ier | 0x80;
-
-	default:
-		WriteLog("Unhandled 6522 register %X read (chip %d)\n", regNum, chipNum);
-	}
-
-	return 0;
-}
-
-
-static uint8_t regLatch[2];
-void MBWrite(uint16_t address, uint8_t byte)
-{
-	uint8_t regNum = address & 0x0F;
-	uint8_t chipNum = (address & 0x80) >> 7;
-/*
-NOTES:
-bit 7 = L/R channel select (AY chip 1 versus AY chip 2)
-        0 = Left, 1 = Right
-
-Reg. B is connected to BC1, BDIR, RST' (bits 0, 1, 2)
-
-Left VIA IRQ line is tied to 6502 IRQ line
-Rght VIA IRQ line is tied to 6502 NMI line
-
-Register  Function
---------  -------------------------
-0         Output Register B
-1         Output Register A
-2         Data Direction Register B
-3         Data Direction Register A
-4         Timer 1 Low byte counter (& latch)
-5         Timer 1 Hgh byte counter (& latch)
-6         Timer 1 Low byte latch
-7         Timer 1 Hgh byte latch (& reset IRQ flag)
-B         Aux Control Register
-D         Interrupt Flag Register
-E         Interrupt Enable Register
-
-bit 6 of ACR is like so:
-0: Timed interrupt each time Timer 1 is loaded
-1: Continuous interrupts
-
-bit 7 enables PB7 (bit 6 controls output type):
-0: One shot output
-1: Square wave output
-
-
-*/
-#if 0
-	WriteLog("MBWrite: address = %X, byte= %X [clock=$%X]", address & 0xFF, byte, GetCurrentV65C02Clock());
-
-	if (regNum == 0)
-		WriteLog("[OUTB -> %s%s%s]\n", (byte & 0x01 ? "BC1" : ""), (byte & 0x02 ? " BDIR" : ""), (byte & 0x04 ? " RST'" : ""));
-	else if (regNum == 1)
-		WriteLog("[OUTA -> %02X]\n", byte);
-	else if (regNum == 2)
-		WriteLog("[DDRB -> %02X]\n", byte);
-	else if (regNum == 3)
-		WriteLog("[DDRA -> %02X]\n", byte);
-	else
-		WriteLog("\n");
-#endif
-
-	switch (regNum)
-	{
-	case 0x00:
-		// Control of the AY-3-8912 is thru this port pretty much...
-		mbvia[chipNum].orb = byte;
-
-		if ((byte & 0x04) == 0)
-#ifdef USE_NEW_AY8910
-			AYReset(chipNum);
-#else
-			AY8910_reset(chipNum);
-#endif
-		else if ((byte & 0x03) == 0x03)
-			regLatch[chipNum] = mbvia[chipNum].ora;
-		else if ((byte & 0x03) == 0x02)
-#ifdef USE_NEW_AY8910
-			AYWrite(chipNum, regLatch[chipNum], mbvia[chipNum].ora);
-#else
-			_AYWriteReg(chipNum, regLatch[chipNum], mbvia[chipNum].ora);
-#endif
-
-		break;
-
-	case 0x01:
-		mbvia[chipNum].ora = byte;
-		break;
-
-	case 0x02:
-		mbvia[chipNum].ddrb = byte;
-		break;
-
-	case 0x03:
-		mbvia[chipNum].ddra = byte;
-		break;
-
-	case 0x04:
-		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0xFF00)
-			| byte;
-		break;
-
-	case 0x05:
-		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0x00FF)
-			| (((uint16_t)byte) << 8);
-		mbvia[chipNum].timer1counter = mbvia[chipNum].timer1latch;
-		mbvia[chipNum].ifr &= 0x3F; // Clear T1 interrupt flag
-		break;
-
-	case 0x06:
-		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0xFF00)
-			| byte;
-		break;
-
-	case 0x07:
-		mbvia[chipNum].timer1latch = (mbvia[chipNum].timer1latch & 0x00FF)
-			| (((uint16_t)byte) << 8);
-		mbvia[chipNum].ifr &= 0x3F; // Clear T1 interrupt flag
-		break;
-
-	case 0x0B:
-		mbvia[chipNum].acr = byte;
-		break;
-
-	case 0x0D:
-		mbvia[chipNum].ifr &= ~byte;
-		break;
-
-	case 0x0E:
-		if (byte & 0x80)
-			// Setting bits in the IER
-			mbvia[chipNum].ier |= byte;
-		else
-			// Clearing bits in the IER
-			mbvia[chipNum].ier &= ~byte;
-
-		break;
-	default:
-		WriteLog("Unhandled 6522 register $%X write $%02X (chip %d)\n", regNum, byte, chipNum);
-	}
 }
 
 

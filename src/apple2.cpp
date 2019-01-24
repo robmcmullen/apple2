@@ -6,7 +6,7 @@
 //
 // Parts loosely inspired by AppleWin by Tom Charlesworth which was based on
 // AppleWin by Oliver Schmidt which was based on AppleWin by Michael O'Brien.
-// :-) Some parts (mainly TV rendering) are derived from ApplePC. Too bad it
+// :-)  Some parts (mainly TV rendering) are derived from ApplePC.  Too bad it
 // was closed source--it could have been *the* premier Apple II emulator out
 // there.
 //
@@ -45,12 +45,11 @@
 #include <stdlib.h>
 #include <string>
 #include <time.h>
-#include "ay8910.h"
 #include "firmware.h"
-#include "floppy.h"
+//#include "floppydisk.h"
 #include "log.h"
-#include "mos6522via.h"
 #include "mmu.h"
+#include "mockingboard.h"
 #include "settings.h"
 #include "sound.h"
 #include "timing.h"
@@ -73,17 +72,11 @@ uint8_t ram[0x10000], rom[0x10000];			// RAM & ROM spaces
 uint8_t ram2[0x10000];						// Auxillary RAM
 V65C02REGS mainCPU;							// v65C02 execution context
 uint8_t appleType = APPLE_TYPE_IIE;
-FloppyDrive floppyDrive;
 bool powerStateChangeRequested = false;
 uint64_t frameCycleStart;
 
-#if 0
-uint32_t frameTicks = 0;
-uint32_t frameTime[60];
-#else
 uint64_t frameTicks = 0;
 uint64_t frameTime[60];
-#endif
 uint32_t frameTimePtr = 0;
 
 // Exported variables
@@ -94,8 +87,9 @@ bool openAppleDown = false;
 bool closedAppleDown = false;
 bool store80Mode = false;
 bool vbl = false;
-bool slotCXROM = false;
+bool intCXROM = false;
 bool slotC3ROM = false;
+bool intC8ROM = false;
 bool ramrd = false;
 bool ramwrt = false;
 bool altzp = false;
@@ -103,17 +97,12 @@ bool ioudis = true;
 bool dhires = false;
 // Language card state (ROM read, no write)
 uint8_t lcState = 0x02;
+uint8_t blinkTimer = 0;
 
 static bool running = true;					// Machine running state flag...
-#if 0
-static uint32_t startTicks;
-#else
 static uint64_t startTicks;
-#endif
 static bool pauseMode = false;
 static bool fullscreenDebounce = false;
-//static bool capsLock = false;
-//static bool capsLockDebounce = false;
 static bool resetKeyDown = false;
 static int8_t hideMouseTimeout = 60;
 
@@ -186,37 +175,24 @@ WriteLog("CPU: SDL_SemWait(mainSem);\n");
 #ifdef THREAD_DEBUGGING
 WriteLog("CPU: Execute65C02(&mainCPU, cycles);\n");
 #endif
-//		for(int i=0; i<786; i++)
 		for(int i=0; i<262; i++)
 		{
-//			uint32_t cycles = 21;
-//			overflow += 0.666666667;
-
-//			if (overflow > 1.0)
-//			{
-//				cycles++;
-//				overflow -= 1.0;
-//			}
-
 			// If the CTRL+Reset key combo is being held, make sure the RESET
 			// line stays asserted:
 			if (resetKeyDown)
 				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
-//			Execute65C02(&mainCPU, cycles);
 			Execute65C02(&mainCPU, 65);
-//			WriteSampleToBuffer();
 
 			// According to "Understanding The Apple IIe", VBL asserted after
 			// the last byte of the screen is read and let go on the first read
 			// of the first byte of the screen. We now know that the screen
 			// starts on line #6 and ends on line #197 (of the vertical
-			// counter--actual VBLANK happens on lines 230 thru 233).
-//			vbl = ((i > 17) && (i < 592) ? true : false);
+			// counter--actual VBLANK proper happens on lines 230 thru 233).
 			vbl = ((i >= 6) && (i <= 197) ? true : false);
 		}
 
-WriteLog("*** Frame ran for %d cycles (%.3lf µs, %d samples).\n", mainCPU.clock - oldClock, ((double)(SDL_GetPerformanceCounter() - cpuFrameTickStart) * 1000000.0) / (double)SDL_GetPerformanceFrequency(), sampleCount);
+//WriteLog("*** Frame ran for %d cycles (%.3lf µs, %d samples).\n", mainCPU.clock - oldClock, ((double)(SDL_GetPerformanceCounter() - cpuFrameTickStart) * 1000000.0) / (double)SDL_GetPerformanceFrequency(), sampleCount);
 //	frameTicks = ((SDL_GetPerformanceCounter() - startTicks) * 1000) / SDL_GetPerformanceFrequency();
 /*
 Other timings from UTA2E:
@@ -325,7 +301,7 @@ bool LoadImg(char * filename, uint8_t * ram, int size)
 }
 
 
-const uint8_t stateHeader[19] = "APPLE2SAVESTATE1.1";
+const uint8_t stateHeader[19] = "APPLE2SAVESTATE1.2";
 static void SaveApple2State(const char * filename)
 {
 	WriteLog("Main: Saving Apple2 state...\n");
@@ -353,8 +329,9 @@ static void SaveApple2State(const char * filename)
 	fputc((uint8_t)closedAppleDown, file);
 	fputc((uint8_t)store80Mode, file);
 	fputc((uint8_t)vbl, file);
-	fputc((uint8_t)slotCXROM, file);
+	fputc((uint8_t)intCXROM, file);
 	fputc((uint8_t)slotC3ROM, file);
+	fputc((uint8_t)intC8ROM, file);
 	fputc((uint8_t)ramrd, file);
 	fputc((uint8_t)ramwrt, file);
 	fputc((uint8_t)altzp, file);
@@ -370,7 +347,10 @@ static void SaveApple2State(const char * filename)
 	fputc(lcState, file);
 
 	// Write out floppy state
-	floppyDrive.SaveState(file);
+	floppyDrive[0].SaveState(file);
+
+	// Write out Mockingboard state
+	MBSaveState(file);
 	fclose(file);
 }
 
@@ -410,8 +390,9 @@ static bool LoadApple2State(const char * filename)
 	closedAppleDown = (bool)fgetc(file);
 	store80Mode = (bool)fgetc(file);
 	vbl = (bool)fgetc(file);
-	slotCXROM = (bool)fgetc(file);
+	intCXROM = (bool)fgetc(file);
 	slotC3ROM = (bool)fgetc(file);
+	intC8ROM = (bool)fgetc(file);
 	ramrd = (bool)fgetc(file);
 	ramwrt = (bool)fgetc(file);
 	altzp = (bool)fgetc(file);
@@ -427,8 +408,10 @@ static bool LoadApple2State(const char * filename)
 	lcState = fgetc(file);
 
 	// Read in floppy state
-	floppyDrive.LoadState(file);
+	floppyDrive[0].LoadState(file);
 
+	// Read in Mockingboard state
+	MBLoadState(file);
 	fclose(file);
 
 	// Make sure things are in a sane state before execution :-P
@@ -448,8 +431,9 @@ static void ResetApple2State(void)
 	closedAppleDown = false;
 	store80Mode = false;
 	vbl = false;
-	slotCXROM = false;
+	intCXROM = false;
 	slotC3ROM = false;
+	intC8ROM = false;
 	ramrd = false;
 	ramwrt = false;
 	altzp = false;
@@ -457,14 +441,7 @@ static void ResetApple2State(void)
 	dhires = false;
 	lcState = 0x02;
 	ResetMMUPointers();
-	ResetMBVIAs();
-#ifdef USE_NEW_AY8910
-	AYReset(0);
-	AYReset(1);
-#else
-	AY8910_reset(0);
-	AY8910_reset(1);
-#endif
+	MBReset();
 
 	// Without this, you can wedge the system :-/
 	memset(ram, 0, 0x10000);
@@ -477,54 +454,12 @@ static double cyclesForSample = 0;
 static void AppleTimer(uint16_t cycles)
 {
 	// Handle PHI2 clocked stuff here...
-	bool via1T1HitZero = (mbvia[0].timer1counter <= cycles ? true : false);
-	bool via2T1HitZero = (mbvia[1].timer1counter <= cycles ? true : false);
-
-	mbvia[0].timer1counter -= cycles;
-	mbvia[0].timer2counter -= cycles;
-	mbvia[1].timer1counter -= cycles;
-	mbvia[1].timer2counter -= cycles;
-
-	if (via1T1HitZero)
-	{
-		if (mbvia[0].acr & 0x40)
-		{
-			mbvia[0].timer1counter += mbvia[0].timer1latch;
-
-			if (mbvia[0].ier & 0x40)
-			{
-				mbvia[0].ifr |= (0x80 | 0x40);
-				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_IRQ;
-			}
-		}
-		else
-		{
-			mbvia[0].ier &= 0x3F; // Disable T1 interrupt (VIA #1)
-		}
-	}
-
-	if (via2T1HitZero)
-	{
-		if (mbvia[1].acr & 0x40)
-		{
-			mbvia[1].timer1counter += mbvia[1].timer1latch;
-
-			if (mbvia[1].ier & 0x40)
-			{
-				mbvia[1].ifr |= (0x80 | 0x40);
-				mainCPU.cpuFlags |= V65C02_ASSERT_LINE_NMI;
-			}
-		}
-		else
-		{
-			mbvia[1].ier &= 0x3F; // Disable T1 interrupt (VIA #2)
-		}
-	}
+	MBRun(cycles);
+	floppyDrive[0].RunSequencer(cycles);
 
 #if 1
 	// Handle sound
 	// 21.26009 cycles per sample @ 48000 (running @ 1,020,484.32 Hz)
-	// Noooooope.  We need ~801 cycles per frame.  Averaging about 786, so missing 15 or so.
 	// 16.688154500083 ms = 1 frame
 	cyclesForSample += (double)cycles;
 
@@ -608,15 +543,9 @@ int main(int /*argc*/, char * /*argv*/[])
 	SetupAddressMap();
 	ResetMMUPointers();
 
-	// Set up Mockingboard
-	memset(&mbvia[0], 0, sizeof(MOS6522VIA));
-	memset(&mbvia[1], 0, sizeof(MOS6522VIA));
-//(at some point this shite will have to go into the state file...)
-#ifdef USE_NEW_AY8910
-	AYInit();
-#else
-	AY8910_InitAll(1020484, 48000);
-#endif
+	// Install devices in slots
+	InstallFloppy(6);
+	InstallMockingboard(4);
 
 	// Set up V65C02 execution context
 	memset(&mainCPU, 0, sizeof(V65C02REGS));
@@ -670,7 +599,7 @@ So we need to decouple the CPU thread from the host video thread, and have the C
 	// Set frame to fire at 1/60 s interval
 	SetCallbackTime(FrameCallback, 16666.66666667);
 	// Set up blinking at 1/4 s intervals
-	SetCallbackTime(BlinkTimer, 250000);
+//	SetCallbackTime(BlinkTimer, 250000);
 	startTicks = SDL_GetTicks();
 
 #ifdef THREADED_65C02
@@ -722,8 +651,19 @@ WriteLog("Main: SDL_DestroyCond(cpuCond);\n");
 	if (settings.autoStateSaving)
 		SaveApple2State(settings.autoStatePath);
 
-	floppyDrive.SaveImage(0);
-	floppyDrive.SaveImage(1);
+	floppyDrive[0].SaveImage(0);
+	floppyDrive[0].SaveImage(1);
+
+#if 0
+#include "dis65c02.h"
+static char disbuf[80];
+uint16_t pc=0x801;
+while (pc < 0x9FF)
+{
+	pc += Decode65C02(&mainCPU, disbuf, pc);
+	WriteLog("%s\n", disbuf);
+}
+#endif
 
 	SoundDone();
 	VideoDone();
@@ -822,6 +762,10 @@ static void FrameCallback(void)
 			{
 //seems to leave the machine in an inconsistent state vis-a-vis the language card... [does it anymore?]
 				resetKeyDown = true;
+				// Need to reset the MMU switches as well on RESET
+				intCXROM = false;
+				slotC3ROM = false;
+				intC8ROM = false;
 				break;
 			}
 
@@ -910,9 +854,7 @@ static void FrameCallback(void)
 					lastKeyPressed -= 0x20;
 
 				// Handle key repeat if the key hasn't been held
-//				if (keyDelay == 0)
-					keyDelay = 15;
-
+				keyDelay = 15;
 				keyDownCount++;
 
 				// Buffer the key held. Note that the last key is always
@@ -951,29 +893,6 @@ static void FrameCallback(void)
 				openAppleDown = true;
 			else if (event.key.keysym.sym == SDLK_RALT)
 				closedAppleDown = true;
-			// Toggle the disassembly process
-			else if (event.key.keysym.sym == SDLK_F11)
-			{
-				dumpDis = !dumpDis;
-				SpawnMessage("Trace: %s", (dumpDis ? "ON" : "off"));
-			}
-			else if (event.key.keysym.sym == SDLK_F12)
-			{
-				logAYInternal = !logAYInternal;
-				SpawnMessage("AY Trace: %s", (logAYInternal ? "ON" : "off"));
-			}
-
-/*else if (event.key.keysym.sym == SDLK_F9)
-{
-	floppyDrive.CreateBlankImage(0);
-//	SpawnMessage("Image cleared...");
-}//*/
-/*else if (event.key.keysym.sym == SDLK_F10)
-{
-	floppyDrive.SwapImages();
-//	SpawnMessage("Image swapped...");
-}//*/
-
 			else if (event.key.keysym.sym == SDLK_F2)
 				TogglePalette();
 			else if (event.key.keysym.sym == SDLK_F3)
@@ -1003,13 +922,30 @@ static void FrameCallback(void)
 			else if (event.key.keysym.sym == SDLK_F7)
 			{
 				// 4th root of 2 is ~1.18920711500272 (~1.5 dB)
-				maxVolume /= 1.4142135f;	// This attenuates by ~3 dB
-				SpawnMessage("MB Volume: %d", (int)maxVolume);
+				// This attenuates by ~3 dB
+				VAY_3_8910::maxVolume /= 1.4142135f;
+				SpawnMessage("MB Volume: %d", (int)VAY_3_8910::maxVolume);
 			}
 			else if (event.key.keysym.sym == SDLK_F8)
 			{
-				maxVolume *= 1.4142135f;
-				SpawnMessage("MB Volume: %d", (int)maxVolume);
+				VAY_3_8910::maxVolume *= 1.4142135f;
+				SpawnMessage("MB Volume: %d", (int)VAY_3_8910::maxVolume);
+			}
+else if (event.key.keysym.sym == SDLK_F9)
+{
+	floppyDrive[0].CreateBlankImage(1);
+//	SpawnMessage("Image cleared...");
+}//*/
+/*else if (event.key.keysym.sym == SDLK_F10)
+{
+	floppyDrive[0].SwapImages();
+//	SpawnMessage("Image swapped...");
+}//*/
+			// Toggle the disassembly process
+			else if (event.key.keysym.sym == SDLK_F11)
+			{
+				dumpDis = !dumpDis;
+				SpawnMessage("Trace: %s", (dumpDis ? "ON" : "off"));
 			}
 			else if (event.key.keysym.sym == SDLK_F12)
 			{
@@ -1132,6 +1068,11 @@ static void FrameCallback(void)
 
 		powerStateChangeRequested = false;
 	}
+
+	blinkTimer = (blinkTimer + 1) & 0x1F;
+
+	if (blinkTimer == 0)
+		flash = !flash;
 
 	// Render the Apple screen + GUI overlay
 	RenderAppleScreen(sdlRenderer);

@@ -27,7 +27,7 @@ static uint32_t logSize = 0;
 
 bool InitLog(const char * path)
 {
-	log_stream = fopen(path, "wrt");
+	log_stream = fopen(path, "w");
 
 	if (log_stream == NULL)
 		return false;

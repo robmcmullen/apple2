@@ -20,8 +20,9 @@ ifeq "$(findstring Msys,$(OSTYPE))" "Msys"
 SYSTYPE    = __GCCWIN32__
 EXESUFFIX  = .exe
 ICON       = obj/icon.o
-SDLLIBTYPE = --libs
+SDLLIBTYPE = --static-libs
 MSG        = Win32 on MinGW
+EXTRA      = -static
 
 # Should catch both 'darwin' and 'darwin7.0'
 else ifeq "$(findstring Darwin,$(OSTYPE))" "Darwin"
@@ -86,7 +87,7 @@ CFLAGS   = $(GCC_DEPS) -Wall -Wno-switch $(DEFINES) -ffast-math $(SDL_CFLAGS) -p
 CPPFLAGS = $(GCC_DEPS) -Wall -Wno-switch -Wno-non-virtual-dtor $(DEFINES) \
 		-ffast-math $(SDL_CFLAGS) -pg -g
 
-LDFLAGS =
+LDFLAGS = $(EXTRA)
 
 #LIBS = -L/usr/local/lib -L/usr/lib `sdl2-config $(SDLLIBTYPE)` -lstdc++ -lz $(GLLIB)
 # Link in the gcov library (for profiling purposes)
@@ -107,20 +108,21 @@ OBJS = \
 	obj/gui.o             \
                               \
 	obj/apple2-icon-64x64.o \
-	obj/ay8910.o          \
 	obj/charset.o         \
 	obj/crc32.o           \
 	obj/dis65c02.o        \
 	obj/firmware.o        \
-	obj/floppy.o          \
+	obj/floppydrive.o     \
 	obj/log.o             \
-	obj/mos6522via.o      \
 	obj/mmu.o             \
+	obj/mockingboard.o    \
 	obj/sdlemu_config.o   \
 	obj/settings.o        \
 	obj/sound.o           \
 	obj/timing.o          \
+	obj/v6522via.o        \
 	obj/v65c02.o          \
+	obj/vay8910.o         \
 	obj/video.o           \
 	obj/apple2.o          \
 	$(ICON)

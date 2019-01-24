@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <SDL2/SDL.h>
 
+class DiskSet;
+class FileStruct;
+
 class DiskSelector
 {
 	public:
@@ -14,6 +17,9 @@ class DiskSelector
 		static void Init(SDL_Renderer *);
 		static void FindDisks();
 		static void FindDisks(const char *);
+		static void ReadManifest(FILE *, DiskSet *);
+		static bool CheckManifest(const char *, DiskSet *);
+		static uint8_t * ReadFile(const char *, uint32_t *);
 		static bool HasLegalExtension(const char *);
 		static void DrawFilenames(SDL_Renderer *);
 		static void DrawCharacter(SDL_Renderer *, int, int, uint8_t, bool inv=false);

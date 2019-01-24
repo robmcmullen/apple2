@@ -1,0 +1,64 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<head>
+<title>Apple2: An Apple //e Emulator for Linux, Windows, and MacOS</title>
+
+<meta name="description" content="Apple2 homepage" />
+<meta name="keywords" content="apple, emulator, SDL, cross-platform, GPL" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Kate" />
+
+<link rel="stylesheet" href="apple2.css" type="text/css" />
+</head>
+
+<body class="mainpage">
+<h1 class="title">Apple2</h1>
+<h2>A portable Apple //e emulator</h2>
+
+<hr>
+
+<h3>NIB Format No Longer Supported</h3>
+
+<p>Why did Apple2 drop support for NIB files, when they were arguably superior to disk images in DSK format?&ensp;While it&rsquo;s true that the NIB format was superior to the DSK format, that was before we had the WOZ format.&ensp;So what?&ensp;What makes the WOZ format better?&ensp;To answer to that seemingly innocuous question will require taking a look at various things that make up proper disk emulation, not the least of which includes various emulator disk file containers.</p>
+
+<p>The DSK format is a byte-for-byte image of a 16-sector Apple II floppy disk: 35 tracks of 16 sectors of 256 bytes each, making 143,360 bytes in total.&ensp;The PO format is exactly the same size as DSK and is also organized as 35 sequential tracks, but the sectors within each track are in a different sequence.&ensp;The NIB format is a nybblized format: a more direct representation of the disk&rsquo;s data as encoded by the Apple II floppy drive hardware.&ensp;NIB contains 35 tracks of 6656 bytes each, for a total size of 232,960 bytes.&ensp;Although this format is much larger, it is also more versatile and can represent the older 13-sector disks, some copy-protected disks, and other unusual encodings.</p>
+
+<p>However, even though the NIB format is closer to what was actually stored on a floppy disk, it has serious shortcomings&mdash;the biggest of these is the lack of so-called &ldquo;extra&rdquo; zero bits (also sometimes called &ldquo;timing&rdquo; bits).&ensp;These timing bits are used by the floppy disk controller to synchronize the reading of the bitstream on the disk; without these you could never be sure exactly what you were reading as reads to the disk are truly random as far as exactly <i>where</i> in the bitstream you will end up reading; since the disk spins independently of the Apple&rsquo;s CPU.</p>
+
+<p>Since that was clear as mud, here&rsquo;s an example.&ensp;Say you have a bitstream on the disk that looks something like this:</p>
+
+<p><tt>10110010010111101011001</tt></p>
+
+<p>When you start reading from the disk, the bytes you end up with can look very different depending on where you caught the bitstream.&ensp;For example, say you caught the bitstream on the first bit.&ensp;The bytes you would end up with would look like (periods represent trailing zero bits):</p>
+
+<p><tt>101100100 101111010 11001 --> B2. BD. C8</tt></p>
+
+<p>However, if you caught the bitstream on the third bit, you would end up with a different interpretation:</p>
+
+<p><tt>[10] 110010010 11110101 1001 --> C9. F5 9x</tt></p>
+
+<p>At this point, the reader is heard to say, &ldquo;So what?&ensp;Why should anyone care about those zero bits?&rdquo;&ensp;</p>
+
+<p>The short answer is because without them, you could never be sure that what you were reading was what was intended to be read.&ensp;Basically, the disk drive mechanism needs a way to let the bitstream &ldquo;slip&rdquo; in a controlled way, and the timing bits are the way that the drive does it.</p>
+
+<p>The usual method that the drive mechanism uses to send data to the CPU is by streaming them eight bits at a time; it also only starts the process of reading an eight bit stream by reading a one bit.&ensp;As a consequence of this, if there are any extraneous zero bits at the start of the next eight bit chunk, it will skip over those until it reads another one bit.&ensp;Thus, to synchronize data on the disk, one method to synchronize very quickly is to have a sequence of ten bits where the first eight bits are ones and the last two are zeroes.&ensp;If the sequence is long enough, it will automatically put the data being read from the disk that follows it in sync, and thus reliable reads are possible.</p>
+
+<p>And since <i>that</i> was also as clear as mud, here&rsquo;s another example.&ensp;Here is a bitstream composed of five ten-bit sequences as described above:</p>
+
+<p><tt>11111111001111111100111111110011111111001111111100</tt></p>
+
+<p>Let&rsquo;s say when reading this sequence, we caught the sixth bit.&ensp;We would end up seeing this:</p>
+
+<p><tt>[11111] 11100111 11111001 111111100 1111111100 1111111100 --> E7 F9 FF.. FF.. FF..</tt></p>
+
+<p>As you can see, even though we missed badly by starting in the stream at bit six, by the time we had read the third byte in the sequence we were already in sync, thanks to those trailing zero bits.&ensp;Thus the importance of the timing bits.</p>
+
+<p>But that still doesn&rsquo;t answer the question of why dropping NIB support is now necessary.&ensp;The short answer is that because the WOZ format is capable of representing what the NIB format could and much more since the WOZ format is a bitstream based format where the NIB format was a byte based format; by virtue of this, the two formats are hopelessly incompatible.</p>
+
+<p>Why are they incompatible?&ensp;The answer is that because the bitstream based format (WOZ) requires the emulation of the floppy disk controller&rsquo;s Logic State Sequencer (or LSS for short), and because of this, it requires timing bits to properly decode the bitstream.&ensp;Since the byte based format (NIB) lacks these, the LSS emulation can and will misinterpret the data from these kinds of images.</p>
+
+<p>So the ironic consequence of this is that NIB format can no longer be properly supported.&ensp;The irony comes from the fact that before there was a need for LSS emulation, NIB was the most accurate format you could get to represent the low level format of a disk, but now, with proper LSS emulation, it&rsquo;s the <i>worst</i> format for representing a floppy disk.&ensp;And the main reason for this is that NIB doesn&rsquo;t contain timing bits, and has no mechanism to represent them&mdash;so when feeding them to the new LSS emulation, they will fail horribly for the aforementioned reasons.&ensp;And since there is now a format that properly represents the bitstream on a floppy disk (WOZ), there&rsquo;s absolutely no reason to keep NIB around or support it anymore.&ensp;While it was a nice interim format to have around (when the emulation of the disk was &ldquo;imperfectly perfect&rdquo;), it now no longer has a place in disk preservation and/or emulation.</p>
+
+</body>
+</html>
+

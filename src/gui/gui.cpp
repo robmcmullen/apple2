@@ -23,6 +23,7 @@
 #include "gui.h"
 #include "apple2.h"
 #include "diskselector.h"
+#include "floppydrive.h"
 #include "log.h"
 #include "video.h"
 
@@ -224,9 +225,9 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 	case 1:
 		SpawnMessage("*** DISK #1 ***");
 
-		if (disk1EjectHovered && !floppyDrive.IsEmpty(0))
+		if (disk1EjectHovered && !floppyDrive[0].IsEmpty(0))
 		{
-			floppyDrive.EjectImage(0);
+			floppyDrive[0].EjectImage(0);
 			SpawnMessage("*** DISK #1 EJECTED ***");
 		}
 
@@ -241,9 +242,9 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 	case 2:
 		SpawnMessage("*** DISK #2 ***");
 
-		if (disk2EjectHovered && !floppyDrive.IsEmpty(1))
+		if (disk2EjectHovered && !floppyDrive[0].IsEmpty(1))
 		{
-			floppyDrive.EjectImage(1);
+			floppyDrive[0].EjectImage(1);
 			SpawnMessage("*** DISK #2 EJECTED ***");
 		}
 
@@ -256,7 +257,7 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 		break;
 	// Swap disks
 	case 3:
-		floppyDrive.SwapImages();
+		floppyDrive[0].SwapImages();
 		SpawnMessage("*** DISKS SWAPPED ***");
 		break;
 	// Save state
@@ -345,8 +346,8 @@ void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 				// Show what's in the selected drive
 				if (iconSelected >= 1 && iconSelected <= 2)
 				{
-					if (!floppyDrive.IsEmpty(iconSelected - 1))
-						SpawnMessage("\"%s\"", floppyDrive.ImageName(iconSelected - 1));
+					if (!floppyDrive[0].IsEmpty(iconSelected - 1))
+						SpawnMessage("\"%s\"", floppyDrive[0].ImageName(iconSelected - 1));
 				}
 			}
 		}
@@ -401,7 +402,7 @@ void GUI::AssembleDriveIcon(SDL_Renderer * renderer, int driveNumber)
 	// Drive door @ (16, 7)
 	SDL_Rect dst;
 	dst.w = 8, dst.h = 10, dst.x = 16, dst.y = 7;
-	SDL_RenderCopy(renderer, (floppyDrive.IsEmpty(driveNumber) ?
+	SDL_RenderCopy(renderer, (floppyDrive[0].IsEmpty(driveNumber) ?
 		doorOpen : doorClosed), NULL, &dst);
 
 	// Numeral @ (30, 20)
@@ -416,7 +417,7 @@ void GUI::AssembleDriveIcon(SDL_Renderer * renderer, int driveNumber)
 
 void GUI::DrawEjectButton(SDL_Renderer * renderer, int driveNumber)
 {
-	if (floppyDrive.IsEmpty(driveNumber))
+	if (floppyDrive[0].IsEmpty(driveNumber))
 		return;
 
 	uint8_t r = 0x00, g = 0xAA, b = 0x00;
@@ -431,7 +432,7 @@ void GUI::DrawEjectButton(SDL_Renderer * renderer, int driveNumber)
 
 void GUI::DrawDriveLight(SDL_Renderer * renderer, int driveNumber)
 {
-	int lightState = floppyDrive.DriveLightStatus(driveNumber);
+	int lightState = floppyDrive[0].DriveLightStatus(driveNumber);
 	int r = 0x77, g = 0x00, b = 0x00;
 
 	if (lightState == DLS_READ)

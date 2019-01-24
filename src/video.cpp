@@ -251,6 +251,7 @@ static void Render80ColumnTextLine(uint8_t line);
 static void Render40ColumnText(void);
 static void Render80ColumnText(void);
 static void RenderLoRes(uint16_t toLine = 24);
+static void RenderDLoRes(uint16_t toLine = 24);
 static void RenderHiRes(uint16_t toLine = 192);
 static void RenderDHiRes(uint16_t toLine = 192);
 static void RenderVideoFrame(/*uint32_t *, int*/);
@@ -342,6 +343,7 @@ void SpawnMessage(const char * text, ...)
 	va_end(arg);
 
 	msgTicks = 120;
+//WriteLog("\n%s\n", message);
 }
 
 
@@ -493,19 +495,24 @@ static void Render40ColumnTextLine(uint8_t line)
 
 				if (alternateCharset)
 				{
-					if (textChar[((chr & 0x3F) * 56) + cx + (cy * 7)])
+					if (textChar2e[(chr * 56) + cx + (cy * 7)])
 						pixel = pixelOn;
-
-					if (chr < 0x80)
-						pixel = pixel ^ (screenType == ST_GREEN_MONO ? 0x0061FF61 : 0x00FFFFFF);
-
-					if ((chr & 0xC0) == 0x40 && flash)
-						pixel = 0xFF000000;
 				}
 				else
 				{
-					if (textChar2e[(chr * 56) + cx + (cy * 7)])
-						pixel = pixelOn;
+					if ((chr & 0xC0) == 0x40)
+					{
+						if (textChar2e[((chr & 0x3F) * 56) + cx + (cy * 7)])
+							pixel = pixelOn;
+
+						if (flash)
+							pixel = pixel ^ (screenType == ST_GREEN_MONO ? 0x0061FF61 : 0x00FFFFFF);
+					}
+					else
+					{
+						if (textChar2e[(chr * 56) + cx + (cy * 7)])
+							pixel = pixelOn;
+					}
 				}
 
 				scrBuffer[(x * 7 * 2) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + (cx * 2) + 0 + (cy * VIRTUAL_SCREEN_WIDTH * 2)] = pixel;
@@ -548,19 +555,24 @@ static void Render80ColumnTextLine(uint8_t line)
 
 				if (alternateCharset)
 				{
-					if (textChar[((chr & 0x3F) * 56) + cx + (cy * 7)])
+					if (textChar2e[(chr * 56) + cx + (cy * 7)])
 						pixel = pixelOn;
-
-					if (chr < 0x80)
-						pixel = pixel ^ (screenType == ST_GREEN_MONO ? 0x0061FF61 : 0x00FFFFFF);
-
-					if ((chr & 0xC0) == 0x40 && flash)
-						pixel = 0xFF000000;
 				}
 				else
 				{
-					if (textChar2e[(chr * 56) + cx + (cy * 7)])
-						pixel = pixelOn;
+					if ((chr & 0xC0) == 0x40)
+					{
+						if (textChar2e[((chr & 0x3F) * 56) + cx + (cy * 7)])
+							pixel = pixelOn;
+
+						if (flash)
+							pixel = pixel ^ (screenType == ST_GREEN_MONO ? 0x0061FF61 : 0x00FFFFFF);
+					}
+					else
+					{
+						if (textChar2e[(chr * 56) + cx + (cy * 7)])
+							pixel = pixelOn;
+					}
 				}
 
 				scrBuffer[(x * 7) + (line * VIRTUAL_SCREEN_WIDTH * 8 * 2) + cx + (cy * 2 * VIRTUAL_SCREEN_WIDTH)] = pixel;
@@ -764,7 +776,7 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 //
 // Render the Double Lo Res screen (HIRES off, DHIRES on)
 //
-static void RenderDLoRes(void)
+static void RenderDLoRes(uint16_t toLine/*= 24*/)
 {
 // NOTE: The green mono rendering doesn't skip every other line... !!! FIX !!!
 //       Also, we could set up three different Render functions depending on
@@ -799,7 +811,7 @@ FB FB FB -> 15 [1111] -> 15		WHITE
 	uint8_t mirrorNybble2[16] = { 0, 4, 2, 6, 1, 5, 3, 7, 8, 12, 10, 14, 9, 13, 11, 15 };
 	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
 
-	for(uint16_t y=0; y<24; y++)
+	for(uint16_t y=0; y<toLine; y++)
 	{
 		// Do top half of double lores screen bytes...
 
@@ -1084,22 +1096,22 @@ void RenderVideoFrame(void)
 		{
 			if (mixedMode)
 			{
-				if (hiRes)
+				if (dhires)
 				{
+					if (hiRes)
+						RenderDHiRes(160);
+					else
+						RenderDLoRes(20);
+				}
+				else if (hiRes)
 					RenderHiRes(160);
-					Render40ColumnTextLine(20);
-					Render40ColumnTextLine(21);
-					Render40ColumnTextLine(22);
-					Render40ColumnTextLine(23);
-				}
 				else
-				{
 					RenderLoRes(20);
-					Render40ColumnTextLine(20);
-					Render40ColumnTextLine(21);
-					Render40ColumnTextLine(22);
-					Render40ColumnTextLine(23);
-				}
+
+				Render40ColumnTextLine(20);
+				Render40ColumnTextLine(21);
+				Render40ColumnTextLine(22);
+				Render40ColumnTextLine(23);
 			}
 			else
 			{

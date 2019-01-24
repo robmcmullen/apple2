@@ -6,27 +6,86 @@
 <meta name="description" content="Apple2 homepage" />
 <meta name="keywords" content="apple, emulator, SDL, cross-platform, GPL" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="GENERATOR" content="Kate" />
+<meta name="generator" content="Kate" />
 
 <link rel="stylesheet" href="apple2.css" type="text/css" />
 </head>
 
 <body class="mainpage">
 
-<h1 id="title">Apple2</h1>
+<h1 class="title">Apple2</h1>
 <h2>A portable Apple //e emulator</h2>
 
 <hr>
 
-<p>This is the home of the Apple2 portable Apple //e emulator. It&rsquo;s based on GCC and SDL2, and runs on Linux, Windows, and MacOS X. It&rsquo;s powered by Virtual 65C02&trade;, and sports an easy to use yet powerful interface. The source is licensed under the GPL version 3.</p>
+<p><img class="flt-l" src="img/a2-icon-64x64.png">This is the home of the Apple2 portable Apple //e emulator.&ensp;It&rsquo;s based on GCC and SDL2, and runs on Linux, Windows, and MacOS X.&ensp;It&rsquo;s powered by Virtual 65C02&trade;, and sports an easy to use yet powerful interface.&ensp;It also has WOZ support!&ensp;The source is licensed under the GPL version 3.</p>
 
-<p>This emulator came about because of ApplePC. It was a DOS only application with a horrible interface, and you had to tune it to get it work at the correct speed for your machine. But it had absolutely the most accurate looking screen that I have even seen on an Apple emulator at that time or ever since. Current emulators <i>still</i> to this day can&rsquo;t match the fidelity of what that old DOS program could do.</p>
+<figure class="flt-r">
+<img src="img/ss-04s.png">
+<figcaption>Apple2 running &ldquo;The Bard&rsquo;s Tale&rdquo;</figcaption>
+</figure>
 
-<p>So, to make a long story even longer, ApplePC disappeared off the face of the earth and I thought it was a shame that the screen rendering of that emulator should disappear with it. Also, there are, for some reason, absolutely no Apple II emulators for Linux! A deplorable situation! And so I resolved to fix that by figuring out how ApplePC did its video tricks and by writing an emulator for Linux. At the same time, since I write pretty much all my software cross-platform, Windows and MacOS X ports come along for free!</p>
+<p>This emulator came about because of ApplePC.&ensp;It was a DOS only application with a horrible user interface (I wouldn't go so far as to call it user hostile, but it was close) that you had to tune by feeding it the correct numbers for your machine to get it to run at the correct speed.&ensp;But it had absolutely the most accurate looking screen that I have even seen on an Apple emulator at that time or ever since&mdash;current emulators <i>still</i> to this day can&rsquo;t match the fidelity of what that old DOS program could do.</p>
 
-<p>Currently, only a source code archive is available. More will be coming in the near future... You can get a copy of the source code like so:</p>
+<p>So, to make a long story even longer, ApplePC disappeared off the face of the earth and I thought it was a shame that the screen rendering of that emulator should disappear with it.&ensp;Also, there are, for some reason, absolutely no Apple II emulators for Linux!&ensp;A deplorable situation!&ensp;<i>[This was true at the time of this writing, but now there are at least two others (<b>LinApple</b> and <b>microM8</b>) out there.&ensp;&mdash;Ed.]</i>&ensp;And so I resolved to fix that by figuring out how ApplePC did its video tricks and by writing an emulator for Linux.&ensp;At the same time, since I write pretty much all my software cross-platform, Windows and MacOS X ports come along for free!</p>
+
+<p>Currently, only a source code archive is available.&ensp;More will be coming in the near future&hellip;&ensp;You can get a copy of the source code with the following incantation:</p>
 
 <p><tt>git clone http://shamusworld.gotdns.org/git/apple2</tt></p>
+
+<h3>Features</h3>
+
+<p>Apple2 emulates an enhanced Apple //e with the following features:</p>
+
+<ul>
+<li>128K RAM</li>
+<li>Two Disk II floppy disk drives in slot 6</li>
+<li>One Mockingboard A (also known as Sound II) in slot 4</li>
+<li>80-column card in slot 3</li>
+<li>Double Hi-res</li>
+<li>Double Lo-res</li>
+<li>Accurate color TV emulation</li>
+<!--  Warning! abbr tag abuse! -->
+<li>Supports virtual disks types of DSK (read) and WOZ (read/write)&mdash;<abbr title="While Apple2 supported NIB files in the past, they have been superceded by WOZ files and are no longer compatible with the new disk emulatiion. While they served their purpose when we had nothing better, they've now worn out their welcome. :-P Click the link if you're curious to know why."><a href="nib.html">NIB is <b>no longer</b> supported</a></abbr></li>
+</ul>
+
+<h3>How to Use It</h3>
+
+<figure class="flt-r small33">
+<img src="img/ss-01s.png" width="100%">
+<figcaption>Apple2&rsquo;s Control Bar</figcaption>
+</figure>
+
+<p>By mousing over the right side of the screen, the emulator control bar will appear; moving the mouse off of the bar will cause it to disappear.&ensp;On the bar are seven icons, labeled (from top to bottom): power, disk one, disk two, swap disks, save state, load state, and configure.&ensp;Here&rsquo;s what they do:</p>
+
+<ul>
+<li>Power: turn the virtual Apple //e on and off</li>
+<li>Disk One: put a virtual disk into virtual disk drive #1 (or eject from same)</li>
+<li>Disk Two: put a virtual disk into virtual disk drive #2 (or eject from same)</li>
+<li>Swap Disks: take the virtual disk out of virtual drive #1 and put it into virtual drive #2 and take the virtual disk out of virtual drive #2 and put it into virtual drive #1 (it takes a lot of words to describe this simple action)</li>
+<li>Save State: save the state of the Apple2 emulator to a file for later recall</li>
+<li>Load State: load the state of the Apple2 emulator from a file</li>
+<li>Configure: configure various behaviors of the Apple2 emulator</li>
+</ul>
+
+<img class="flt-l small33" src="img/ss-02s.png">
+
+<img class="flt-l small33" src="img/ss-03s.png">
+
+<p>In addition to the aforementioned control bar, Apple2 also supports the following function keys:</p>
+
+<ul>
+<li>F2: Toggle color TV emulation palette</li>
+<li>F3: Toggle between color TV, white monochrome, and green monochrome modes</li>
+<li>F5/F6: Turn the emulated speaker volume up or down</li>
+<li>F7/F8: Turn the emulated Mockingboard volume up or down</li>
+<li>F12: Toggle full screen on/off</li>
+<li>Pause: Pause/unpause the emulation</li>
+<li>Ctrl-Shift-Q: Quit Apple2</li>
+<li>Ctrl-~: Ctrl-RESET</li>
+<li>Left Alt: Open apple key</li>
+<li>Right Alt: Closed apple key</li>
+</ul>
 
 </body>
 </html>

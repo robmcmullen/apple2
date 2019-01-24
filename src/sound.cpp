@@ -24,8 +24,9 @@
 
 #include <string.h>			// For memset, memcpy
 #include <SDL2/SDL.h>
-#include "ay8910.h"
 #include "log.h"
+#include "mockingboard.h"
+
 
 // Useful defines
 
@@ -133,7 +134,7 @@ sndFrmCnt++;
 
 	if (soundBufferPos < length)
 	{
-WriteLog("*** Sound buffer starved (%d short) *** [%d delta %d]\n", length - soundBufferPos, sndFrmCnt, sndFrmCnt - lastStarve);
+//WriteLog("*** Sound buffer starved (%d short) *** [%d delta %d]\n", length - soundBufferPos, sndFrmCnt, sndFrmCnt - lastStarve);
 lastStarve = sndFrmCnt;
 #if 1
 		for(uint32_t i=0; i<length; i++)
@@ -171,18 +172,10 @@ lastStarve = sndFrmCnt;
 //
 void WriteSampleToBuffer(void)
 {
-#ifdef USE_NEW_AY8910
-	uint16_t s1 = AYGetSample(0);
-	uint16_t s2 = AYGetSample(1);
-	uint16_t adjustedMockingboard = s1 + s2;
-#else
-	int16_t s1, s2, s3, s4, s5, s6;
-	int16_t * bufPtrs[6] = { &s1, &s2, &s3, &s4, &s5, &s6 };
-	AY8910Update(0, bufPtrs, 1);
-	AY8910Update(1, &bufPtrs[3], 1);
-	int16_t adjustedMockingboard = (s1 / 8) + (s2 / 8) + (s3 / 8)
-		+ (s4 / 8) + (s5 / 8) + (s6 / 8);
-#endif
+//	uint16_t s1 = AYGetSample(0);
+//	uint16_t s2 = AYGetSample(1);
+	uint16_t s1 = mb[0].ay[0].GetSample();
+	uint16_t s2 = mb[0].ay[1].GetSample();
 
 	// This should almost never happen, but, if it does...
 	while (soundBufferPos >= (SOUND_BUFFER_SIZE - 1))
@@ -192,7 +185,7 @@ void WriteSampleToBuffer(void)
 	}
 
 	SDL_LockAudioDevice(device);
-	soundBuffer[soundBufferPos++] = sample + adjustedMockingboard;
+	soundBuffer[soundBufferPos++] = sample + s1 + s2;
 	SDL_UnlockAudioDevice(device);
 }
 

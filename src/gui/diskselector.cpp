@@ -3,7 +3,7 @@
 //
 // Floppy disk selector GUI
 // by James Hammons
-// © 2014 Underground Software
+// © 2014-2018 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -13,6 +13,8 @@
 //
 // STILL TO DO:
 //
+// - Fix bug where hovering on scroll image causes it to fly across the screen
+//   [DONE]
 //
 
 #include "diskselector.h"
@@ -20,7 +22,8 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-#include "apple2.h"
+#include "crc32.h"
+#include "floppydrive.h"
 #include "font10pt.h"
 #include "gui.h"
 #include "log.h"
@@ -44,8 +47,6 @@ enum { DSS_SHOWING, DSS_HIDING, DSS_SHOWN, DSS_HIDDEN, DSS_LSB_SHOWING, DSS_LSB_
 #define DS_WIDTH			402
 #define DS_HEIGHT			322
 #define SCROLL_HOT_WIDTH	48
-// Need to add logic for left/right scroll buttons (they show when the mouse
-// is in the left or right hand portion of the rect).
 #define DS_XPOS	((VIRTUAL_SCREEN_WIDTH - DS_WIDTH) / 2)
 #define DS_YPOS	((VIRTUAL_SCREEN_HEIGHT - DS_HEIGHT) / 2)
 
@@ -69,6 +70,24 @@ So, how this will work for multiple columns, where the number of columns is grea
 */
 
 
+// We make provision for sets of 32 or less...
+/*
+The way the manifests are laid out, we make the assumption that the boot disk of a set is always listed first.  Therefore, image[0] will always be the boot disk.
+*/
+struct DiskSet
+{
+	uint8_t num;			// # of disks in this set
+	std::string name;		// The name of this disk set
+//	std::string fullPath;	// The path to the containing folder
+	std::string image[32];	// List of disk images in this set
+	std::string imgName[32];// List of human readable names of disk images
+	uint32_t crc[32];		// List of CRC32s of the disk images in the set
+	uint32_t crcFound[32];	// List of CRC32s actually discovered on filesystem
+
+	DiskSet(): num(0) {}
+};
+
+
 //
 // Struct to hold filenames & full paths to same
 //
@@ -76,6 +95,10 @@ struct FileStruct
 {
 	std::string image;
 	std::string fullPath;
+	DiskSet diskSet;
+
+//	FileStruct(): diskSet(NULL) {}
+//	~FileStruct() { if (diskSet != NULL) delete diskSet; }
 
 	// Functor, to presumably make the std::sort go faster
 	bool operator()(const FileStruct & a, const FileStruct & b) const
@@ -139,7 +162,9 @@ void DiskSelector::FindDisks(void)
 	WriteLog("GUI (DiskSelector)::FindDisks(): # of columns is %i (%i files)\n", numColumns, fsList.size());
 }
 
-
+/*
+OK, so the way that you can determine if a file is a directory in a cross-platform way is to do an opendir() call on a discovered filename.  If it returns NULL, then it's a regular file and not a directory.  Though I think the Linux method is more elegant.  :-P
+*/
 //
 // Find all disks images within path (recursive call does depth first search)
 //
@@ -160,23 +185,178 @@ void DiskSelector::FindDisks(const char * path)
 		char buf[0x10000];
 		sprintf(buf, "%s/%s", path, ent->d_name);
 
-		if ((ent->d_type == DT_REG) && HasLegalExtension(ent->d_name))
+		// Cross-platform way to test if it's a directory...
+		DIR * test = opendir(buf);
+
+//		if ((ent->d_type == DT_REG) && HasLegalExtension(ent->d_name))
+		if (test == NULL)
 		{
-			FileStruct fs;
-			fs.image = ent->d_name;
-			fs.fullPath = buf;
-			fsList.push_back(fs);
+		 	if (HasLegalExtension(ent->d_name))
+		 	{
+				FileStruct fs;
+				fs.image = ent->d_name;
+				fs.fullPath = buf;
+				fsList.push_back(fs);
+			}
 		}
-		else if (ent->d_type == DT_DIR)
+//		else if (ent->d_type == DT_DIR)
+		else
 		{
+			// Make sure we close the thing, since it's a bona-fide dir!
+			closedir(test);
+
 			// Only recurse if the directory is not one of the special ones...
 			if ((strcmp(ent->d_name, "..") != 0)
 				&& (strcmp(ent->d_name, ".") != 0))
-				FindDisks(buf);
+			{
+				// Check to see if this is a special directory with a manifest
+				char buf2[0x10000];
+				sprintf(buf2, "%s/manifest.txt", buf);
+				FILE * fp = fopen(buf2, "r");
+
+				// No manifest means it's just a regular directory...
+				if (fp == NULL)
+					FindDisks(buf);
+				else
+				{
+					// Read the manifest and all that good stuff
+					FileStruct fs;
+					ReadManifest(fp, &fs.diskSet);
+					fclose(fp);
+
+					// Finally, check that the stuff in the manifest is
+					// actually in the directory...
+					if (CheckManifest(buf, &fs.diskSet) == true)
+					{
+						fs.fullPath = buf;
+						fs.image = fs.diskSet.name;
+						fsList.push_back(fs);
+					}
+					else
+						WriteLog("Manifest for '%s' failed check phase.\n", fs.diskSet.name.c_str());
+#if 0
+					printf("Name found: \"%s\" (%d)\nDisks:\n", fs.diskSet.name.c_str(), fs.diskSet.num);
+					for(int i=0; i<fs.diskSet.num; i++)
+						printf("%s (CRC: %08X)\n", fs.diskSet.image[i].c_str(), fs.diskSet.crc[i]);
+#endif
+
+				}
+			}
 		}
 	}
 
 	closedir(dir);
+}
+
+
+void DiskSelector::ReadManifest(FILE * fp, DiskSet * ds)
+{
+	char line[0x10000];
+	int disksFound = 0;
+	int lineNo = 0;
+
+	while (!feof(fp))
+	{
+		fgets(line, 0x10000, fp);
+		lineNo++;
+
+		if ((line[0] == '#') || (line[0] == '\n'))
+			; // Do nothing with comments or blank lines...
+		else
+		{
+			char buf[1024];
+			char crcbuf[16];
+			char altName[1024];
+
+			if (strncmp(line, "diskset", 7) == 0)
+			{
+				sscanf(line, "diskset=\"%[^\"]\"", buf);
+				ds->name = buf;
+			}
+			else if (strncmp(line, "disks", 5) == 0)
+			{
+				sscanf(line, "disks=%hhd", &ds->num);
+			}
+			else if (strncmp(line, "disk", 4) == 0)
+			{
+				int n = sscanf(line, "disk=%s %s (%s)", buf, crcbuf, altName);
+
+				if ((n == 2) || (n == 3))
+				{
+					ds->image[disksFound] = buf;
+					ds->crc[disksFound] = strtoul(crcbuf, NULL, 16);
+					disksFound++;
+
+					if (n == 3)
+						ds->imgName[disksFound] = altName;
+					else
+					{
+						// Find the file's extension, if any
+						char * ext = strrchr(buf, '.');
+
+						// Kill the disk extension, if it exists
+						if (ext != NULL)
+							*ext = 0;
+
+						ds->imgName[disksFound] = buf;
+					}
+				}
+				else
+					WriteLog("Malformed disk descriptor in manifest at line %d\n", lineNo);
+			}
+		}
+	}
+
+	if (disksFound != ds->num)
+		WriteLog("Found only %d entries in manifest, expected %hhd\n", disksFound, ds->num);
+}
+
+
+bool DiskSelector::CheckManifest(const char * path, DiskSet * ds)
+{
+	uint8_t found = 0;
+
+	for(int i=0; i<ds->num; i++)
+	{
+		std::string filename = path;
+		filename += "/";
+		filename += ds->image[i];
+		uint32_t size;
+		uint8_t * buf = ReadFile(filename.c_str(), &size);
+
+		if (buf != NULL)
+		{
+			ds->crcFound[i] = CRC32(buf, size);
+			free(buf);
+			found++;
+
+			if (ds->crc[i] != ds->crcFound[i])
+			{
+				WriteLog("Warning: Bad CRC32 for '%s'. Expected: %08X, found: %08X\n", ds->image[i], ds->crc[i], ds->crcFound[i]);
+			}
+		}
+	}
+
+	return (found == ds->num ? true : false);
+}
+
+
+uint8_t * DiskSelector::ReadFile(const char * filename, uint32_t * size)
+{
+	FILE * fp = fopen(filename, "r");
+
+	if (!fp)
+		return NULL;
+
+	fseek(fp, 0, SEEK_END);
+	*size = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	uint8_t * buffer = (uint8_t *)malloc(*size);
+	fread(buffer, 1, *size, fp);
+	fclose(fp);
+
+	return buffer;
 }
 
 
@@ -194,7 +374,7 @@ bool DiskSelector::HasLegalExtension(const char * name)
 	if ((strcasecmp(ext, ".dsk") == 0)
 		|| (strcasecmp(ext, ".do") == 0)
 		|| (strcasecmp(ext, ".po") == 0)
-		|| (strcasecmp(ext, ".nib") == 0))
+		|| (strcasecmp(ext, ".woz") == 0))
 		return true;
 
 	return false;
@@ -317,6 +497,7 @@ void DiskSelector::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t 
 
 void DiskSelector::ShowWindow(int drive)
 {
+	diskSelectorState = DSS_SHOWN;
 	entered = false;
 	showWindow = true;
 	driveNumber = drive;
@@ -325,24 +506,18 @@ void DiskSelector::ShowWindow(int drive)
 
 void DiskSelector::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 {
-	if (!showWindow)
-		return;
-
-	if (!entered)
+	if (!showWindow || !entered)
 		return;
 
 	if ((diskSelectorState == DSS_LSB_SHOWING) || (diskSelectorState == DSS_LSB_SHOWN))
 	{
-		if (colStart > 0)
-		{
-			colStart--;
-			textScrollCount = 21;
+		colStart--;
+		textScrollCount = 21;
 
-			if (colStart == 0)
-			{
-				diskSelectorState = DSS_LSB_HIDING;
-				dxLeft = -8;
-			}
+		if (colStart == 0)
+		{
+			diskSelectorState = DSS_LSB_HIDING;
+			dxLeft = -8;
 		}
 
 		return;
@@ -350,16 +525,13 @@ void DiskSelector::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 
 	if ((diskSelectorState == DSS_RSB_SHOWING) || (diskSelectorState == DSS_RSB_SHOWN))
 	{
-		if (colStart + 3 < numColumns)
-		{
-			colStart++;
-			textScrollCount = -21;
+		colStart++;
+		textScrollCount = -21;
 
-			if ((colStart + 3) == numColumns)
-			{
-				diskSelectorState = DSS_RSB_HIDING;
-				dxRight = 8;
-			}
+		if ((colStart + 3) == numColumns)
+		{
+			diskSelectorState = DSS_RSB_HIDING;
+			dxRight = 8;
 		}
 
 		return;
@@ -367,7 +539,7 @@ void DiskSelector::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 
 	if (diskSelected != -1)
 	{
-		floppyDrive.LoadImage(fsList[diskSelected].fullPath.c_str(), driveNumber);
+		floppyDrive[0].LoadImage(fsList[diskSelected].fullPath.c_str(), driveNumber);
 	}
 
 	showWindow = false;
@@ -395,60 +567,66 @@ void DiskSelector::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 
 	// Check to see if the DS, since being hovered, is now no longer being
 	// hovered
+//N.B.: Should probably make like a 1/2 to 1 second timeout to allow for overshooting the edge of the thing, maybe have the window fade out gradually and let it come back if you enter before it leaves...
 	if (entered && ((x < DS_XPOS) || (x > (DS_XPOS + DS_WIDTH))
 		|| (y < DS_YPOS) || (y > (DS_YPOS + DS_HEIGHT))))
 	{
+		diskSelectorState = DSS_HIDDEN;
+		dxLeft = 0;
+		dxRight = 0;
+		rsbPos = DS_WIDTH;
+		lsbPos = -40;
 		showWindow = false;
+		refresh = true;
 		return;
 	}
 
-	if (entered && (colStart > 0))
+	// Bail out if the DS hasn't been entered yet
+	if (!entered)
+		return;
+
+/*
+states:
++-----+---------------------+-----+
+|     |                     |     |
+|     |                     |     |
++-----+---------------------+-----+
+ ^           ^                ^
+ |           |                x is here and state is DSS_SHOWN
+ |           x is here and state is DSS_LSB_SHOWING or DSS_RSB_SHOWING
+ x is here and state is DSS_SHOWN
+
+*/
+	if (x < (DS_XPOS + SCROLL_HOT_WIDTH))
 	{
-		if (diskSelectorState != DSS_LSB_SHOWN)
+		if ((colStart > 0) && (diskSelectorState == DSS_SHOWN))
 		{
-			if (x < (DS_XPOS + SCROLL_HOT_WIDTH))
-			{
-				diskSelectorState = DSS_LSB_SHOWING;
-				dxLeft = 8;
-			}
-			else
-			{
-				diskSelectorState = DSS_LSB_HIDING;
-				dxLeft = -8;
-			}
-		}
-		else
-		{
-			if (x >= (DS_XPOS + SCROLL_HOT_WIDTH))
-			{
-				diskSelectorState = DSS_LSB_HIDING;
-				dxLeft = -8;
-			}
+			diskSelectorState = DSS_LSB_SHOWING;
+			dxLeft = 8;
 		}
 	}
-
-	if (entered && ((colStart + 3) < numColumns))
+	else if (x > (DS_XPOS + DS_WIDTH - SCROLL_HOT_WIDTH))
 	{
-		if (diskSelectorState != DSS_RSB_SHOWN)
+		if (((colStart + 3) < numColumns) && (diskSelectorState == DSS_SHOWN))
 		{
-			if (x > (DS_XPOS + DS_WIDTH - SCROLL_HOT_WIDTH))
-			{
-				diskSelectorState = DSS_RSB_SHOWING;
-				dxRight = -8;
-			}
-			else
-			{
-				diskSelectorState = DSS_RSB_HIDING;
-				dxRight = 8;
-			}
+			diskSelectorState = DSS_RSB_SHOWING;
+			dxRight = -8;
 		}
-		else
+	}
+	else
+	{
+		// Handle the excluded middle  :-P
+		if ((diskSelectorState == DSS_LSB_SHOWING)
+			|| (diskSelectorState == DSS_LSB_SHOWN))
 		{
-			if (x <= (DS_XPOS + DS_WIDTH - SCROLL_HOT_WIDTH))
-			{
-				diskSelectorState = DSS_RSB_HIDING;
-				dxRight = 8;
-			}
+			diskSelectorState = DSS_LSB_HIDING;
+			dxLeft = -8;
+		}
+		else if ((diskSelectorState == DSS_RSB_SHOWING)
+			|| (diskSelectorState == DSS_RSB_SHOWN))
+		{
+			diskSelectorState = DSS_RSB_HIDING;
+			dxRight = 8;
 		}
 	}
 

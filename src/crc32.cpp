@@ -1,14 +1,10 @@
 //
 // CRC32 support
 //
-// by David Raingeard & James Hammons
+// by James Hammons
 // (C) 2010-2018 Underground Software
 //
-// JLH = James Hammons <jlhamm@acm.org>
-//
-// Who  When        What
-// ---  ----------  -----------------------------------------------------------
-// JLH  01/16/2010  Created this log ;-)
+// Based on the original 1986 implementation by Gary S. Brown
 //
 
 #include "crc32.h"
@@ -51,13 +47,13 @@ static uint32_t crcTable[256] =
 };
 
 
-uint32_t CRC32(uint8_t * data, uint32_t length)
+uint32_t CRC32(const uint8_t * data, uint32_t length)
 {
 	uint32_t crc = 0xFFFFFFFF;
 
 	for(uint32_t i=0; i<length; i++)
 		crc = crcTable[(crc ^ *data++) & 0xFF] ^ (crc >> 8);
 
-	return crc ^ 0xFFFFFFFF;
+	return ~crc;
 }
 
