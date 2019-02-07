@@ -544,8 +544,8 @@ int main(int /*argc*/, char * /*argv*/[])
 	ResetMMUPointers();
 
 	// Install devices in slots
-	InstallFloppy(6);
-	InstallMockingboard(4);
+	InstallFloppy(SLOT6);
+	InstallMockingboard(SLOT4);
 
 	// Set up V65C02 execution context
 	memset(&mainCPU, 0, sizeof(V65C02REGS));

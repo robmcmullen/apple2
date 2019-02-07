@@ -18,6 +18,7 @@ extern uint8_t slot4[0x100];
 extern uint8_t slot5[0x100];
 extern uint8_t slot6[0x100];
 extern uint8_t slot7[0x100];
+extern uint8_t hd2ROM[0x8000];
 
 #endif	// __FIRMWARE_H__
 

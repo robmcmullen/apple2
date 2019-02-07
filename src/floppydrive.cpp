@@ -802,6 +802,9 @@ N.B.: Though the NIB format is *closer* to the representation of the disk's
 According to Beneath Apple DOS, DOS checks the data register to see if it changes when spinning up a drive: "A sufficient delay should be provided to allow the motor time to come up to speed.  Shugart recommends one second, but DOS is able to reduce this delay by watching the read latch until data starts to change."  Which means, we can simulate an empty/off drive by leaving the data register alone.
 */
 
+uint64_t stepperTime = 0;
+bool seenReadSinceStep = false;
+uint16_t iorAddr;
 void FloppyDrive::ControlStepper(uint8_t addr)
 {
 	// $C0E0 - 7
@@ -811,12 +814,41 @@ How It Works
 The stepper motor has 4 phase solenoids (numbered 0-3) which corresponds to bits 1-2 of the address.  Bit 0 tells the phase solenoid to either energize (1) or de-energize (0).  By energizing the phase solenoids in ascending order, the stepper motor moves the head from a low numbered track to a higher numbered track; conversely, by energizing the solenoids in descending order, the stepper motor moves the head from a high numbered track to a lower one.  Given that this is a mechanical device, it takes a certain amount of time for the drum in the stepper motor to move from place to place--though pretty much all software written for the Disk II takes this into account.
 
 Tracks can apparently go from 0 to 79, though typically only 0 to 69 are usuable.  Further, because of the limitations of the read/write head of the drive, not every track can be written to, so typically (about 99.99% of the time in my guesstimation) only every *other* track is written to (phases 0 and 2); some disks exist that have tracks written on phase 1 or 3, but these tend to be the exception rather than the rule.
+
+Taking into account the head slew time: ATM nothing seems to look at it, though it could be problematic as how we emulate it is different from how it actually works; namely, the emulator zaps the head to a new track instantly when the write to the phase happens while in the real thing, obviously this takes a non-zero amount of time.  As such, none of the states where more than one phase solenoid is active at a time can be written so that they come on instantaneously; it would be fairly easy to write things that work on the real thing that don't on the emulator because of this.  But most software (pretty much everything that I've ever seen) is pretty well behaved and this isn't an issue.
+
+If it ever *does* become a problem, doing the physical modeling of the head moving at a real velocity shouldn't be that difficult to do.
 */
+
+	// This is an array of stub positions crossed with solenoid energize
+	// patterns.  The numbers represent how many quarter tracks the head will
+	// move given its current position and the pattern of energized solenoids.
+	// N.B.: Patterns for 11 & 13 haven't been filled in as I'm not sure how
+	//       the stub would react to those patterns.  :-/
+	int16_t step[16][8] = {
+		{  0,  0,  0,  0,  0,  0,  0,  0 },  // [....]
+		{  0, -1, -2,  0,  0,  0, +2, +1 },  // [|...]
+		{ +2, +1,  0, -1, -2,  0,  0,  0 },  // [.|..]
+		{ +1,  0, -1, -2, -3,  0, +3, +2 },  // [||..]
+		{  0,  0, +2, +1,  0, -1, -2,  0 },  // [..|.]
+		{  0, -1,  0, +1,  0, -1,  0, +1 },  // [|.|.]
+		{ +3, +2, +1,  0, -1, -2, -3,  0 },  // [.||.]
+		{ +2, +1,  0, -1, -2, -3,  0, +3 },  // [|||.]
+		{ -2,  0,  0,  0, +2, +1,  0, -1 },  // [...|]
+		{ -1, -2, -3,  0, +3, +2, +1,  0 },  // [|..|]
+		{  0, +1,  0, -1,  0, +1,  0, -1 },  // [.|.|]
+		{  0,  0,  0,  0,  0,  0,  0,  0 },  // [||.|] ???
+		{ -3,  0, +3, +2, +1,  0, -1, -2 },  // [..||]
+		{  0,  0,  0,  0,  0,  0,  0,  0 },  // [|.||] ???
+		{  0, +3, +2, +1,  0, -1, -2, -3 },  // [.|||]
+		{ -1, +2, +1,  0, -1, -2, +1,  0 }   // [||||]
+	};
+
 	// Sanity check
 	if (diskType[activeDrive] == DT_EMPTY)
 		return;
 
-	// Convert phase solenoid number into a bit from 1 through 8:
+	// Convert phase solenoid number into a bit from 1 through 8 [1, 2, 4, 8]:
 	uint8_t phaseBit = 1 << ((addr >> 1) & 0x03);
 
 	// Set the state of the phase solenoid accessed using the phase bit
@@ -825,6 +857,15 @@ Tracks can apparently go from 0 to 79, though typically only 0 to 69 are usuable
 	else
 		phase[activeDrive] &= ~phaseBit;
 
+#if 1
+	uint8_t oldHeadPos = headPos[activeDrive] & 0x07;
+	int16_t newStep = step[phase[activeDrive]][oldHeadPos];
+	int16_t newHeadPos = (int16_t)headPos[activeDrive] + newStep;
+
+	// Sanity check
+	if ((newHeadPos >= 0) && (newHeadPos <= 140))
+		headPos[activeDrive] = (uint8_t)newHeadPos;
+#else
 	// See if the new phase solenoid is energized, & move the stepper/head
 	// appropriately.
 	// N.B.: The head stub is located by bits 1 & 2 of the headPos variable
@@ -839,6 +880,7 @@ Tracks can apparently go from 0 to 79, though typically only 0 to 69 are usuable
 
 	if (phase[activeDrive] & nextDown)
 		headPos[activeDrive] -= (headPos[activeDrive] > 0 ? 2 : 0);
+#endif
 
 	if (oldHeadPos != headPos[activeDrive])
 	{
@@ -855,7 +897,13 @@ Tracks can apparently go from 0 to 79, though typically only 0 to 69 are usuable
 		SpawnMessage("Stepping to track %u...", headPos[activeDrive] >> 2);
 	}
 
-WriteLog("FLOPPY: Stepper phase %d set to %s [%c%c%c%c] (track=%2.2f)\n", (addr >> 1) & 0x03, (addr & 0x01 ? "ON " : "off"), (phase[activeDrive] & 0x08 ? '|' : '.'), (phase[activeDrive] & 0x04 ? '|' : '.'), (phase[activeDrive] & 0x02 ? '|' : '.'), (phase[activeDrive] & 0x01 ? '|' : '.'), (float)headPos[activeDrive] / 4.0f);
+// only check the time since the phase was first set ON
+if (addr & 0x01)
+{
+	stepperTime = mainCPU.clock;
+	seenReadSinceStep = false;
+}
+WriteLog("FLOPPY: Stepper phase %d set to %s [%c%c%c%c] (track=%2.2f) [%u]\n", (addr >> 1) & 0x03, (addr & 0x01 ? "ON " : "off"), (phase[activeDrive] & 0x08 ? '|' : '.'), (phase[activeDrive] & 0x04 ? '|' : '.'), (phase[activeDrive] & 0x02 ? '|' : '.'), (phase[activeDrive] & 0x01 ? '|' : '.'), (float)headPos[activeDrive] / 4.0f, mainCPU.clock & 0xFFFFFFFF);
 }
 
 
@@ -924,6 +972,13 @@ uint8_t FloppyDrive::DataRegister(void)
 			activeDrive, dataRegister, headPos[activeDrive] >> 2, (uint32_t)(((float)currentPos[activeDrive] / (float)bitLen) * 16.0f));
 		ioMode = IO_MODE_READ;
 		ioHappened = true;
+
+if ((seenReadSinceStep == false) && (slSwitch == false) && (rwSwitch == false) && ((iorAddr & 0x0F) == 0x0C))
+{
+	seenReadSinceStep = true;
+	WriteLog("%u:Reading $%02X from track %u, sector %u (delta since seek: %lu cycles) [%u]...\n",
+		activeDrive, dataRegister, headPos[activeDrive] >> 2, (uint32_t)(((float)currentPos[activeDrive] / (float)bitLen) * 16.0f), mainCPU.clock - stepperTime, mainCPU.clock & 0xFFFFFFFF);
+}
 	}
 
 	return dataRegister;
@@ -1437,6 +1492,8 @@ static uint8_t SlotIOR(uint16_t address)
 		break;
 	}
 
+//temp, for debugging
+iorAddr = address;
 	// Even addresses return the data register, odd (we suppose) returns a
 	// floating bus read...
 	return (address & 0x01 ? ReadFloatingBus(0) : floppyDrive[0].DataRegister());

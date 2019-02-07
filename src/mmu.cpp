@@ -388,6 +388,31 @@ void InstallSlotHandler(uint8_t slot, SlotData * slotData)
 
 	if (slotData->extraW)
 		slotHandler2KW[slot] = slotData->extraW;
+/*
+Was thinking about how to make these things more self-contained, so that the management overhead would be less.  IOW, you should be able to make an object (struct) that holds everything needed to interface the MMU with itself--InstallSlotHandler *almost* does this, but not quite.  A consequence of this approach is that we would have to add generic slot I/O handlers into the mix, but that shouldn't be too horrible.  So it could be something like so:
+
+struct Card
+{
+	void * object;
+	uint16_t type;	// Probably an enum so we can figure out what 'object' is
+	READFUNC(slotIOR);
+	WRITEFUNC(slotIOW);
+	READFUNC(slotPageR);
+	WRITEFUNC(slotPageW);
+	READFUNC(slot2KR);
+	WRITEFUNC(slot2KW);
+}
+
+So instead of a bunch of crappy shit that sucks in here, we would have a simple thing like:
+
+Card * slots[8];
+
+to encapsulate slots.  This also makes it easier to move them around and makes things less error prone.
+
+So maybe...
+
+
+*/
 }
 
 
@@ -396,7 +421,12 @@ void InstallSlotHandler(uint8_t slot, SlotData * slotData)
 //
 uint8_t ReadNOP(uint16_t)
 {
-	// This is for unconnected reads, and some software looks at addresses like these.  In particular, Mr. Robot and His Robot Factory failed in that it was looking at the first byte of each slots 256 byte driver space and failing if it saw a zero there.  Now I have no idea what happens in the real hardware, but I suspect it would return something that looks like ReadFloatingBus().
+	// This is for unconnected reads, and some software looks at addresses like
+	// these.  In particular, Mr. Robot and His Robot Factory failed in that it
+	// was looking at the first byte of each slots 256 byte driver space and
+	// failing if it saw a zero there.  Now I have no idea what happens in the
+	// real hardware, but I suspect it would return something that looks like
+	// ReadFloatingBus().
 	return 0xFF;
 }
 

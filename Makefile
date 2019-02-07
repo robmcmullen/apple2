@@ -113,6 +113,7 @@ OBJS = \
 	obj/dis65c02.o        \
 	obj/firmware.o        \
 	obj/floppydrive.o     \
+	obj/harddrive.o       \
 	obj/log.o             \
 	obj/mmu.o             \
 	obj/mockingboard.o    \
