@@ -111,6 +111,7 @@ OBJS = \
 	obj/charset.o         \
 	obj/crc32.o           \
 	obj/dis65c02.o        \
+	obj/fileio.o          \
 	obj/firmware.o        \
 	obj/floppydrive.o     \
 	obj/harddrive.o       \

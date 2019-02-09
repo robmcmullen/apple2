@@ -19,7 +19,6 @@ class DiskSelector
 		static void FindDisks(const char *);
 		static void ReadManifest(FILE *, DiskSet *);
 		static bool CheckManifest(const char *, DiskSet *);
-		static uint8_t * ReadFile(const char *, uint32_t *);
 		static bool HasLegalExtension(const char *);
 		static void DrawFilenames(SDL_Renderer *);
 		static void DrawCharacter(SDL_Renderer *, int, int, uint8_t, bool inv=false);

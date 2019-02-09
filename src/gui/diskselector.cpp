@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 #include "crc32.h"
+#include "fileio.h"
 #include "floppydrive.h"
 #include "font10pt.h"
 #include "gui.h"
@@ -338,25 +339,6 @@ bool DiskSelector::CheckManifest(const char * path, DiskSet * ds)
 	}
 
 	return (found == ds->num ? true : false);
-}
-
-
-uint8_t * DiskSelector::ReadFile(const char * filename, uint32_t * size)
-{
-	FILE * fp = fopen(filename, "r");
-
-	if (!fp)
-		return NULL;
-
-	fseek(fp, 0, SEEK_END);
-	*size = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
-
-	uint8_t * buffer = (uint8_t *)malloc(*size);
-	fread(buffer, 1, *size, fp);
-	fclose(fp);
-
-	return buffer;
 }
 
 

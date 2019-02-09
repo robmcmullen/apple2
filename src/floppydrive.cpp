@@ -2,7 +2,7 @@
 // Apple 2 floppy disk support
 //
 // by James Hammons
-// (c) 2005-2018 Underground Software
+// (c) 2005-2019 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -19,6 +19,7 @@
 #include <string.h>
 #include "apple2.h"
 #include "crc32.h"
+#include "fileio.h"
 #include "firmware.h"
 #include "log.h"
 #include "mmu.h"
@@ -29,71 +30,32 @@
 
 enum { IO_MODE_READ, IO_MODE_WRITE };
 
-// FloppyDrive class variable initialization
+// Misc. arrays (read only) that are needed
 
-uint8_t FloppyDrive::doSector[16] = {
-	0x0, 0x7, 0xE, 0x6, 0xD, 0x5, 0xC, 0x4, 0xB, 0x3, 0xA, 0x2, 0x9, 0x1, 0x8, 0xF };
-uint8_t FloppyDrive::poSector[16] = {
-	0x0, 0x8, 0x1, 0x9, 0x2, 0xA, 0x3, 0xB, 0x4, 0xC, 0x5, 0xD, 0x6, 0xE, 0x7, 0xF };
-uint8_t FloppyDrive::wozHeader[9] = "WOZ1\xFF\x0A\x0D\x0A";
-uint8_t FloppyDrive::wozHeader2[9] = "WOZ2\xFF\x0A\x0D\x0A";
-uint8_t FloppyDrive::standardTMAP[141] = {
-	0, 0, 0xFF, 1, 1, 1, 0xFF, 2, 2, 2, 0xFF, 3, 3, 3, 0xFF, 4, 4, 4, 0xFF,
-	5, 5, 5, 0xFF, 6, 6, 6, 0xFF, 7, 7, 7, 0xFF, 8, 8, 8, 0xFF, 9, 9, 9, 0xFF,
-	10, 10, 10, 0xFF, 11, 11, 11, 0xFF, 12, 12, 12, 0xFF, 13, 13, 13, 0xFF,
-	14, 14, 14, 0xFF, 15, 15, 15, 0xFF, 16, 16, 16, 0xFF, 17, 17, 17, 0xFF,
-	18, 18, 18, 0xFF, 19, 19, 19, 0xFF, 20, 20, 20, 0xFF, 21, 21, 21, 0xFF,
-	22, 22, 22, 0xFF, 23, 23, 23, 0xFF, 24, 24, 24, 0xFF, 25, 25, 25, 0xFF,
-	26, 26, 26, 0xFF, 27, 27, 27, 0xFF, 28, 28, 28, 0xFF, 29, 29, 29, 0xFF,
-	30, 30, 30, 0xFF, 31, 31, 31, 0xFF, 32, 32, 32, 0xFF, 33, 33, 33, 0xFF,
-	34, 34, 34, 0xFF, 0xFF, 0xFF
-};
-uint8_t FloppyDrive::bitMask[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
-uint8_t FloppyDrive::sequencerROM[256] = {
-0x18, 0x18, 0x18, 0x18, 0x0A, 0x0A, 0x0A, 0x0A, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-0x2D, 0x38, 0x2D, 0x38, 0x0A, 0x0A, 0x0A, 0x0A, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28,
-0x38, 0x28, 0xD8, 0x08, 0x0A, 0x0A, 0x0A, 0x0A, 0x39, 0x39, 0x39, 0x39, 0x3B, 0x3B, 0x3B, 0x3B,
-0x48, 0x48, 0xD8, 0x48, 0x0A, 0x0A, 0x0A, 0x0A, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48,
-0x58, 0x58, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x58, 0x58, 0x58, 0x58, 0x58, 0x58, 0x58, 0x58,
-0x68, 0x68, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x68, 0x68, 0x68, 0x68, 0x68, 0x68, 0x68, 0x68,
-0x78, 0x78, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78,
-0x88, 0x88, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x08, 0x88, 0x08, 0x88, 0x08, 0x88, 0x08, 0x88,
-0x98, 0x98, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x98, 0x98, 0x98, 0x98, 0x98, 0x98, 0x98, 0x98,
-0x29, 0xA8, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8,
-0xBD, 0xB8, 0xCD, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xB9, 0xB9, 0xB9, 0xB9, 0xBB, 0xBB, 0xBB, 0xBB,
-0x59, 0xC8, 0xD9, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8,
-0xD9, 0xA0, 0xD9, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8,
-0x08, 0xE8, 0xD8, 0xE8, 0x0A, 0x0A, 0x0A, 0x0A, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8,
-0xFD, 0xF8, 0xFD, 0xF8, 0x0A, 0x0A, 0x0A, 0x0A, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8,
-0x4D, 0xE0, 0xDD, 0xE0, 0x0A, 0x0A, 0x0A, 0x0A, 0x88, 0x08, 0x88, 0x08, 0x88, 0x08, 0x88, 0x08
+static const uint8_t bitMask[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+static const uint8_t sequencerROM[256] = {
+	0x18, 0x18, 0x18, 0x18, 0x0A, 0x0A, 0x0A, 0x0A, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
+	0x2D, 0x38, 0x2D, 0x38, 0x0A, 0x0A, 0x0A, 0x0A, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28,
+	0x38, 0x28, 0xD8, 0x08, 0x0A, 0x0A, 0x0A, 0x0A, 0x39, 0x39, 0x39, 0x39, 0x3B, 0x3B, 0x3B, 0x3B,
+	0x48, 0x48, 0xD8, 0x48, 0x0A, 0x0A, 0x0A, 0x0A, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48,
+	0x58, 0x58, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x58, 0x58, 0x58, 0x58, 0x58, 0x58, 0x58, 0x58,
+	0x68, 0x68, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x68, 0x68, 0x68, 0x68, 0x68, 0x68, 0x68, 0x68,
+	0x78, 0x78, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78,
+	0x88, 0x88, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x08, 0x88, 0x08, 0x88, 0x08, 0x88, 0x08, 0x88,
+	0x98, 0x98, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0x98, 0x98, 0x98, 0x98, 0x98, 0x98, 0x98, 0x98,
+	0x29, 0xA8, 0xD8, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8, 0xA8,
+	0xBD, 0xB8, 0xCD, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xB9, 0xB9, 0xB9, 0xB9, 0xBB, 0xBB, 0xBB, 0xBB,
+	0x59, 0xC8, 0xD9, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8, 0xC8,
+	0xD9, 0xA0, 0xD9, 0xD8, 0x0A, 0x0A, 0x0A, 0x0A, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8, 0xD8,
+	0x08, 0xE8, 0xD8, 0xE8, 0x0A, 0x0A, 0x0A, 0x0A, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8, 0xE8,
+	0xFD, 0xF8, 0xFD, 0xF8, 0x0A, 0x0A, 0x0A, 0x0A, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8, 0xF8,
+	0x4D, 0xE0, 0xDD, 0xE0, 0x0A, 0x0A, 0x0A, 0x0A, 0x88, 0x08, 0x88, 0x08, 0x88, 0x08, 0x88, 0x08
 };
 
-char FloppyDrive::nameBuf[MAX_PATH];
+static char nameBuf[MAX_PATH];
 
 
-// Static in-line functions, for clarity & speed, mostly for reading values out
-// of the WOZ struct, which stores its data in LE; some for swapping variables
-static inline uint16_t Uint16LE(uint16_t v)
-{
-#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-	return ((v & 0xFF) << 8) | ((v & 0xFF00) >> 8);
-#else
-	return v;
-#endif
-}
-
-
-static inline uint32_t Uint32LE(uint32_t v)
-{
-#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-	return ((v & 0xFF) << 24) | ((v & 0xFF00) << 8)
-		| ((v & 0xFF0000) >> 8) | ((v & 0xFF000000) >> 24);
-#else
-	return v;
-#endif
-}
-
-
+// Static in-line functions, for clarity & speed, for swapping variables
 static inline void Swap(uint8_t & a, uint8_t & b)
 {
 	uint8_t t = a;
@@ -126,23 +88,15 @@ static inline void Swap(uint8_t * & a, uint8_t * & b)
 }
 
 
-static inline void Swap(WOZ * & a, WOZ * & b)
-{
-	WOZ * t = a;
-	a = b;
-	b = t;
-}
-
-
 // FloppyDrive class implementation...
 
-FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ),  ioHappened(false)
+FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ),  ioHappened(false), diskImageReady(false)
 {
 	phase[0] = phase[1] = 0;
 	headPos[0] = headPos[1] = 0;
 	trackLength[0] = trackLength[1] = 51200;
 	disk[0] = disk[1] = NULL;
-	woz[0] = woz[1] = NULL;
+//	woz[0] = woz[1] = NULL;
 	diskSize[0] = diskSize[1] = 0;
 	diskType[0] = diskType[1] = DT_EMPTY;
 	imageDirty[0] = imageDirty[1] = false;
@@ -153,10 +107,10 @@ FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ),  i
 FloppyDrive::~FloppyDrive()
 {
 	if (disk[0])
-		delete[] disk[0];
+		free(disk[0]);
 
 	if (disk[1])
-		delete[] disk[1];
+		free(disk[1]);
 }
 
 
@@ -172,29 +126,24 @@ bool FloppyDrive::LoadImage(const char * filename, uint8_t driveNum/*= 0*/)
 
 	// Zero out filename, in case it doesn't load
 	imageName[driveNum][0] = 0;
+//prolly should load EjectImage() first, so we don't have to dick around with crap
+	uint8_t * buffer = ReadFile(filename, &diskSize[driveNum]);
 
-	FILE * fp = fopen(filename, "rb");
-
-	if (fp == NULL)
+	if (buffer == NULL)
 	{
 		WriteLog("FLOPPY: Failed to open image file '%s' for reading...\n", filename);
 		return false;
 	}
 
 	if (disk[driveNum])
-		delete[] disk[driveNum];
+		free(disk[driveNum]);
 
-	fseek(fp, 0, SEEK_END);
-	diskSize[driveNum] = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
-	disk[driveNum] =  new uint8_t[diskSize[driveNum]];
-	woz[driveNum] = (WOZ *)disk[driveNum];
-	fread(disk[driveNum], 1, diskSize[driveNum], fp);
+	disk[driveNum] = buffer;
 
-	fclose(fp);
-//printf("Read disk image: %u bytes.\n", diskSize);
+	diskImageReady = false;
 	DetectImageType(filename, driveNum);
 	strcpy(imageName[driveNum], filename);
+	diskImageReady = true;
 
 	WriteLog("FLOPPY: Loaded image '%s' for drive #%u.\n", filename, driveNum);
 
@@ -204,8 +153,6 @@ bool FloppyDrive::LoadImage(const char * filename, uint8_t driveNum/*= 0*/)
 
 bool FloppyDrive::SaveImage(uint8_t driveNum/*= 0*/)
 {
-// comment out for now...
-#if 0
 	// Various sanity checks...
 	if (driveNum > 1)
 	{
@@ -213,41 +160,24 @@ bool FloppyDrive::SaveImage(uint8_t driveNum/*= 0*/)
 		return false;
 	}
 
+	if (diskType[driveNum] == DT_EMPTY)
+	{
+		WriteLog("FLOPPY: No image in drive #%u to save\n", driveNum);
+		return false;
+	}
+
 	if (!imageDirty[driveNum])
 	{
-		WriteLog("FLOPPY: No need to save unchanged image...\n");
+		WriteLog("FLOPPY: No need to save unchanged image in drive #%u...\n", driveNum);
 		return false;
 	}
 
-	if (imageName[driveNum][0] == 0)
-	{
-		WriteLog("FLOPPY: Attempted to save non-existant image!\n");
-		return false;
-	}
-
-	// Finally, write the damn image
-	FILE * fp = fopen(imageName[driveNum], "wb");
-
-	if (fp == NULL)
-	{
-		WriteLog("FLOPPY: Failed to open image file '%s' for writing...\n", imageName[driveNum]);
-		return false;
-	}
-
-	fwrite(disk[driveNum], 1, diskSize[driveNum], fp);
-	fclose(fp);
-
-	WriteLog("FLOPPY: Successfully wrote image file '%s'...\n", imageName[driveNum]);
-
-	return true;
-#else
 	char * ext = strrchr(imageName[driveNum], '.');
 
 	if ((ext != NULL) && (diskType[driveNum] != DT_WOZ))
 		memcpy(ext, ".woz", 4);
 
-	return SaveWOZ(driveNum);
-#endif
+	return SaveWOZ(imageName[driveNum], (WOZ2 *)disk[driveNum], diskSize[driveNum]);
 }
 
 
@@ -264,9 +194,9 @@ bool FloppyDrive::SaveImageAs(const char * filename, uint8_t driveNum/*= 0*/)
 void FloppyDrive::CreateBlankImage(uint8_t driveNum/*= 0*/)
 {
 	if (disk[driveNum] != NULL)
-		delete disk[driveNum];
+		free(disk[driveNum]);
 
-	InitWOZ(driveNum);
+	disk[driveNum] = InitWOZ(&diskSize[driveNum]);
 	diskType[driveNum] = DT_WOZ;
 	strcpy(imageName[driveNum], "newblank.woz");
 	SpawnMessage("New blank image inserted in drive %u...", driveNum);
@@ -275,17 +205,6 @@ void FloppyDrive::CreateBlankImage(uint8_t driveNum/*= 0*/)
 
 void FloppyDrive::SwapImages(void)
 {
-#if 0
-WriteLog("SwapImages BEFORE:\n");
-WriteLog("\tdisk[0]=%X, disk[1]=%X\n", disk[0], disk[1]);
-WriteLog("\twoz[0]=%X, woz[1]=%X\n", woz[0], woz[1]);
-WriteLog("\tdiskSize[0]=%X, diskSize[1]=%X\n", diskSize[0], diskSize[1]);
-WriteLog("\tdiskType[0]=%X, diskType[1]=%X\n", diskType[0], diskType[1]);
-WriteLog("\timageDirty[0]=%X, imageDirty[1]=%X\n", imageDirty[0], imageDirty[1]);
-WriteLog("\tphase[0]=%X, phase[1]=%X\n", phase[0], phase[1]);
-WriteLog("\theadPos[0]=%X, headPos[1]=%X\n", headPos[0], headPos[1]);
-WriteLog("\tcurrentPos[0]=%X, currentPos[1]=%X\n", currentPos[0], currentPos[1]);
-#endif
 	char imageNameTmp[MAX_PATH];
 
 	memcpy(imageNameTmp, imageName[0], MAX_PATH);
@@ -293,7 +212,6 @@ WriteLog("\tcurrentPos[0]=%X, currentPos[1]=%X\n", currentPos[0], currentPos[1])
 	memcpy(imageName[1], imageNameTmp, MAX_PATH);
 
 	Swap(disk[0], disk[1]);
-	Swap(woz[0], woz[1]);
 	Swap(diskSize[0], diskSize[1]);
 	Swap(diskType[0], diskType[1]);
 	Swap(imageDirty[0], imageDirty[1]);
@@ -302,31 +220,36 @@ WriteLog("\tcurrentPos[0]=%X, currentPos[1]=%X\n", currentPos[0], currentPos[1])
 	Swap(headPos[0], headPos[1]);
 	Swap(currentPos[0], currentPos[1]);
 SpawnMessage("Drive 0: %s...", imageName[0]);
-#if 0
-WriteLog("SwapImages AFTER:\n");
-WriteLog("\tdisk[0]=%X, disk[1]=%X\n", disk[0], disk[1]);
-WriteLog("\twoz[0]=%X, woz[1]=%X\n", woz[0], woz[1]);
-WriteLog("\tdiskSize[0]=%X, diskSize[1]=%X\n", diskSize[0], diskSize[1]);
-WriteLog("\tdiskType[0]=%X, diskType[1]=%X\n", diskType[0], diskType[1]);
-WriteLog("\timageDirty[0]=%X, imageDirty[1]=%X\n", imageDirty[0], imageDirty[1]);
-WriteLog("\tphase[0]=%X, phase[1]=%X\n", phase[0], phase[1]);
-WriteLog("\theadPos[0]=%X, headPos[1]=%X\n", headPos[0], headPos[1]);
-WriteLog("\tcurrentPos[0]=%X, currentPos[1]=%X\n", currentPos[0], currentPos[1]);
-#endif
 }
 
 
 /*
-Need to add some type of error checking here, so we can report back on bad images, etc.
+Need to add some type of error checking here, so we can report back on bad images, etc. (basically, it does by returning DFT_UNKNOWN, but we could do better)
 */
 void FloppyDrive::DetectImageType(const char * filename, uint8_t driveNum)
 {
 	diskType[driveNum] = DFT_UNKNOWN;
 
-	if (memcmp(disk[driveNum], wozHeader, 8) == 0)
+	uint8_t wozType = CheckWOZType(disk[driveNum], diskSize[driveNum]);
+
+	if (wozType > 0)
 	{
+		// Check WOZ integrity...
+		CheckWOZIntegrity(disk[driveNum], diskSize[driveNum]);
+
+		// If it's a WOZ type 1 file, upconvert it to type 2
+		if (wozType == 1)
+		{
+			uint32_t size;
+			uint8_t * buffer = UpconvertWOZ1ToWOZ2(disk[driveNum], diskSize[driveNum], &size);
+
+			free(disk[driveNum]);
+			disk[driveNum] = buffer;
+			diskSize[driveNum] = size;
+			WriteLog("FLOPPY: Upconverted WOZ type 1 to type 2...\n");
+		}
+
 		diskType[driveNum] = DT_WOZ;
-		/*bool r =*/ CheckWOZ(disk[driveNum], diskSize[driveNum], driveNum);
 	}
 	else if (diskSize[driveNum] == 143360)
 	{
@@ -341,8 +264,8 @@ void FloppyDrive::DetectImageType(const char * filename, uint8_t driveNum)
 			diskType[driveNum] = DT_PRODOS;
 		else if ((strcasecmp(ext, ".do") == 0) || (strcasecmp(ext, ".dsk") == 0))
 		{
-			// We assume this, but check for a PRODOS fingerprint. Trust, but
-			// verify. ;-)
+			// We assume this, but check for a PRODOS fingerprint.  Trust, but
+			// verify.  ;-)
 			diskType[driveNum] = DT_DOS33;
 
 			uint8_t fingerprint[4][4] = {
@@ -384,8 +307,8 @@ void FloppyDrive::DetectImageType(const char * filename, uint8_t driveNum)
 // No, we don't nybblize anymore.  But we should tell the user that the loading failed with a return value
 
 	WriteLog("FLOPPY: Detected image type %s...\n", (diskType[driveNum] == DT_DOS33 ?
-		"DOS 3.3 image" : (diskType[driveNum] == DT_DOS33_HDR ?
-		"DOS 3.3 image (headered)" : (diskType[driveNum] == DT_PRODOS ? "ProDOS image" : (diskType[driveNum] == DT_WOZ ? "WOZ image" : "unknown")))));
+		"DOS 3.3" : (diskType[driveNum] == DT_DOS33_HDR ?
+		"DOS 3.3 (headered)" : (diskType[driveNum] == DT_PRODOS ? "ProDOS" : (diskType[driveNum] == DT_WOZ ? "WOZ" : "unknown")))));
 }
 
 
@@ -394,7 +317,7 @@ void FloppyDrive::DetectImageType(const char * filename, uint8_t driveNum)
 // Writes 'bits' number of bits to 'dest', starting at bit position 'dstPtr',
 // updating 'dstPtr' for the caller.
 //
-void FloppyDrive::WriteBits(uint8_t * dest, uint8_t * src, uint16_t bits, uint16_t * dstPtr)
+void FloppyDrive::WriteBits(uint8_t * dest, const uint8_t * src, uint16_t bits, uint16_t * dstPtr)
 {
 	for(uint16_t i=0; i<bits; i++)
 	{
@@ -421,13 +344,13 @@ void FloppyDrive::WOZifyImage(uint8_t driveNum)
 // let's go back to what we had, and see what happens  :-)
 // [still need to expand them back to what they were]
 
-	uint8_t ff10[2] = { 0xFF, 0x00 };
+	const uint8_t ff10[2] = { 0xFF, 0x00 };
 	uint8_t addressHeader[14] = {
 		0xD5, 0xAA, 0x96, 0xFF, 0xFE, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0xDE, 0xAA, 0xEB };
-	uint8_t sectorHeader[3] = { 0xD5, 0xAA, 0xAD };
-	uint8_t footer[3] = { 0xDE, 0xAA, 0xEB };
-	uint8_t diskbyte[0x40] = {
+	const uint8_t sectorHeader[3] = { 0xD5, 0xAA, 0xAD };
+	const uint8_t footer[3] = { 0xDE, 0xAA, 0xEB };
+	const uint8_t diskbyte[0x40] = {
 		0x96, 0x97, 0x9A, 0x9B, 0x9D, 0x9E, 0x9F, 0xA6,
 		0xA7, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB2, 0xB3,
 		0xB4, 0xB5, 0xB6, 0xB7, 0xB9, 0xBA, 0xBB, 0xBC,
@@ -436,24 +359,25 @@ void FloppyDrive::WOZifyImage(uint8_t driveNum)
 		0xDF, 0xE5, 0xE6, 0xE7, 0xE9, 0xEA, 0xEB, 0xEC,
 		0xED, 0xEE, 0xEF, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6,
 		0xF7, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF };
+	const uint8_t doSector[16] = {
+		0x0, 0x7, 0xE, 0x6, 0xD, 0x5, 0xC, 0x4, 0xB, 0x3, 0xA, 0x2, 0x9, 0x1, 0x8, 0xF };
+	const uint8_t poSector[16] = {
+		0x0, 0x8, 0x1, 0x9, 0x2, 0xA, 0x3, 0xB, 0x4, 0xC, 0x5, 0xD, 0x6, 0xE, 0x7, 0xF };
 
 	uint8_t tmpNib[343];
-//	memcpy(tmpDisk, disk[driveNum], diskSize[driveNum]);
-//	delete[] disk[driveNum];
+	// Save current image until we're done converting
 	uint8_t * tmpDisk = disk[driveNum];
-	disk[driveNum] = NULL;//new uint8_t[diskSize[driveNum]];
 
 	// Set up track index...
-//	memcpy(woz[driveNum]->tmap, standardTMAP, 141);
-	InitWOZ(driveNum);
+	disk[driveNum] = InitWOZ(&diskSize[driveNum]);
+	WOZ2 & woz = *((WOZ2 *)disk[driveNum]);
 
 	// Upconvert data from DSK & friends format to WOZ tracks  :-)
 	for(uint8_t trk=0; trk<35; trk++)
 	{
 		uint16_t dstBitPtr = 0;
-		uint8_t * img = woz[driveNum]->track[trk].bits;
-//already done
-//		memset(img, 0, 6646);
+		uint8_t * img = disk[driveNum] + (Uint16LE(woz.track[trk].startingBlock) * 512);
+//printf("Converting track %u: startingBlock=%u, %u blocks, img=%X\n", trk, Uint16LE(woz.track[trk].startingBlock), Uint16LE(woz.track[trk].blockCount), img);
 
 		// Write self-sync header bytes (16, should it be 64? Dunno.)
 		for(int i=0; i<64; i++)
@@ -478,7 +402,6 @@ void FloppyDrive::WOZifyImage(uint8_t driveNum)
 
 			// Write sector header (D5 AA AD)
 			WriteBits(img, sectorHeader, 3 * 8, &dstBitPtr);
-//			uint8_t * bytes = disk[driveNum];
 			uint8_t * bytes = tmpDisk;
 
 //Need to fix this so it writes the correct sector in the correct place *and* put the correct sector # into the header above as well.  !!! FIX !!!
@@ -529,11 +452,11 @@ void FloppyDrive::WOZifyImage(uint8_t driveNum)
 		}
 
 		// Set the proper bit/byte lengths in the WOZ for this track
-		woz[driveNum]->track[trk].bitCount = Uint16LE(dstBitPtr);
-		woz[driveNum]->track[trk].byteCount = Uint16LE((dstBitPtr + 7) / 8);
+		woz.track[trk].bitCount = Uint16LE(dstBitPtr);
 	}
 
-	delete[] tmpDisk;
+	// Finally, free the non-WOZ image now that we're done converting
+	free(tmpDisk);
 }
 
 
@@ -585,10 +508,10 @@ void FloppyDrive::EjectImage(uint8_t driveNum/*= 0*/)
 		WriteLog("FLOPPY: Ejected image file '%s' from drive %u...\n", imageName[driveNum], driveNum);
 
 	if (disk[driveNum])
-		delete[] disk[driveNum];
+		free(disk[driveNum]);
 
 	disk[driveNum] = NULL;
-	woz[driveNum] = NULL;
+//	woz[driveNum] = NULL;
 	diskSize[driveNum] = 0;
 	diskType[driveNum] = DT_EMPTY;
 	imageDirty[driveNum] = false;
@@ -616,7 +539,8 @@ bool FloppyDrive::IsWriteProtected(uint8_t driveNum/*= 0*/)
 		return true;
 	}
 
-	return (bool)woz[driveNum]->writeProtected;
+	WOZ2 & woz = *((WOZ2 *)disk[driveNum]);
+	return (bool)woz.writeProtected;
 }
 
 
@@ -628,7 +552,8 @@ void FloppyDrive::SetWriteProtect(bool state, uint8_t driveNum/*= 0*/)
 		return;
 	}
 
-	woz[driveNum]->writeProtected = (uint8_t)state;
+	WOZ2 & woz = *((WOZ2 *)disk[driveNum]);
+	woz.writeProtected = (uint8_t)state;
 }
 
 
@@ -713,7 +638,6 @@ void FloppyDrive::LoadState(FILE * file)
 		imageDirty[0] = (fgetc(file) == 1 ? true : false);
 		fread(disk[0], 1, diskSize[0], file);
 		fread(imageName[0], 1, MAX_PATH, file);
-		woz[0] = (WOZ *)disk[0];
 	}
 
 	diskSize[1] = ReadLong(file);
@@ -728,7 +652,6 @@ void FloppyDrive::LoadState(FILE * file)
 		imageDirty[1] = (fgetc(file) == 1 ? true : false);
 		fread(disk[1], 1, diskSize[1], file);
 		fread(imageName[1], 1, MAX_PATH, file);
-		woz[1] = (WOZ *)disk[1];
 	}
 }
 
@@ -751,30 +674,6 @@ void FloppyDrive::WriteLong(FILE * file, uint32_t l)
 		fputc((l >> 24) & 0xFF, file);
 		l = l << 8;
 	}
-}
-
-
-void FloppyDrive::WriteLongLE(FILE * file, uint32_t l)
-{
-	for(int i=0; i<4; i++)
-	{
-		fputc(l & 0xFF, file);
-		l >>= 8;
-	}
-}
-
-
-void FloppyDrive::WriteWordLE(FILE * file, uint16_t w)
-{
-	fputc(w & 0xFF, file);
-	fputc((w >> 8) & 0xFF, file);
-}
-
-
-void FloppyDrive::WriteZeroes(FILE * file, uint32_t num)
-{
-	for(uint32_t i=0; i<num; i++)
-		fputc(0, file);
 }
 
 
@@ -824,7 +723,7 @@ If it ever *does* become a problem, doing the physical modeling of the head movi
 	// patterns.  The numbers represent how many quarter tracks the head will
 	// move given its current position and the pattern of energized solenoids.
 	// N.B.: Patterns for 11 & 13 haven't been filled in as I'm not sure how
-	//       the stub would react to those patterns.  :-/
+	//       the stub(s) would react to those patterns.  :-/
 	int16_t step[16][8] = {
 		{  0,  0,  0,  0,  0,  0,  0,  0 },  // [....]
 		{  0, -1, -2,  0,  0,  0, +2, +1 },  // [|...]
@@ -884,13 +783,14 @@ If it ever *does* become a problem, doing the physical modeling of the head movi
 
 	if (oldHeadPos != headPos[activeDrive])
 	{
-		uint8_t newTIdx = woz[activeDrive]->tmap[headPos[activeDrive]];
+		WOZ2 & woz = *((WOZ2 *)disk[activeDrive]);
+		uint8_t newTIdx = woz.tmap[headPos[activeDrive]];
 		float newBitLen = (newTIdx == 0xFF ? 51200.0f
-			: Uint16LE(woz[activeDrive]->track[newTIdx].bitCount));
+			: Uint16LE(woz.track[newTIdx].bitCount));
 
-		uint8_t oldTIdx = woz[activeDrive]->tmap[oldHeadPos];
+		uint8_t oldTIdx = woz.tmap[oldHeadPos];
 		float oldBitLen = (oldTIdx == 0xFF ? 51200.0f
-			: Uint16LE(woz[activeDrive]->track[oldTIdx].bitCount));
+			: Uint16LE(woz.track[oldTIdx].bitCount));
 		currentPos[activeDrive] = (uint32_t)((float)currentPos[activeDrive] * (newBitLen / oldBitLen));
 
 		trackLength[activeDrive] = (uint16_t)newBitLen;
@@ -965,9 +865,10 @@ uint8_t FloppyDrive::DataRegister(void)
 	// Sanity check
 	if (diskType[activeDrive] != DT_EMPTY)
 	{
-		uint8_t tIdx = woz[activeDrive]->tmap[headPos[activeDrive]];
+		WOZ2 & woz = *((WOZ2 *)disk[activeDrive]);
+		uint8_t tIdx = woz.tmap[headPos[activeDrive]];
 		uint32_t bitLen = (tIdx == 0xFF ? 51200
-			: Uint16LE(woz[activeDrive]->track[tIdx].bitCount));
+			: Uint16LE(woz.track[tIdx].bitCount));
 		SpawnMessage("%u:Reading $%02X from track %u, sector %u...",
 			activeDrive, dataRegister, headPos[activeDrive] >> 2, (uint32_t)(((float)currentPos[activeDrive] / (float)bitLen) * 16.0f));
 		ioMode = IO_MODE_READ;
@@ -1058,194 +959,6 @@ $57:    Duplicate volume
 $5A:    File structure damaged
 */
 
-
-//
-// This is used mainly to initialize blank disks and upconvert non-WOZ disks
-//
-void FloppyDrive::InitWOZ(uint8_t driveNum/*= 0*/)
-{
-	// Sanity check
-	if (disk[driveNum] != NULL)
-	{
-		WriteLog("FLOPPY: Attempted to initialize non-NULL WOZ structure\n");
-		return;
-	}
-
-	diskSize[driveNum] = 256 + (35 * sizeof(WOZTrack));
-	disk[driveNum] = new uint8_t[diskSize[driveNum]];
-	woz[driveNum] = (WOZ *)disk[driveNum];
-
-	// Zero out WOZ image in memory
-	memset(woz[driveNum], 0, diskSize[driveNum]);
-
-	// Set up header (leave CRC as 0 for now)
-	memcpy(woz[driveNum]->magic, wozHeader, 8);
-
-	// INFO header
-	memcpy(woz[driveNum]->infoTag, "INFO", 4);
-	woz[driveNum]->infoSize = Uint32LE(60);
-	woz[driveNum]->infoVersion = 1;
-	woz[driveNum]->diskType = 1;
-	woz[driveNum]->writeProtected = 0;
-	woz[driveNum]->synchronized = 0;
-	woz[driveNum]->cleaned = 1;
-	memset(woz[driveNum]->creator, ' ', 32);
-	memcpy(woz[driveNum]->creator, "Apple2 emulator v1.0.0", 22);
-
-	// TMAP header
-	memcpy(woz[driveNum]->tmapTag, "TMAP", 4);
-	woz[driveNum]->tmapSize = Uint32LE(160);
-	memcpy(woz[driveNum]->tmap, standardTMAP, 141);
-
-	// TRKS header
-	memcpy(woz[driveNum]->trksTag, "TRKS", 4);
-	woz[driveNum]->trksSize = Uint32LE(35 * sizeof(WOZTrack));
-
-	for(int i=0; i<35; i++)
-	{
-		woz[driveNum]->track[i].bitCount = Uint16LE(51200);
-		woz[driveNum]->track[i].byteCount = Uint16LE((51200 + 7) / 8);
-	}
-
-	// META header (how to handle? prolly with a separate pointer)
-}
-
-
-//
-// Do basic sanity checks on the passed in contents (file loaded elsewhere).
-// Returns true if successful, false on failure.
-//
-bool FloppyDrive::CheckWOZ(const uint8_t * wozData, uint32_t wozSize, uint8_t driveNum/*= 0*/)
-{
-	// Hey!  This reference works!!  :-D
-	WOZ & woz1 = *((WOZ *)wozData);
-	woz[driveNum] = (WOZ *)wozData;
-
-	// Basic sanity checking
-	if (wozData == NULL)
-	{
-		WriteLog("FLOPPY: NULL pointer passed in to CheckWOZ()...\n");
-		return false;
-	}
-
-	if (memcmp(woz1.magic, wozHeader, 8) != 0)
-	{
-		WriteLog("FLOPPY: Invalid WOZ header in file\n");
-		return false;
-	}
-
-	uint32_t crc = CRC32(&wozData[12], wozSize - 12);
-	uint32_t wozCRC = Uint32LE(woz1.crc32);
-
-	if ((wozCRC != 0) && (wozCRC != crc))
-	{
-		WriteLog("FLOPPY: Corrupted data found in WOZ. CRC32: %08X, computed: %08X\n", wozCRC, crc);
-		return false;
-	}
-	else if (wozCRC == 0)
-		WriteLog("FLOPPY: Warning--WOZ file has no CRC...\n");
-
-#if 1
-	WriteLog("Track map:\n");
-	WriteLog("                                        1   1   1   1   1   1   1   1\n");
-	WriteLog("0.,.1.,.2.,.3.,.4.,.5.,.6.,.7.,.8.,.9.,.0.,.1.,.2.,.3.,.4.,.5.,.6.,.7.,.\n");
-	WriteLog("------------------------------------------------------------------------\n");
-
-	for(uint8_t j=0; j<2; j++)
-	{
-		for(uint8_t i=0; i<72; i++)
-		{
-			char buf[64] = "..";
-			buf[0] = buf[1] = '.';
-
-			if (woz1.tmap[i] != 0xFF)
-				sprintf(buf, "%02d", woz1.tmap[i]);
-
-			WriteLog("%c", buf[j]);
-		}
-
-		WriteLog("\n");
-	}
-
-	WriteLog("\n1   1   2   2   2   2   2   2   2   2   2   2   3   3   3   3   3   3\n");
-	WriteLog("8.,.9.,.0.,.1.,.2.,.3.,.4.,.5.,.6.,.7.,.8.,.9.,.0.,.1.,.2.,.3.,.4.,.5\n");
-	WriteLog("---------------------------------------------------------------------\n");
-
-	for(uint8_t j=0; j<2; j++)
-	{
-		for(uint8_t i=72; i<141; i++)
-		{
-			char buf[64] = "..";
-
-			if (woz1.tmap[i] != 0xFF)
-				sprintf(buf, "%02d", woz1.tmap[i]);
-
-			WriteLog("%c", buf[j]);
-		}
-
-		WriteLog("\n");
-	}
-
-	WriteLog("\n");
-
-	uint8_t numTracks = woz1.trksSize / sizeof(WOZTrack);
-
-	// N.B.: Need to check the track[] to have this tell the correct track...  Right now, it doesn't
-	for(uint8_t i=0; i<numTracks; i++)
-	{
-		WriteLog("WOZ: Track %2.2f: %d bits (packed into %d bytes)\n", (float)i / 4.0f, woz1.track[i].bitCount, woz1.track[i].byteCount);
-	}
-#endif
-
-	WriteLog("FLOPPY: Well formed WOZ file found\n");
-	return true;
-}
-
-
-bool FloppyDrive::SaveWOZ(uint8_t driveNum)
-{
-	// Various sanity checks...
-	if (driveNum > 1)
-	{
-		WriteLog("FLOPPY: Attempted to save image to drive #%u!\n", driveNum);
-		return false;
-	}
-
-	if (diskType[driveNum] == DT_EMPTY)
-	{
-		WriteLog("FLOPPY: No image in drive #%u to save\n", driveNum);
-		return false;
-	}
-
-	if (!imageDirty[driveNum])
-	{
-		WriteLog("FLOPPY: No need to save unchanged image in drive #%u...\n", driveNum);
-		return false;
-	}
-
-	// Set up CRC32 before writing
-	woz[driveNum]->crc32 = Uint32LE(CRC32(&disk[driveNum][12], diskSize[driveNum] - 12));
-
-	// META header (skip for now) (actually, should be in the disk[] image already)
-
-	// Finally, write the damn image
-	FILE * fp = fopen(imageName[driveNum], "wb");
-
-	if (fp == NULL)
-	{
-		WriteLog("FLOPPY: Failed to open image file '%s' for writing...\n", imageName[driveNum]);
-		return false;
-	}
-
-	fwrite(disk[driveNum], 1, diskSize[driveNum], fp);
-	fclose(fp);
-
-	WriteLog("FLOPPY: Successfully wrote image file '%s'...\n", imageName[driveNum]);
-
-	return true;
-}
-
-
 // N.B.: The WOZ documentation says that the bitstream is normalized to 4µs.
 //       Which means on the //e that you would have to run it at that clock
 //       rate (instead of the //e clock rate 0.9799µs/cycle) to get the
@@ -1265,15 +978,21 @@ void FloppyDrive::RunSequencer(uint32_t cyclesToRun)
 	static uint32_t prng = 1;
 
 	// Sanity checks
-	if (diskType[activeDrive] == DT_EMPTY)
+	if (!diskImageReady)
+		return;
+	else if (diskType[activeDrive] == DT_EMPTY)
 		return;
 	else if (motorOn == false)
 	{
 		if (driveOffTimeout == 0)
 			return;
-		else
-			driveOffTimeout--;
+
+		driveOffTimeout--;
 	}
+
+	WOZ2 & woz = *((WOZ2 *)disk[activeDrive]);
+	uint8_t tIdx = woz.tmap[headPos[activeDrive]];
+	uint8_t * tdata = disk[activeDrive] + (Uint16LE(woz.track[tIdx].startingBlock) * 512);
 
 	// It's x2 because the sequencer clock runs twice as fast as the CPU clock.
 	cyclesToRun *= 2;
@@ -1289,17 +1008,19 @@ if (logSeq)
 
 	while (cyclesToRun-- > 0)
 	{
-		pulseClock = (pulseClock + 1) & 0x07;
+//		pulseClock = (pulseClock + 1) & 0x07;
+		pulseClock = (pulseClock + 1) % 8;
+// 7 doesn't work...  Is that 3.5µs?  Seems to be.  Which means to get a 0.25µs granularity here, we need to double the # of cycles to run...
+//		pulseClock = (pulseClock + 1) % 7;
 
 		if (pulseClock == 0)
 		{
 			uint16_t bytePos = currentPos[activeDrive] / 8;
 			uint8_t bitPos = currentPos[activeDrive] % 8;
-			uint8_t tIdx = woz[activeDrive]->tmap[headPos[activeDrive]];
 
 			if (tIdx != 0xFF)
 			{
-				if (woz[activeDrive]->track[tIdx].bits[bytePos] & bitMask[bitPos])
+				if (tdata[bytePos] & bitMask[bitPos])
 				{
 					// According to Jim Sather (Understanding the Apple II),
 					// the Read Pulse, when it happens, is 1µs long, which is 2
@@ -1309,18 +1030,9 @@ if (logSeq)
 				}
 				else
 					zeroBitCount++;
-#if 0
-				currentPos[activeDrive] = (currentPos[activeDrive] + 1) % Uint16LE(woz[activeDrive]->track[tIdx].bitCount);
-			}
-			else
-				currentPos[activeDrive] = (currentPos[activeDrive] + 1) % 51200;
-#else
 			}
 
-//this doesn't work reliably for some reason...
-//seems to work OK now...
 			currentPos[activeDrive] = (currentPos[activeDrive] + 1) % trackLength[activeDrive];
-#endif
 
 			// If we hit more than 2 zero bits in a row, simulate the disk head
 			// reader's Automatic Gain Control (AGC) turning itself up too high
@@ -1373,10 +1085,8 @@ chop = (chop + 1) % 20;
 			dataRegister <<= 1;
 //if (!stopWriting)
 {
-			uint8_t tIdx = woz[activeDrive]->tmap[headPos[activeDrive]];
-
 			if (rwSwitch && (tIdx != 0xFF)
-				&& !woz[activeDrive]->writeProtected)
+				&& !woz.writeProtected)
 			{
 				imageDirty[activeDrive] = true;
 				uint16_t bytePos = currentPos[activeDrive] / 8;
@@ -1384,10 +1094,10 @@ chop = (chop + 1) % 20;
 
 				if (dataRegister & 0x80)
 					// Fill in the one, if necessary
-					woz[activeDrive]->track[tIdx].bits[bytePos] |= bitMask[bitPos];
+					tdata[bytePos] |= bitMask[bitPos];
 				else
 					// Otherwise, punch in the zero
-					woz[activeDrive]->track[tIdx].bits[bytePos] &= ~bitMask[bitPos];
+					tdata[bytePos] &= ~bitMask[bitPos];
 
 #if 0
 if (dumpDis || tripwire)
@@ -1408,7 +1118,7 @@ lastPos = currentPos[activeDrive];
 		case 0x0E:
 			// SR (shift right write protect bit)
 			dataRegister >>= 1;
-			dataRegister |= (woz[activeDrive]->writeProtected ? 0x80 : 0x00);
+			dataRegister |= (woz.writeProtected ? 0x80 : 0x00);
 			break;
 		case 0x0B:
 		case 0x0F:
@@ -1416,15 +1126,12 @@ lastPos = currentPos[activeDrive];
 			dataRegister = cpuDataBus;
 //if (!stopWriting)
 {
-			uint8_t tIdx = woz[activeDrive]->tmap[headPos[activeDrive]];
-
-			if (rwSwitch && (tIdx != 0xFF)
-				&& !woz[activeDrive]->writeProtected)
+			if (rwSwitch && (tIdx != 0xFF) && !woz.writeProtected)
 			{
 				imageDirty[activeDrive] = true;
 				uint16_t bytePos = currentPos[activeDrive] / 8;
 				uint8_t bitPos = currentPos[activeDrive] % 8;
-				woz[activeDrive]->track[tIdx].bits[bytePos] |= bitMask[bitPos];
+				tdata[bytePos] |= bitMask[bitPos];
 #if 0
 if (dumpDis || tripwire)
 {
