@@ -96,7 +96,6 @@ FloppyDrive::FloppyDrive(): motorOn(0), activeDrive(0), ioMode(IO_MODE_READ),  i
 	headPos[0] = headPos[1] = 0;
 	trackLength[0] = trackLength[1] = 51200;
 	disk[0] = disk[1] = NULL;
-//	woz[0] = woz[1] = NULL;
 	diskSize[0] = diskSize[1] = 0;
 	diskType[0] = diskType[1] = DT_EMPTY;
 	imageDirty[0] = imageDirty[1] = false;
@@ -511,7 +510,6 @@ void FloppyDrive::EjectImage(uint8_t driveNum/*= 0*/)
 		free(disk[driveNum]);
 
 	disk[driveNum] = NULL;
-//	woz[driveNum] = NULL;
 	diskSize[driveNum] = 0;
 	diskType[driveNum] = DT_EMPTY;
 	imageDirty[driveNum] = false;
@@ -756,7 +754,6 @@ If it ever *does* become a problem, doing the physical modeling of the head movi
 	else
 		phase[activeDrive] &= ~phaseBit;
 
-#if 1
 	uint8_t oldHeadPos = headPos[activeDrive] & 0x07;
 	int16_t newStep = step[phase[activeDrive]][oldHeadPos];
 	int16_t newHeadPos = (int16_t)headPos[activeDrive] + newStep;
@@ -764,33 +761,17 @@ If it ever *does* become a problem, doing the physical modeling of the head movi
 	// Sanity check
 	if ((newHeadPos >= 0) && (newHeadPos <= 140))
 		headPos[activeDrive] = (uint8_t)newHeadPos;
-#else
-	// See if the new phase solenoid is energized, & move the stepper/head
-	// appropriately.
-	// N.B.: The head stub is located by bits 1 & 2 of the headPos variable
-	uint8_t oldHeadPos = headPos[activeDrive];
-	uint8_t nextUp     = 1 << (((oldHeadPos >> 1) + 1) & 0x03);
-	uint8_t nextDown   = 1 << (((oldHeadPos >> 1) - 1) & 0x03);
-
-	// We simulate cogging here by seeing if there's a valid up and/or down
-	// position to go to.  If both are valid, the head goes nowhere.
-	if (phase[activeDrive] & nextUp)
-		headPos[activeDrive] += (headPos[activeDrive] < 140 ? 2 : 0);
-
-	if (phase[activeDrive] & nextDown)
-		headPos[activeDrive] -= (headPos[activeDrive] > 0 ? 2 : 0);
-#endif
 
 	if (oldHeadPos != headPos[activeDrive])
 	{
 		WOZ2 & woz = *((WOZ2 *)disk[activeDrive]);
 		uint8_t newTIdx = woz.tmap[headPos[activeDrive]];
-		float newBitLen = (newTIdx == 0xFF ? 51200.0f
-			: Uint16LE(woz.track[newTIdx].bitCount));
+		float newBitLen = (newTIdx == 0xFF
+			? 51200.0f : Uint16LE(woz.track[newTIdx].bitCount));
 
 		uint8_t oldTIdx = woz.tmap[oldHeadPos];
-		float oldBitLen = (oldTIdx == 0xFF ? 51200.0f
-			: Uint16LE(woz.track[oldTIdx].bitCount));
+		float oldBitLen = (oldTIdx == 0xFF
+			? 51200.0f : Uint16LE(woz.track[oldTIdx].bitCount));
 		currentPos[activeDrive] = (uint32_t)((float)currentPos[activeDrive] * (newBitLen / oldBitLen));
 
 		trackLength[activeDrive] = (uint16_t)newBitLen;

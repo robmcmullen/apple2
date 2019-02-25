@@ -46,6 +46,7 @@ struct Settings
 
 	char BIOSPath[MAX_PATH];
 	char disksPath[MAX_PATH];
+	char hdPath[MAX_PATH];
 	char autoStatePath[MAX_PATH];
 };
 

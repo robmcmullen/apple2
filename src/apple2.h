@@ -3,7 +3,6 @@
 //
 
 #include <stdint.h>
-#include "floppydrive.h"
 #include "v65c02.h"
 
 enum { APPLE_TYPE_II, APPLE_TYPE_IIE, APPLE_TYPE_IIC };

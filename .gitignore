@@ -1,8 +1,10 @@
 apple2
+apple2.exe
 *.log
 *.zip
 *.state*
 *.bak
+*.woz
 disks/
 gmon.out
 obj/
@@ -13,4 +15,7 @@ ROMs/bin2c
 ROMs/from-applewin/
 res/
 docs/
-wozmaker/
+web/source/
+ROMs/asimov/
+misc/
+changes-since-last-commit.txt

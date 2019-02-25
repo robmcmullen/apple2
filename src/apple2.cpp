@@ -46,7 +46,8 @@
 #include <string>
 #include <time.h>
 #include "firmware.h"
-//#include "floppydisk.h"
+#include "floppydrive.h"
+#include "harddrive.h"
 #include "log.h"
 #include "mmu.h"
 #include "mockingboard.h"
@@ -546,6 +547,7 @@ int main(int /*argc*/, char * /*argv*/[])
 	// Install devices in slots
 	InstallFloppy(SLOT6);
 	InstallMockingboard(SLOT4);
+	InstallHardDrive(SLOT7);
 
 	// Set up V65C02 execution context
 	memset(&mainCPU, 0, sizeof(V65C02REGS));

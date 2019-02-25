@@ -104,6 +104,7 @@ void LoadSettings(void)
 
 	strcpy(settings.BIOSPath, sdlemu_getval_string("BIOSROM", "./ROMs/apple2e-enhanced.rom"));
 	strcpy(settings.disksPath, sdlemu_getval_string("disks", "./disks"));
+	strcpy(settings.hdPath, sdlemu_getval_string("harddrive", "./disks/Pitch-Dark-20180731.2mg"));
 	strcpy(settings.autoStatePath, sdlemu_getval_string("autoStateFilename", "./apple2auto.state"));
 	CheckForTrailingSlash(settings.disksPath);
 }
