@@ -45,7 +45,9 @@
 #include <stdlib.h>
 #include <string>
 #include <time.h>
-#include "firmware.h"
+#include "firmware/apple2-fw.h"
+#include "firmware/apple2e-enh.h"
+#include "firmware/firmware.h"
 #include "floppydrive.h"
 #include "harddrive.h"
 #include "log.h"
@@ -556,11 +558,15 @@ int main(int /*argc*/, char * /*argv*/[])
 	mainCPU.Timer = AppleTimer;
 	mainCPU.cpuFlags |= V65C02_ASSERT_LINE_RESET;
 
+#if 0
 	if (!LoadImg(settings.BIOSPath, rom + 0xC000, 0x4000))
 	{
 		WriteLog("Could not open file '%s'!\n", settings.BIOSPath);
 		return -1;
 	}
+#else
+	memcpy(rom + 0xC000, apple2eEnhROM, 0x4000);
+#endif
 
 	WriteLog("About to initialize video...\n");
 

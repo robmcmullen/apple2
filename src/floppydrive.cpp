@@ -20,7 +20,7 @@
 #include "apple2.h"
 #include "crc32.h"
 #include "fileio.h"
-#include "firmware.h"
+#include "firmware/firmware.h"
 #include "log.h"
 #include "mmu.h"
 #include "video.h"		// For message spawning... Though there's probably a

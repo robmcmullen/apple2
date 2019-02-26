@@ -10,21 +10,21 @@
 //
 // First 1K is the driver ROM, repeated four times.  After that, there are 31 1K
 // chunks that are addressed in the $CC00-$CFFF address range; $C800-$CBFF is a
-// 1K RAM space (internally, it's an 8K static RAM).
+// 1K RAM space (8K static RAM, bank switched).
 //
 
 #include "harddrive.h"
 #include "apple2.h"
 #include "dis65c02.h"
 #include "fileio.h"
-#include "firmware.h"
+#include "firmware/a2hs-scsi.h"
 #include "log.h"
 #include "mmu.h"
 #include "settings.h"
 #include "v65c02.h"		// For dumpDis...
 
 
-static uint8_t bank = 0;
+static uint8_t romBank = 0;
 static uint8_t ramBank = 0;
 static uint8_t deviceID = 7;
 static bool dmaSwitch = false;
@@ -62,7 +62,7 @@ $F bits:
 
 Switches on the card:
 #1 sets DMA on/off (switch pos UP = OPEN = off)
-#2-4 sets the computer's SCSI ID number (preset at factor to 7)
+#2-4 sets the computer's SCSI ID number (preset at factory to 7)
 
 Looks like bits 5-7 of register $E is device ID
 
@@ -339,7 +339,7 @@ static uint8_t cmd[256];
 static uint32_t bytesToSend;
 static uint8_t * buf;
 static uint32_t bufPtr;
-
+static uint8_t response;
 
 static void RunDevice(void)
 {
@@ -350,6 +350,7 @@ static void RunDevice(void)
 
 	static uint8_t readCapacity[8] = { 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00 };
 	static uint8_t inquireData[30] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 'S', 'E', 'A', 'G', 'A', 'T', 'E', ' ', 'P', 'h', 'o', 'n', 'y', '1' };
+	static uint8_t badSense[20] = { 0x70, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 	enum {
 		DVM_DATA_OUT = 0, DVM_DATA_IN = 1, DVM_COMMAND = 2, DVM_STATUS = 3,
@@ -359,7 +360,7 @@ static void RunDevice(void)
 
 	if (RST)
 	{
-WriteLog("   >>> DEVICE RESET...\n");
+//WriteLog("   >>> DEVICE RESET...\n");
 		devMode = DVM_BUS_FREE;
 		DEV_BSY = false;
 		return;
@@ -373,7 +374,7 @@ WriteLog("   >>> DEVICE RESET...\n");
 
 		break;
 	case DVM_ARBITRATE:
-//WriteLog("   >>> ARBITRATE PHASE (BSY=%i SEL=%i DATA_BUS=%i [%02X])\n", BSY, SEL, DATA_BUS, reg[0]);
+////WriteLog("   >>> ARBITRATE PHASE (BSY=%i SEL=%i DATA_BUS=%i [%02X])\n", BSY, SEL, DATA_BUS, reg[0]);
 		if (!BSY && SEL && DATA_BUS && (reg[0] & 0x40))
 			devMode = DVM_SELECT, DEV_BSY = true;
 		else if (!BSY && !SEL)
@@ -381,7 +382,10 @@ WriteLog("   >>> DEVICE RESET...\n");
 
 		break;
 	case DVM_SELECT:
-WriteLog("   >>> SELECT PHASE\n");
+//WriteLog("   >>> SELECT PHASE\n");
+		// Preset response code to "Good"
+		response = 0x00;
+
 		if (ATN)
 		{
 			MSG = true, C_D = true, I_O = false;
@@ -400,7 +404,7 @@ WriteLog("   >>> SELECT PHASE\n");
 
 		break;
 	case DVM_DATA_OUT:
-WriteLog("   >>> DATA OUT PHASE\n");
+//WriteLog("   >>> DATA OUT PHASE (bts=%u)\n", bytesToSend);
 		if (!ACK)
 			REQ = true;
 
@@ -408,28 +412,31 @@ WriteLog("   >>> DATA OUT PHASE\n");
 		{
 			if (!DACK)
 			{
-				// We just send zeroes for now...
-				reg[6] = 0;
 				DRQ = true;
 			}
 			else if (DRQ && DACK)
 			{
+				if (buf)
+					buf[bufPtr] = reg[0];
+
 				DRQ = false;
 				DACK = false;
 				bytesToSend--;
+				bufPtr++;
 
 				if (bytesToSend == 0)
 				{
 					REQ = false;
 					MSG = false, C_D = true, I_O = true;
 					devMode = DVM_STATUS;
+					buf = NULL;
 				}
 			}
 		}
 
 		break;
 	case DVM_DATA_IN:
-WriteLog("   >>> DATA IN PHASE (bts=%u)\n", bytesToSend);
+//WriteLog("   >>> DATA IN PHASE (bts=%u)\n", bytesToSend);
 		if (!ACK)
 			REQ = true;
 
@@ -464,13 +471,13 @@ WriteLog("   >>> DATA IN PHASE (bts=%u)\n", bytesToSend);
 
 		break;
 	case DVM_COMMAND:
-WriteLog("   >>> COMMAND PHASE\n");
+//WriteLog("   >>> COMMAND PHASE\n");
 		if (!ACK)
 			REQ = true;
 		else if (REQ && ACK)
 		{
 			cmd[cmdLength++] = reg[0];
-			WriteLog("HD: Write to target value $%02X\n", reg[0]);
+//			WriteLog("HD: Write to target value $%02X\n", reg[0]);
 			REQ = false;
 		}
 
@@ -492,6 +499,13 @@ WriteLog("   >>> COMMAND PHASE\n");
 			MSG = false, C_D = false, I_O = true;
 			devMode = DVM_DATA_IN;
 			bytesToSend = cmd[4];
+
+			// Return error for LUNs other than 0
+			if ((cmd[1] & 0xE0) != 0)
+			{
+				buf = badSense;
+				bufPtr = 0;
+			}
 		}
 		// Handle "Read" (6) command
 		else if ((cmd[0] == 0x08) && (cmdLength == 6))
@@ -514,6 +528,15 @@ WriteLog("   >>> COMMAND PHASE\n");
 			bytesToSend = cmd[4];
 			buf = inquireData;
 			bufPtr = 0;
+
+			// Reject all but LUN 0
+			if ((cmd[1] & 0xE0) != 0)
+			{
+				response = 0x02; // Check condition code
+//				MSG = false, C_D = false, I_O = false;
+//				DEV_BSY = false;
+//				devMode = DVM_BUS_FREE;
+			}
 		}
 		// Handle "Mode Select" command
 		else if ((cmd[0] == 0x15) && (cmdLength == 6))
@@ -557,7 +580,20 @@ WriteLog("   >>> COMMAND PHASE\n");
 			devMode = DVM_DATA_IN;
 			bytesToSend = ((cmd[7] << 8) | cmd[8]) * 512; // amount is set in blocks
 			uint32_t lba = (cmd[2] << 24) | (cmd[3] << 16) | (cmd[4] << 8) | cmd[5];
-			buf = &hdData[(lba * 512) + 0x40];
+			buf = (hdData != NULL ? &hdData[(lba * 512) + 0x40] : NULL);
+			bufPtr = 0;
+		}
+		// Handle "Write" (10) command
+		else if ((cmd[0] == 0x2A) && (cmdLength == 10))
+		{
+			WriteLog("HD: Received command WRITE(10) [%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X]\n", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7], cmd[8], cmd[9]);
+			REQ = false;
+			// Drive next phase
+			MSG = false, C_D = false, I_O = false;
+			devMode = DVM_DATA_OUT;
+			bytesToSend = ((cmd[7] << 8) | cmd[8]) * 512; // amount is set in blocks
+			uint32_t lba = (cmd[2] << 24) | (cmd[3] << 16) | (cmd[4] << 8) | cmd[5];
+			buf = (hdData != NULL ? &hdData[(lba * 512) + 0x40] : NULL);
 			bufPtr = 0;
 		}
 		else if ((cmdLength == 6) && ((cmd[0] & 0xE0) == 0))
@@ -571,7 +607,7 @@ WriteLog("   >>> COMMAND PHASE\n");
 
 		break;
 	case DVM_STATUS:
-WriteLog("   >>> STATUS PHASE\n");
+//WriteLog("   >>> STATUS PHASE\n");
 		if (!ACK)
 		{
 			// Return A-OK for everything for now...
@@ -588,11 +624,11 @@ WriteLog("   >>> STATUS PHASE\n");
 
 		break;
 	case DVM_MESSAGE_OUT:
-WriteLog("   >>> MESSAGE OUT PHASE\n");
+//WriteLog("   >>> MESSAGE OUT PHASE\n");
 		if (REQ && ACK)
 		{
 			uint8_t msg = reg[0];
-			WriteLog("HD: Write to target value $%02X\n", msg);
+//			WriteLog("HD: Write to target value $%02X\n", msg);
 			REQ = false;
 			// Drive next phase
 			MSG = false, C_D = true, I_O = false;
@@ -602,11 +638,11 @@ WriteLog("   >>> MESSAGE OUT PHASE\n");
 
 		break;
 	case DVM_MESSAGE_IN:
-WriteLog("   >>> MESSAGE IN PHASE\n");
+//WriteLog("   >>> MESSAGE IN PHASE\n");
 		if (!ACK)
 		{
 			// Return A-OK for everything for now...
-			reg[0] = 0;
+			reg[0] = response;
 			REQ = true;
 		}
 		else if (REQ && ACK)
@@ -672,8 +708,8 @@ static uint8_t SlotIOR(uint16_t address)
 		case 0x04:
 			// (RO) Current SCSI Bus Status register:  Bits from hi to lo:
 			// /RST, /BSY, /REQ, /MSG, /C/D, /I/O, /SEL, /DBP
-if (((mainCPU.pc != 0xCD7C) && (mainCPU.pc != 0xCD5F)) || (bank != 16))
-	WriteLog("  [%02X %02X %02X %02X %02X %02X %02X %02X] [$C81F=$%02X $C80D=$%02X $C80A=$%02X $C887=$%02X $C806=$%02X $C88F=$%02X $C8EC=$%02X $4F=$%02X]\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6], reg[7], staticRAM[0x1F], staticRAM[0x0D], staticRAM[0x0A], staticRAM[0x87], staticRAM[0x06], staticRAM[0x8F], staticRAM[0xEC], ram[0x4F]);
+/*if (((mainCPU.pc != 0xCD7C) && (mainCPU.pc != 0xCD5F)) || (romBank != 16))
+	WriteLog("  [%02X %02X %02X %02X %02X %02X %02X %02X] [$C81F=$%02X $C80D=$%02X $C80A=$%02X $C887=$%02X $C806=$%02X $C88F=$%02X $C8EC=$%02X $4F=$%02X]\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6], reg[7], staticRAM[0x1F], staticRAM[0x0D], staticRAM[0x0A], staticRAM[0x87], staticRAM[0x06], staticRAM[0x8F], staticRAM[0xEC], ram[0x4F]);//*/
 
 			response = (RST ? 0x80 : 0) | (BSY | DEV_BSY ? 0x40 : 0) | (REQ ? 0x20 : 0) | (MSG ? 0x10 : 0) | (C_D ? 0x08 : 0) | (I_O ? 0x04 : 0) | (SEL ? 0x02 : 0);
 			break;
@@ -703,12 +739,12 @@ if (((mainCPU.pc != 0xCD7C) && (mainCPU.pc != 0xCD5F)) || (bank != 16))
 			response = 0x10 | (dmaSwitch ? 0x40 : 0);
 			break;
 		case 0x0E:
-			response = bank | (deviceID << 5);
+			response = romBank | (deviceID << 5);
 			break;
 	}
 
-	if (((mainCPU.pc != 0xCD7C) && (mainCPU.pc != 0xCD5F)) || (bank != 16))
-		WriteLog("HD Slot I/O read %s ($%02X <- $%X, PC=%04X:%u)\n", SCSIName[address & 0x0F], response, address & 0x0F, mainCPU.pc, bank);
+/*	if (((mainCPU.pc != 0xCD7C) && (mainCPU.pc != 0xCD5F)) || (romBank != 16))
+		WriteLog("HD Slot I/O read %s ($%02X <- $%X, PC=%04X:%u)\n", SCSIName[address & 0x0F], response, address & 0x0F, mainCPU.pc, romBank);//*/
 
 	return response;
 }
@@ -757,8 +793,6 @@ static void SlotIOW(uint16_t address, uint8_t byte)
 			// Mode register (chip control)
 
 			// Dma ReQuest is reset here (as well as by hitting a pin)
-//			if ((byte & 0x02) == 0)
-//				DRQ = false;
 			DMA_MODE = (byte & 0x02 ? true : false);
 
 			if (!DMA_MODE)
@@ -802,26 +836,25 @@ static void SlotIOW(uint16_t address, uint8_t byte)
 			// ???
 			break;
 		case 0x0E:
-			// Bottom 5 bits of $E set the ROM bank...
-			bank = byte & 0x1F;
-//			WriteLog("HD: Setting bank %u\n", bank);
+			// Bottom 5 bits of $E set the ROM bank
+			romBank = byte & 0x1F;
 			break;
 		case 0x0F:
-			// ??? RAM bank?  Seems to be
+			// Bottom 3 bits of $F set the RAM bank
 			ramBank = byte & 0x07;
 			break;
 	}
 
-	WriteLog("HD Slot I/O write %s ($%02X -> $%X, PC=%04X:%u)\n", SCSIName[address & 0x0F], byte, address & 0x0F, mainCPU.pc, bank);
+/*	WriteLog("HD Slot I/O write %s ($%02X -> $%X, PC=%04X:%u)\n", SCSIName[address & 0x0F], byte, address & 0x0F, mainCPU.pc, romBank);//*/
 	reg[address & 0x0F] = byte;
 
-	if ((address & 0x0F) == 0x0E)
+/*	if ((address & 0x0F) == 0x0E)
 	{
 		if (mainCPU.pc == 0xC78B)
 		{
 			uint16_t sp = mainCPU.sp;
 			uint16_t pc = ram[0x100 + sp + 1] | (ram[0x100 + sp + 2] << 8);
-			WriteLog("   *** Returning to bank %u, $%04X\n", bank, pc + 1);
+			WriteLog("   *** Returning to bank %u, $%04X\n", romBank, pc + 1);
 		}
 		else if (mainCPU.pc == 0xC768)
 		{
@@ -829,7 +862,7 @@ static void SlotIOW(uint16_t address, uint8_t byte)
 		}
 
 		WriteLog("  [%02X %02X %02X %02X %02X %02X %02X %02X] [$C81F=$%02X $C80D=$%02X $C80A=$%02X $C887=$%02X $C806=$%02X $C88F=$%02X $C8EC=$%02X $4F=$%02X]\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6], reg[7], staticRAM[0x1F], staticRAM[0x0D], staticRAM[0x0A], staticRAM[0x87], staticRAM[0x06], staticRAM[0x8F], staticRAM[0xEC], ram[0x4F]);
-	}
+	}//*/
 
 	// This should prolly go somewhere else...
 	RunDevice();
@@ -838,7 +871,7 @@ static void SlotIOW(uint16_t address, uint8_t byte)
 
 static uint8_t SlotROM(uint16_t address)
 {
-	return hd2ROM[address];
+	return a2hsScsiROM[address];
 }
 
 
@@ -847,7 +880,7 @@ static uint8_t SlotIOExtraR(uint16_t address)
 	if (address < 0x400)
 		return staticRAM[(ramBank * 0x400) + address];
 	else
-		return hd2ROM[(bank * 0x400) + address - 0x400];
+		return a2hsScsiROM[(romBank * 0x400) + address - 0x400];
 }
 
 
@@ -856,12 +889,12 @@ static void SlotIOExtraW(uint16_t address, uint8_t byte)
 	if (address < 0x400)
 		staticRAM[(ramBank * 0x400) + address] = byte;
 	else
-	{
-		WriteLog("Unhandled HD 1K ROM write ($%02X) @ $C%03X...\n", byte, address + 0x800);
+//	{
+		WriteLog("HD: Unhandled HD 1K ROM write ($%02X) @ $C%03X...\n", byte, address + 0x800);
 
-		if ((mainCPU.pc == 0xCDDD) && (bank == 11))
-			dumpDis = true;
-	}
+/*		if ((mainCPU.pc == 0xCDDD) && (romBank == 11))
+			dumpDis = true;//*/
+//	}
 }
 
 
@@ -870,9 +903,13 @@ void InstallHardDrive(uint8_t slot)
 	SlotData hd = { SlotIOR, SlotIOW, SlotROM, 0, SlotIOExtraR, SlotIOExtraW };
 	InstallSlotHandler(slot, &hd);
 
+	// If this fails to read the file, the pointer is set to NULL
 	uint32_t size = 0;
 	hdData = ReadFile(settings.hdPath, &size);
 
-	WriteLog("Read Hard Drive image file, %u bytes ($%X)\n", size, size);
+	if (hdData)
+		WriteLog("HD: Read Hard Drive image file, %u bytes ($%X)\n", size - 0x40, size - 0x40);
+	else
+		WriteLog("HD: Could not read Hard Drive image file!\n");
 }
 

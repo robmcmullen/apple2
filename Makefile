@@ -107,12 +107,16 @@ OBJS = \
 	obj/font14pt.o        \
 	obj/gui.o             \
                               \
+	obj/a2hs-scsi.o       \
+	obj/apple2-fw.o       \
+	obj/apple2e-enh.o     \
+	obj/firmware.o        \
+                              \
 	obj/apple2-icon-64x64.o \
 	obj/charset.o         \
 	obj/crc32.o           \
 	obj/dis65c02.o        \
 	obj/fileio.o          \
-	obj/firmware.o        \
 	obj/floppydrive.o     \
 	obj/harddrive.o       \
 	obj/log.o             \
@@ -175,6 +179,11 @@ obj/%.o: src/%.cpp
 
 #GUI compilation...
 obj/%.o: src/gui/%.cpp
+	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
+	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
+
+#Firmware compilation...
+obj/%.o: src/firmware/%.cpp
 	@echo -e "\033[01;33m***\033[00;32m Compiling $<...\033[00m"
 	@$(CC) $(CPPFLAGS) $(INCS) -c $< -o $@
 

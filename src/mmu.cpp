@@ -13,7 +13,7 @@
 
 #include "mmu.h"
 #include "apple2.h"
-#include "firmware.h"
+#include "firmware/firmware.h"
 #include "log.h"
 #include "mockingboard.h"
 #include "sound.h"
