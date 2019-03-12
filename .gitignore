@@ -13,9 +13,14 @@ reference/
 src/gui/foooked/
 ROMs/bin2c
 ROMs/from-applewin/
-res/
-docs/
-web/source/
+ROMs/misc/
 ROMs/asimov/
+res/
+docs/*.pdf
+docs/*.jpg
+docs/redbook/
+docs/scsi/
+docs/misc/
+web/source/
 misc/
 changes-since-last-commit.txt
