@@ -57,8 +57,9 @@
 #include "sound.h"
 #include "timing.h"
 #include "video.h"
-#include "gui/gui.h"
 #include "gui/diskselector.h"
+#include "gui/config.h"
+#include "gui/gui.h"
 
 // Debug and misc. defines
 
@@ -673,9 +674,9 @@ while (pc < 0x9FF)
 }
 #endif
 
+	SaveSettings();
 	SoundDone();
 	VideoDone();
-	SaveSettings();
 	LogDone();
 
 	return 0;
@@ -750,6 +751,10 @@ static void FrameCallback(void)
 		case SDL_KEYDOWN:
 			// We do our own repeat handling thank you very much! :-)
 			if (event.key.repeat != 0)
+				break;
+
+			// This breaks IMEs and the like, but we'll do simple for now
+			if (GUI::KeyDown(event.key.keysym.sym))
 				break;
 
 			// Use CTRL+SHIFT+Q to exit, as well as the usual window decoration
@@ -1033,7 +1038,7 @@ else if (event.key.keysym.sym == SDLK_F9)
 
 	// Hide the mouse if it's been 1s since the last time it was moved
 	// N.B.: Should disable mouse hiding if it's over the GUI...
-	if ((hideMouseTimeout > 0) && !(GUI::sidebarState == SBS_SHOWN || DiskSelector::showWindow == true))
+	if ((hideMouseTimeout > 0) && !(GUI::sidebarState == SBS_SHOWN || DiskSelector::showWindow == true || Config::showWindow == true))
 		hideMouseTimeout--;
 	else if (hideMouseTimeout == 0)
 	{

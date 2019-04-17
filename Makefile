@@ -101,6 +101,7 @@ LIBS = $(SDL_LIBS) -lstdc++ -lz -lm $(GLLIB) -pg
 INCS = -I. -I./src
 
 OBJS = \
+	obj/config.o          \
 	obj/diskselector.o    \
 	obj/font10pt.o        \
 	obj/font12pt.o        \
@@ -122,7 +123,6 @@ OBJS = \
 	obj/log.o             \
 	obj/mmu.o             \
 	obj/mockingboard.o    \
-	obj/sdlemu_config.o   \
 	obj/settings.o        \
 	obj/sound.o           \
 	obj/timing.o          \

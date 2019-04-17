@@ -1197,6 +1197,12 @@ bool InitVideo(void)
 		SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING,
 		VIRTUAL_SCREEN_WIDTH, VIRTUAL_SCREEN_HEIGHT);
 
+	// Start in fullscreen, if user requested it via config file
+	int response = SDL_SetWindowFullscreen(sdlWindow, (settings.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+
+	if (response != 0)
+		WriteLog("Video::FullScreen: SDL error = %s\n", SDL_GetError());
+
 	SetupBlurTable();
 
 	WriteLog("Video: Successfully initialized.\n");

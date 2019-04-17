@@ -3,7 +3,7 @@
 //
 // Graphical User Interface support
 // by James Hammons
-// © 2014 Underground Software
+// © 2014-2019 Underground Software
 //
 // JLH = James Hammons <jlhamm@acm.org>
 //
@@ -21,9 +21,13 @@
 //
 
 #include "gui.h"
+#include <vector>
 #include "apple2.h"
+#include "config.h"
 #include "diskselector.h"
+#include "elements.h"
 #include "floppydrive.h"
+#include "font10pt.h"
 #include "log.h"
 #include "video.h"
 
@@ -80,13 +84,20 @@ const char ejectIcon[(8 * 7) + 1] =
 	"@@@@@@@@"
 	"@@@@@@@@";
 
+const char newDiskIcon[(30 * 6) + 1] =
+	"@@   @@ @@@@@ @@   @@     @@  "
+	"@@@  @@ @@    @@   @@    @@@@ "
+	"@@@@ @@ @@@@  @@ @ @@   @@@@@@"
+	"@@ @@@@ @@    @@@@@@@     @@  "
+	"@@  @@@ @@    @@@@@@@  @@@@@  "
+	"@@   @@ @@@@@ @@   @@  @@@@   ";
+
 const char driveLight[(5 * 5) + 1] =
 	" @@@ "
 	"@@@@@"
 	"@@@@@"
 	"@@@@@"
 	" @@@ ";
-
 
 
 SDL_Texture * GUI::overlay = NULL;
@@ -117,9 +128,15 @@ const char iconHelp[7][80] = { "Turn emulated Apple off/on",
 	"Configure Apple2" };
 bool disk1EjectHovered = false;
 bool disk2EjectHovered = false;
+bool disk1NewDiskHovered = false;
+bool disk2NewDiskHovered = false;
 
+SDL_Texture * GUI::charStamp = NULL;
+uint32_t GUI::stamp[FONT_WIDTH * FONT_HEIGHT];
 
 #define SIDEBAR_X_POS  (VIRTUAL_SCREEN_WIDTH - 80)
+
+//std::vector<void *> objList;
 
 
 GUI::GUI(void)
@@ -136,6 +153,8 @@ void GUI::Init(SDL_Renderer * renderer)
 {
 	overlay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
 		SDL_TEXTUREACCESS_TARGET, 128, 380);
+	charStamp = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+		SDL_TEXTUREACCESS_TARGET, FONT_WIDTH, FONT_HEIGHT);
 
 	if (!overlay)
 	{
@@ -145,6 +164,9 @@ void GUI::Init(SDL_Renderer * renderer)
 
 	if (SDL_SetTextureBlendMode(overlay, SDL_BLENDMODE_BLEND) == -1)
 		WriteLog("GUI: Could not set blend mode for overlay.\n");
+
+	if (SDL_SetTextureBlendMode(charStamp, SDL_BLENDMODE_BLEND) == -1)
+		WriteLog("GUI: Could not set blend mode for charStamp.\n");
 
 	for(uint32_t i=0; i<128*380; i++)
 		texturePointer[i] = 0xB0A000A0;
@@ -185,6 +207,7 @@ void GUI::Init(SDL_Renderer * renderer)
 	}
 
 	DiskSelector::Init(renderer);
+	Config::Init(renderer);
 	WriteLog("GUI: Successfully initialized.\n");
 }
 
@@ -206,6 +229,7 @@ SDL_Texture * GUI::CreateTexture(SDL_Renderer * renderer, const void * source)
 void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 {
 	DiskSelector::MouseDown(x, y, buttons);
+	Config::MouseDown(x, y, buttons);
 
 	if (sidebarState != SBS_SHOWN)
 		return;
@@ -231,9 +255,10 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 			SpawnMessage("*** DISK #1 EJECTED ***");
 		}
 
-		if (!disk1EjectHovered)
+		if (!disk1EjectHovered && !disk1NewDiskHovered)
 		{
 			// Load the disk selector
+			Config::HideWindow();
 			DiskSelector::ShowWindow(0);
 		}
 
@@ -248,9 +273,10 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 			SpawnMessage("*** DISK #2 EJECTED ***");
 		}
 
-		if (!disk2EjectHovered)
+		if (!disk2EjectHovered && !disk2NewDiskHovered)
 		{
 			// Load the disk selector
+			Config::HideWindow();
 			DiskSelector::ShowWindow(1);
 		}
 
@@ -271,6 +297,9 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 	// Configuration
 	case 6:
 		SpawnMessage("*** CONFIGURATION ***");
+		// Load the configuration window
+		DiskSelector::HideWindow();
+		Config::ShowWindow();
 		break;
 	}
 }
@@ -279,12 +308,14 @@ void GUI::MouseDown(int32_t x, int32_t y, uint32_t buttons)
 void GUI::MouseUp(int32_t x, int32_t y, uint32_t buttons)
 {
 	DiskSelector::MouseUp(x, y, buttons);
+	Config::MouseUp(x, y, buttons);
 }
 
 
 void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 {
 	DiskSelector::MouseMove(x, y, buttons);
+	Config::MouseMove(x, y, buttons);
 
 	if (sidebarState != SBS_SHOWN)
 	{
@@ -335,6 +366,16 @@ void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 				&& (y >= (117 + 31 + 2))
 				&& (y < (117 + 31 + 2 + 7)) ? true : false);
 
+			disk1NewDiskHovered = ((x >= (SIDEBAR_X_POS + 24 + 6))
+				&& (x < (SIDEBAR_X_POS + 24 + 6 + 30))
+				&& (y >= (63 + 31 + 2))
+				&& (y < (63 + 31 + 2 + 6)) ? true : false);
+
+			disk2NewDiskHovered = ((x >= (SIDEBAR_X_POS + 24 + 6))
+				&& (x < (SIDEBAR_X_POS + 24 + 6 + 30))
+				&& (y >= (117 + 31 + 2))
+				&& (y < (117 + 31 + 2 + 6)) ? true : false);
+
 			if (iconSelected != lastIconSelected)
 			{
 				HandleIconSelection(sdlRenderer);
@@ -352,6 +393,12 @@ void GUI::MouseMove(int32_t x, int32_t y, uint32_t buttons)
 			}
 		}
 	}
+}
+
+
+bool GUI::KeyDown(uint32_t key)
+{
+	return Config::KeyDown(key);
 }
 
 
@@ -409,6 +456,7 @@ void GUI::AssembleDriveIcon(SDL_Renderer * renderer, int driveNumber)
 	DrawCharArray(renderer, number[driveNumber], 30, 20, 7, 7, 0xD0, 0xE0, 0xF0);
 	DrawDriveLight(renderer, driveNumber);
 	DrawEjectButton(renderer, driveNumber);
+	DrawNewDiskButton(renderer, driveNumber);
 
 	// Set render target back to default
 	SDL_SetRenderTarget(renderer, NULL);
@@ -427,6 +475,21 @@ void GUI::DrawEjectButton(SDL_Renderer * renderer, int driveNumber)
 		r = 0x20, g = 0xFF, b = 0x20;
 
 	DrawCharArray(renderer, ejectIcon, 29, 31, 8, 7, r, g, b);
+}
+
+
+void GUI::DrawNewDiskButton(SDL_Renderer * renderer, int driveNumber)
+{
+	if (!floppyDrive[0].IsEmpty(driveNumber))
+		return;
+
+	uint8_t r = 0x00, g = 0xAA, b = 0x00;
+
+	if ((driveNumber == 0 && disk1NewDiskHovered)
+		|| (driveNumber == 1 && disk2NewDiskHovered))
+		r = 0x20, g = 0xFF, b = 0x20;
+
+	DrawCharArray(renderer, newDiskIcon, 6, 31, 30, 6, r, g, b);
 }
 
 
@@ -457,6 +520,85 @@ void GUI::DrawCharArray(SDL_Renderer * renderer, const char * array, int x,
 			if (array[(j * w) + i] != ' ')
 				SDL_RenderDrawPoint(renderer, x + i, y + j);
 		}
+	}
+
+	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
+}
+
+
+void GUI::DrawCharacter(SDL_Renderer * renderer, int x, int y, uint8_t c, bool invert/*= false*/)
+{
+	uint32_t inv = (invert ? 0x000000FF : 0x00000000);
+	uint32_t pixel = 0xFFFFC000;	// RRGGBBAA
+	uint8_t * ptr = (uint8_t *)&font10pt[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
+	SDL_Rect dst;
+	dst.x = x * FONT_WIDTH, dst.y = y * FONT_HEIGHT, dst.w = FONT_WIDTH, dst.h = FONT_HEIGHT;
+
+	for(int i=0; i<FONT_WIDTH*FONT_HEIGHT; i++)
+		stamp[i] = (pixel | ptr[i]) ^ inv;
+
+	SDL_UpdateTexture(charStamp, NULL, stamp, FONT_WIDTH * sizeof(Uint32));
+	SDL_RenderCopy(renderer, charStamp, NULL, &dst);
+}
+
+
+//
+// N.B.: This draws a char at an abosulte X/Y position, not on a grid
+//
+void GUI::DrawCharacterVert(SDL_Renderer * renderer, int x, int y, uint8_t c, bool invert/*= false*/)
+{
+	uint32_t inv = (invert ? 0x000000FF : 0x00000000);
+	uint32_t pixel = 0xFFFFC000;	// RRGGBBAA
+	uint8_t * ptr = (uint8_t *)&font10pt[(c - 0x20) * FONT_WIDTH * FONT_HEIGHT];
+	SDL_Rect dst;
+	dst.x = x, dst.y = y, dst.w = FONT_WIDTH, dst.h = FONT_HEIGHT;
+	SDL_Point pt = { FONT_WIDTH - 1, FONT_HEIGHT - 1 };
+
+	for(int i=0; i<FONT_WIDTH*FONT_HEIGHT; i++)
+		stamp[i] = (pixel | ptr[i]) ^ inv;
+
+	SDL_SetTextureBlendMode(charStamp, SDL_BLENDMODE_NONE);
+	SDL_UpdateTexture(charStamp, NULL, stamp, FONT_WIDTH * sizeof(Uint32));
+	SDL_RenderCopyEx(renderer, charStamp, NULL, &dst, 270.0, &pt, SDL_FLIP_NONE);
+	SDL_SetTextureBlendMode(charStamp, SDL_BLENDMODE_BLEND);
+}
+
+
+void GUI::DrawString(SDL_Renderer * renderer, int x, int y, const char * s, bool invert/*= false*/)
+{
+	int len = strlen(s);
+
+	for(int i=0; i<len; i++)
+		DrawCharacter(renderer, x + i, y, s[i], invert);
+}
+
+
+//
+// N.B.: This draws a char at an abosulte X/Y position, not on a grid
+//
+void GUI::DrawStringVert(SDL_Renderer * renderer, int x, int y, const char * s, bool invert/*= false*/)
+{
+	int len = strlen(s);
+
+	for(int i=0; i<len; i++)
+		DrawCharacterVert(renderer, x, y - (FONT_WIDTH * i), s[i], invert);
+}
+
+
+void GUI::DrawBox(SDL_Renderer * renderer, int x, int y, int w, int h, int r/*= 0x00*/, int g/*= 0xAA*/, int b/*= 0x00*/)
+{
+	SDL_SetRenderDrawColor(renderer, r, g, b, 0xFF);
+
+	for(int i=0; i<w; i++)
+	{
+		SDL_RenderDrawPoint(renderer, x + i, y);
+		SDL_RenderDrawPoint(renderer, x + i, y + h - 1);
+	}
+
+	for(int i=0; i<h; i++)
+	{
+		SDL_RenderDrawPoint(renderer, x, y + i);
+		SDL_RenderDrawPoint(renderer, x + w - 1, y + i);
 	}
 
 	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
@@ -500,6 +642,7 @@ void GUI::DrawSidebarIcons(SDL_Renderer * renderer)
 
 void GUI::Render(SDL_Renderer * renderer)
 {
+	// Sanity check
 	if (!overlay)
 		return;
 
@@ -512,6 +655,7 @@ void GUI::Render(SDL_Renderer * renderer)
 
 	// Hmm.
 	DiskSelector::Render(renderer);
+	Config::Render(renderer);
 }
 
 

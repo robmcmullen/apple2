@@ -23,12 +23,19 @@ class GUI
 		static void MouseDown(int32_t, int32_t, uint32_t);
 		static void MouseUp(int32_t, int32_t, uint32_t);
 		static void MouseMove(int32_t, int32_t, uint32_t);
+		static bool KeyDown(uint32_t);
 		static void HandleIconSelection(SDL_Renderer *);
 		static void AssembleDriveIcon(SDL_Renderer *, int);
 		static void DrawEjectButton(SDL_Renderer *, int);
+		static void DrawNewDiskButton(SDL_Renderer *, int);
 		static void DrawDriveLight(SDL_Renderer *, int);
 		static void DrawCharArray(SDL_Renderer *, const char *, int x,
 			int y, int w, int h, int r, int g, int b);
+		static void DrawCharacter(SDL_Renderer *, int, int, uint8_t, bool inv = false);
+		static void DrawCharacterVert(SDL_Renderer *, int, int, uint8_t, bool inv = false);
+		static void DrawString(SDL_Renderer *, int, int, const char *, bool inv = false);
+		static void DrawStringVert(SDL_Renderer *, int, int, const char *, bool inv = false);
+		static void DrawBox(SDL_Renderer *, int, int, int, int, int r = 0x00, int g = 0xAA, int b = 0x00);
 		static void HandleGUIState(void);
 		static void DrawSidebarIcons(SDL_Renderer *);
 		static void Render(SDL_Renderer *);
@@ -41,6 +48,10 @@ class GUI
 		static int32_t iconSelected;
 		static bool hasKeyboardFocus;
 		static bool powerOnState;
+
+	private:
+		static SDL_Texture * charStamp;
+		static uint32_t stamp[];
 };
 
 #endif	// __GUI_H__

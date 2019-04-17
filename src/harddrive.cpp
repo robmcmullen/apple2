@@ -618,10 +618,12 @@ void InstallHardDrive(uint8_t slot)
 {
 	SlotData hd = { SlotIOR, SlotIOW, SlotROM, 0, SlotIOExtraR, SlotIOExtraW };
 	InstallSlotHandler(slot, &hd);
+	char fnBuf[MAX_PATH + 1];
 
 	// If this fails to read the file, the pointer is set to NULL
 	uint32_t size = 0;
-	hdData = ReadFile(settings.hdPath, &size);
+	sprintf(fnBuf, "%s%s", settings.disksPath, settings.hd[0]);
+	hdData = ReadFile(fnBuf, &size);
 
 	if (hdData)
 		WriteLog("HD: Read Hard Drive image file, %u bytes ($%X)\n", size - 0x40, size - 0x40);

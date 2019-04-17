@@ -10,7 +10,7 @@
 #include <limits.h>
 #define MAX_PATH		_POSIX_PATH_MAX
 #else
-#include <stdlib.h>								// for MAX_PATH on MinGW/Darwin
+#include <stdlib.h>						// for MAX_PATH on MinGW/Darwin
 // Win64 kludge
 #ifndef MAX_PATH
 #define MAX_PATH		_MAX_PATH		// Ugh.
@@ -28,26 +28,19 @@ struct Settings
 	bool fullscreen;
 	bool useOpenGL;
 	uint32_t glFilter;
-	uint32_t frameSkip;
 	uint32_t renderType;
 	bool autoStateSaving;		// Auto-state loading/saving on entry/exit
 
 	// Window settings
 
-	int winX;
-	int winY;
-
-	// Keybindings in order of U, D, L, R, C, B, A, Op, Pa, 0-9, #, *
-
-	uint16_t p1KeyBindings[21];
-	uint16_t p2KeyBindings[21];
+	int winX, winY;
 
 	// Paths
 
-	char BIOSPath[MAX_PATH];
-	char disksPath[MAX_PATH];
-	char hdPath[MAX_PATH];
-	char autoStatePath[MAX_PATH];
+	char BIOSPath[MAX_PATH + 1];
+	char disksPath[MAX_PATH + 1];
+	char autoStatePath[MAX_PATH + 1];
+	char hd[7][MAX_PATH + 1];
 };
 
 // Render types

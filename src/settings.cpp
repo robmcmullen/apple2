@@ -1,36 +1,50 @@
 //
-// SETTINGS.CPP: Game configuration loading/saving support
+// settings.cpp: Apple2 configuration loading/saving support
 //
 // by James Hammons
-// (C) 2005 Underground Software
-//
-// JLH = James Hammons <jlhamm@acm.org>
-//
-// WHO  WHEN        WHAT
-// ---  ----------  -----------------------------------------------------------
-// JLH  01/04/2006  Added changelog ;-)
+// (C) 2019 Underground Software
 //
 
 #include "settings.h"
 
 #include <stdlib.h>
+#include <map>
 #include <string>
 #include <SDL2/SDL.h>
-#include "sdlemu_config.h"
+#include "fileio.h"
 #include "log.h"
 #include "video.h"
-
-using namespace std;
-
 
 // Global variables
 
 Settings settings;
 
+// Private variables
+
+static const char configPath[5][32] = {
+	"./apple2.cfg",			// CWD
+	"~/apple2.cfg",			// Home directory
+	"~/.apple2/apple2.cfg",	// Home under .apple2 directory
+	"/etc/apple2.cfg",		// /etc
+	"apple2.cfg"			// Somewhere in the path
+};
+
+static int8_t configLoc = -1;
+static std::map<std::string, std::string> keystore;
 
 // Private function prototypes
 
+static int8_t FindConfig(void);
+static void ParseConfigFile(void);
+static bool GetValue(const char *, bool);
+static int GetValue(const char *, int);
+static const char * GetValue(const char *, const char *);
+static void SetValue(const char * key, bool value);
+static void SetValue(const char * key, int value);
+static void SetValue(const char * key, unsigned int value);
+static void SetValue(const char * key, const char * value);
 static void CheckForTrailingSlash(char * path);
+static void UpdateConfigFile(void);
 
 
 //
@@ -38,74 +52,31 @@ static void CheckForTrailingSlash(char * path);
 //
 void LoadSettings(void)
 {
-	if (sdlemu_init_config("./apple2.cfg") == 0			// CWD
-		&& sdlemu_init_config("~/apple2.cfg") == 0		// Home
-		&& sdlemu_init_config("~/.apple2/apple2.cfg") == 0	// Home under .apple2 directory
-		&& sdlemu_init_config("apple2.cfg") == 0)		// Somewhere in the path
-		WriteLog("Settings: Couldn't find configuration file. Using defaults...\n");
+	ParseConfigFile();
 
-	settings.useJoystick = sdlemu_getval_bool("useJoystick", false);
-	settings.joyport = sdlemu_getval_int("joyport", 0);
-	settings.hardwareTypeNTSC = sdlemu_getval_bool("hardwareTypeNTSC", true);
-	settings.frameSkip = sdlemu_getval_int("frameSkip", 0);
-	settings.fullscreen = sdlemu_getval_bool("fullscreen", false);
-	settings.useOpenGL = sdlemu_getval_bool("useOpenGL", true);
-	settings.glFilter = sdlemu_getval_int("glFilterType", 0);
-	settings.renderType = sdlemu_getval_int("renderType", 0);
-	settings.autoStateSaving = sdlemu_getval_bool("autoSaveState", true);
+	settings.useJoystick = GetValue("useJoystick", false);
+	settings.joyport = GetValue("joyport", 0);
+	settings.hardwareTypeNTSC = GetValue("hardwareTypeNTSC", true);
+	settings.fullscreen = GetValue("fullscreen", false);
+	settings.useOpenGL = GetValue("useOpenGL", true);
+	settings.glFilter = GetValue("glFilterType", 0);
+	settings.renderType = GetValue("renderType", 0);
+	settings.autoStateSaving = GetValue("autoSaveState", true);
 
-	settings.winX = sdlemu_getval_int("windowX", 250);
-	settings.winY = sdlemu_getval_int("windowY", 100);
+	settings.winX = GetValue("windowX", 250);
+	settings.winY = GetValue("windowY", 100);
 
-	// Keybindings in order of U, D, L, R, C, B, A, Op, Pa, 0-9, #, *
-	settings.p1KeyBindings[0] = sdlemu_getval_int("p1k_up", SDL_SCANCODE_UP);
-	settings.p1KeyBindings[1] = sdlemu_getval_int("p1k_down", SDL_SCANCODE_DOWN);
-	settings.p1KeyBindings[2] = sdlemu_getval_int("p1k_left", SDL_SCANCODE_LEFT);
-	settings.p1KeyBindings[3] = sdlemu_getval_int("p1k_right", SDL_SCANCODE_RIGHT);
-	settings.p1KeyBindings[4] = sdlemu_getval_int("p1k_c", SDL_SCANCODE_Z);
-	settings.p1KeyBindings[5] = sdlemu_getval_int("p1k_b", SDL_SCANCODE_X);
-	settings.p1KeyBindings[6] = sdlemu_getval_int("p1k_a", SDL_SCANCODE_C);
-	settings.p1KeyBindings[7] = sdlemu_getval_int("p1k_option", SDL_SCANCODE_APOSTROPHE);
-	settings.p1KeyBindings[8] = sdlemu_getval_int("p1k_pause", SDL_SCANCODE_RETURN);
-	settings.p1KeyBindings[9] = sdlemu_getval_int("p1k_0", SDL_SCANCODE_KP_0);
-	settings.p1KeyBindings[10] = sdlemu_getval_int("p1k_1", SDL_SCANCODE_KP_1);
-	settings.p1KeyBindings[11] = sdlemu_getval_int("p1k_2", SDL_SCANCODE_KP_2);
-	settings.p1KeyBindings[12] = sdlemu_getval_int("p1k_3", SDL_SCANCODE_KP_3);
-	settings.p1KeyBindings[13] = sdlemu_getval_int("p1k_4", SDL_SCANCODE_KP_4);
-	settings.p1KeyBindings[14] = sdlemu_getval_int("p1k_5", SDL_SCANCODE_KP_5);
-	settings.p1KeyBindings[15] = sdlemu_getval_int("p1k_6", SDL_SCANCODE_KP_6);
-	settings.p1KeyBindings[16] = sdlemu_getval_int("p1k_7", SDL_SCANCODE_KP_7);
-	settings.p1KeyBindings[17] = sdlemu_getval_int("p1k_8", SDL_SCANCODE_KP_8);
-	settings.p1KeyBindings[18] = sdlemu_getval_int("p1k_9", SDL_SCANCODE_KP_9);
-	settings.p1KeyBindings[19] = sdlemu_getval_int("p1k_pound", SDL_SCANCODE_KP_DIVIDE);
-	settings.p1KeyBindings[20] = sdlemu_getval_int("p1k_star", SDL_SCANCODE_KP_MULTIPLY);
+//	strcpy(settings.BIOSPath, sdlemu_getval_string("BIOSROM", "./ROMs/apple2e-enhanced.rom"));
+	strcpy(settings.disksPath, GetValue("disks", "./disks/"));
+	strcpy(settings.hd[0], GetValue("harddrive1", "./disks/Pitch-Dark-20180731.2mg"));
+	strcpy(settings.hd[1], GetValue("harddrive2", ""));
+	strcpy(settings.hd[2], GetValue("harddrive3", ""));
+	strcpy(settings.hd[3], GetValue("harddrive4", ""));
+	strcpy(settings.hd[4], GetValue("harddrive5", ""));
+	strcpy(settings.hd[5], GetValue("harddrive6", ""));
+	strcpy(settings.hd[6], GetValue("harddrive7", ""));
+	strcpy(settings.autoStatePath, GetValue("autoStateFilename", "./apple2auto.state"));
 
-	settings.p2KeyBindings[0] = sdlemu_getval_int("p2k_up", SDL_SCANCODE_UP);
-	settings.p2KeyBindings[1] = sdlemu_getval_int("p2k_down", SDL_SCANCODE_DOWN);
-	settings.p2KeyBindings[2] = sdlemu_getval_int("p2k_left", SDL_SCANCODE_LEFT);
-	settings.p2KeyBindings[3] = sdlemu_getval_int("p2k_right", SDL_SCANCODE_RIGHT);
-	settings.p2KeyBindings[4] = sdlemu_getval_int("p2k_c", SDL_SCANCODE_Z);
-	settings.p2KeyBindings[5] = sdlemu_getval_int("p2k_b", SDL_SCANCODE_X);
-	settings.p2KeyBindings[6] = sdlemu_getval_int("p2k_a", SDL_SCANCODE_C);
-	settings.p2KeyBindings[7] = sdlemu_getval_int("p2k_option", SDL_SCANCODE_APOSTROPHE);
-	settings.p2KeyBindings[8] = sdlemu_getval_int("p2k_pause", SDL_SCANCODE_RETURN);
-	settings.p2KeyBindings[9] = sdlemu_getval_int("p2k_0", SDL_SCANCODE_KP_0);
-	settings.p2KeyBindings[10] = sdlemu_getval_int("p2k_1", SDL_SCANCODE_KP_1);
-	settings.p2KeyBindings[11] = sdlemu_getval_int("p2k_2", SDL_SCANCODE_KP_2);
-	settings.p2KeyBindings[12] = sdlemu_getval_int("p2k_3", SDL_SCANCODE_KP_3);
-	settings.p2KeyBindings[13] = sdlemu_getval_int("p2k_4", SDL_SCANCODE_KP_4);
-	settings.p2KeyBindings[14] = sdlemu_getval_int("p2k_5", SDL_SCANCODE_KP_5);
-	settings.p2KeyBindings[15] = sdlemu_getval_int("p2k_6", SDL_SCANCODE_KP_6);
-	settings.p2KeyBindings[16] = sdlemu_getval_int("p2k_7", SDL_SCANCODE_KP_7);
-	settings.p2KeyBindings[17] = sdlemu_getval_int("p2k_8", SDL_SCANCODE_KP_8);
-	settings.p2KeyBindings[18] = sdlemu_getval_int("p2k_9", SDL_SCANCODE_KP_9);
-	settings.p2KeyBindings[19] = sdlemu_getval_int("p2k_pound", SDL_SCANCODE_KP_DIVIDE);
-	settings.p2KeyBindings[20] = sdlemu_getval_int("p2k_star", SDL_SCANCODE_KP_MULTIPLY);
-
-	strcpy(settings.BIOSPath, sdlemu_getval_string("BIOSROM", "./ROMs/apple2e-enhanced.rom"));
-	strcpy(settings.disksPath, sdlemu_getval_string("disks", "./disks"));
-	strcpy(settings.hdPath, sdlemu_getval_string("harddrive", "./disks/Pitch-Dark-20180731.2mg"));
-	strcpy(settings.autoStatePath, sdlemu_getval_string("autoStateFilename", "./apple2auto.state"));
 	CheckForTrailingSlash(settings.disksPath);
 }
 
@@ -116,6 +87,148 @@ void LoadSettings(void)
 void SaveSettings(void)
 {
 	SDL_GetWindowPosition(sdlWindow, &settings.winX, &settings.winY);
+
+	SetValue("autoSaveState", settings.autoStateSaving);
+	SetValue("autoStateFilename", settings.autoStatePath);
+	SetValue("useJoystick", settings.useJoystick);
+	SetValue("joyport", settings.joyport);
+	SetValue("hardwareTypeNTSC", settings.hardwareTypeNTSC);
+	SetValue("fullscreen", settings.fullscreen);
+	SetValue("useOpenGL", settings.useOpenGL);
+	SetValue("glFilterType", settings.glFilter);
+	SetValue("renderType", settings.renderType);
+	SetValue("windowX", settings.winX);
+	SetValue("windowY", settings.winY);
+	SetValue("disks", settings.disksPath);
+	SetValue("harddrive1", settings.hd[0]);
+	SetValue("harddrive2", settings.hd[1]);
+	SetValue("harddrive3", settings.hd[2]);
+	SetValue("harddrive4", settings.hd[3]);
+	SetValue("harddrive5", settings.hd[4]);
+	SetValue("harddrive6", settings.hd[5]);
+	SetValue("harddrive7", settings.hd[6]);
+
+	UpdateConfigFile();
+}
+
+
+static int8_t FindConfig()
+{
+	for(uint8_t i=0; i<5; i++)
+	{
+		FILE * f = fopen(configPath[i], "r");
+
+		if (f != NULL)
+		{
+			fclose(f);
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+
+//
+// Read & parse the configuration file into our keystore
+//
+static void ParseConfigFile(void)
+{
+	configLoc = FindConfig();
+
+	if (configLoc == -1)
+	{
+		WriteLog("Settings: Couldn't find configuration file. Using defaults...\n");
+		return;
+	}
+
+	char * buf = (char *)ReadFile(configPath[configLoc]);
+	std::string s(buf);
+
+	const std::string delim = "\n\r";
+	std::string::size_type start = s.find_first_not_of(delim, 0);
+	std::string::size_type end   = s.find_first_of(delim, start);
+
+	while ((start != std::string::npos) || (end != std::string::npos))
+	{
+		std::string sub = s.substr(start, end - start);
+
+		if ((sub[0] != '#') && (sub[0] != '['))
+		{
+			std::string::size_type kStart = sub.find_first_not_of(" ", 0);
+			std::string::size_type kEnd   = sub.find_first_of(" ", kStart);
+			std::string::size_type vStart = sub.find_first_of(" =\t\n\r", 0);
+			std::string::size_type vEnd   = sub.find_first_not_of(" =\t\n\r", vStart);
+
+			if ((kStart != std::string::npos) && (kEnd != std::string::npos)
+				&& (vStart != std::string::npos) && (vEnd != std::string::npos))
+			{
+				keystore[sub.substr(kStart, kEnd - kStart)] = sub.substr(vEnd);
+			}
+		}
+
+		start = s.find_first_not_of(delim, end);
+		end   = s.find_first_of(delim, start);
+	}
+
+	free(buf);
+}
+
+
+static bool GetValue(const char * key, bool def)
+{
+	if (keystore.find(key) == keystore.end())
+		return def;
+
+	return (atoi(keystore[key].c_str()) == 0 ? false : true);
+}
+
+
+static int GetValue(const char * key, int def)
+{
+	if (keystore.find(key) == keystore.end())
+		return def;
+
+	return atoi(keystore[key].c_str());
+}
+
+
+static const char * GetValue(const char * key, const char * def)
+{
+	if (keystore.find(key) == keystore.end())
+		return def;
+
+	return keystore[key].c_str();
+}
+
+
+static void SetValue(const char * key, bool value)
+{
+	keystore[key] = (value ? "1" : "0");
+}
+
+
+static void SetValue(const char * key, int value)
+{
+	char buf[64];
+
+	sprintf(buf, "%i", value);
+	keystore[key] = buf;
+}
+
+
+static void SetValue(const char * key, unsigned int value)
+{
+	char buf[64];
+
+	sprintf(buf, "%u", value);
+	keystore[key] = buf;
+}
+
+
+static void SetValue(const char * key, const char * value)
+{
+	keystore[key] = value;
 }
 
 
@@ -124,8 +237,85 @@ void SaveSettings(void)
 //
 static void CheckForTrailingSlash(char * path)
 {
-	if (strlen(path) > 0)
-		if (path[strlen(path) - 1] != '/')
-			strcat(path, "/");	// NOTE: Possible buffer overflow
+	uint32_t len = strlen(path);
+
+	// If the length is greater than zero, and the last char in the string is
+	// not a forward slash, and there's room for one more character, then add a
+	// trailing slash.
+	if ((len > 0) && (path[len - 1] != '/') && (len < MAX_PATH))
+		strcat(path, "/");
+}
+
+
+//
+// Update the values in the config file (if one exists) with updated values in
+// the keystore.
+//
+static void UpdateConfigFile(void)
+{
+	// Sanity check
+	if (configLoc == -1)
+	{
+		WriteLog("Settings: Creating default config...\n");
+		configLoc = 0;
+	}
+
+	char * buf = (char *)ReadFile(configPath[configLoc]);
+
+	FILE * f = fopen(configPath[configLoc], "w");
+
+	if (f == NULL)
+	{
+		WriteLog("Settings: Could not open config file for writing!\n");
+		free(buf);
+		return;
+	}
+
+	std::string s(buf);
+
+	const std::string delim = "\n\r";
+	std::string::size_type start = 0;
+	std::string::size_type end   = s.find_first_of(delim, start);
+
+	while (end != std::string::npos)
+	{
+		if (end > start)
+		{
+			std::string sub = s.substr(start, end - start);
+
+			if ((sub[0] != '#') && (sub[0] != '['))
+			{
+				std::string::size_type kStart = sub.find_first_not_of(" ", 0);
+				std::string::size_type kEnd   = sub.find_first_of(" ", kStart);
+
+				if ((kStart != std::string::npos)
+					&& (kEnd != std::string::npos))
+				{
+					std::string key = sub.substr(kStart, kEnd - kStart);
+
+					if (keystore.find(key) != keystore.end())
+					{
+						sub = key + " = " + keystore[key];
+						keystore.erase(key);
+					}
+				}
+			}
+
+			fprintf(f, "%s\n", sub.c_str());
+		}
+		else
+			fprintf(f, "\n");
+
+		start = end + 1;
+		end   = s.find_first_of(delim, start);
+	}
+
+	std::map<std::string, std::string>::iterator i;
+
+	for(i=keystore.begin(); i!=keystore.end(); i++)
+		fprintf(f, "%s = %s\n", i->first.c_str(), i->second.c_str());
+
+	fclose(f);
+	free(buf);
 }
 

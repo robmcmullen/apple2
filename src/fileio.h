@@ -99,7 +99,7 @@ struct WOZ2
 };
 
 // Exported functions
-uint8_t * ReadFile(const char * filename, uint32_t * size);
+uint8_t * ReadFile(const char * filename, uint32_t * sizePtr = NULL);
 void InitWOZ2Headers(WOZ2 &);
 uint8_t * InitWOZ(uint32_t * pSize = NULL);
 uint8_t * UpconvertWOZ1ToWOZ2(uint8_t * woz1Data, uint32_t woz1Size, uint32_t * newSize);
