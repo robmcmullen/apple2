@@ -175,7 +175,6 @@ void Config::Init(SDL_Renderer * renderer)
 
 	SDL_SetRenderTarget(renderer, NULL);
 
-	objList.push_back(new CheckBox(1, 1, &cb1Checked, cb1Text));
 	objList.push_back(new CheckBox(1, 1, &settings.autoStateSaving, cb1Text));
 	objList.push_back(new CheckBox(1, 2, &cb2Checked, cb2Text));
 	objList.push_back(new CheckBox(1, 3, &settings.fullscreen, cb3Text));
