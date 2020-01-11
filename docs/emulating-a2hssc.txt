@@ -1,0 +1,1925 @@
+  EMULATING THE APPLE HIGH SPEED SCSI CARD: AN EXERCISE IN DIGITAL ARCHAEOLOGY
+
+                                by James Hammons
+
+    ~~==< Brought to you in Glorious 80-Column Monospace-o-Vision(TM) >==~~
+
+
+Motivations
+-----------
+
+While reading 4am's Twitter feed one day, he talked about his "Pitch Dark" hard 
+drive image, which looked incredibly cool and like something that I would very 
+much be interested in.  But in reading about it, I came across a seemingly 
+throwaway line about how all decent emulators can run them, which, sadly, 
+Apple2 could not at the time.  And so, in order to save Apple2 from indecency 
+(and because I wanted to see if I could get 4am's "Pitch Dark" to work because 
+it looked cool and interesting), I set about for finding some documentation on 
+how hard drives interfaced to Apple IIs--and ran into a complete dearth of 
+information.  There were little things sprinkled around here and there, but 
+nothing of any deep, satisfying, technical significance.
+
+
+In Order To Run A Hard Drive Image, You Must First Create The Universe
+----------------------------------------------------------------------
+
+While it's a nice bit of hyperbole, it's not exactly true that you have to 
+first create the Universe, as fortunately, that part has largely been taken 
+care of.  However, you still have to figure out how to emulate it if you are 
+keen on running a hard drive image on your emulator of choice.  And in so 
+doing, you have to figure what the requirements are; what the minimal pieces 
+are that are required to have a functioning hard drive system; you also have to 
+figure out how that system talks to the emulated computer.  And that all 
+requires information.  I wasn't asking for much, but something along the lines 
+of Jim Sather's "Understanding The Apple IIe" for hard drives would have been a 
+nice thing to have.
+
+
+The Next Part, In Which Nice Things To Have Are Not Forthcoming
+---------------------------------------------------------------
+
+Unfortunately, Jim Sather, and nobody else as far as I can tell, ever wrote 
+such a document, and so I did what any lazy programmer would do: I took a look 
+at some other project's source--in this case, AppleWin's source.  I didn't 
+really *want* to look at it, having looked at it before and recoiled in horror 
+at the sight, but, my search-fu apparently being not up to the task of finding 
+relevant information drove me to it.  And looking at it didn't really provide 
+any illumination; to me it looked like some kind of hacky thing and I wasn't 
+interested in that kind of approach at all--so I abandoned the idea.  As I dug 
+a little deeper into the minute literature that existed as such on the subject, 
+I learned that pretty much any time you wanted to hook up a hard drive to your 
+Apple II, you had to use an interface card, and typically that meant some kind 
+of SCSI card.  And looking here, there was no shortage of SCSI cards that you 
+could use to hook up your hard drive therewith.
+
+So, that being a promising looking path to pursue on the road to this 
+particular perdition, the question then became, which one should I choose?  At 
+first I thought the RAMFast card would fit the bill as it seemed to be very 
+popular, but there was literally no technical infomation on the thing.  The 
+Apple SCSI card looked promising, but then I saw that it "ghosted" a slot, 
+meaning that it would have to occupy two consecutive slots in order to work and 
+I didn't much care for that.  And so, after looking at, and rejecting, card 
+after card for pretty much the same reason, I settled on the Apple High Speed 
+SCSI card for a few reasons--one, it was purportedly fast; two, it worked on 
+the Apple IIe (as well as the IIgs, but I didn't really care that much about 
+that to be honest); three, it had a users manual that wasn't completely devoid 
+of technical information; four, it had a schematic; and five, it had a firmware 
+image.  This looked like a promising start--how hard could it be to make this 
+work?
+
+
+Things Aren't Exactly Hard, But They Aren't Exactly Soft Either
+---------------------------------------------------------------
+
+One of the necessary things that I didn't have out of all of that was good 
+information on how the thing worked.  I knew that it was a SCSI card, and I 
+knew that it talked to the SCSI bus using an NCR 53C80 chip, but I had no idea 
+exactly how.  But I did have something that *did* know how to talk to it: the 
+firmware for the card.
+
+Now when you take a look at the firmware, the first thing you notice is that 
+it's 32K in size--which is *much* larger than the typical 256 bytes that you 
+encounter when looking at Apple II card drivers.  It also happens to be quite a 
+bit larger than the 2K "bonus" space that Apple II cards have available to them 
+in the $C800 to $CFFF address space.  So what gives?
+
+Fortunately for me, Apple2 has a built-in disassembler (which will probably 
+stay in for all time, as it turns out to be a very useful thing to have on 
+hand), and so I split that out into a stand-alone command line driven program, 
+called d65c02, in order to be able to disassemble such things as device driver 
+firmware blobs.  It isn't fancy, it doesn't do any analysis on what is code and 
+what is data, but it gets the job done in turning incomprehensible binary 
+gibberish (except to certain mad geniuses who will go heretofore unnamed) into 
+human readable ASCII gibberish.  Thus I used said tool to disassemble the 
+firmware blob.
+
+Pulling up the results in my text editor, I could see that at least the front 
+of the listing looked like it could plausibly be code that would go into the 
+usual 256 byte card slot address space of $Cx00 to $CxFF, where x ranges from 1 
+to 7 depending on the slot number.  Looking further, I could see this first 256 
+bytes of code was repeated three times, meaning that this was a good candidate 
+for the slot device code.  I could also see that it was written as relocatable 
+code, and it contained this little tidbit:
+
+001B: A9 60     LDA  #$60     ; Stuff an RTS into RAM somewhere
+001D: 8D F8 07  STA  $07F8
+0020: 20 F8 07  JSR  $07F8    ; Jump there and return in order to get evidence
+                              ; of where in memory we did it from
+0023: BA        TSX           ; Retrieve the stack pointer
+0024: BD 00 01  LDA  $0100,X  ; Get the hi byte of the address we just pushed on
+                              ; the stack in order to come back here
+0027: 8D F8 07  STA  $07F8    ; & save it for later perusal
+
+which meant that it was an excellent candidate for the slot device code.  But 
+why should that be?
+
+
+A Short Digression Into Why Slot Code Must Be Relocatable
+---------------------------------------------------------
+
+Slot code must be relocatable because such a card may be installed into any 
+given slot in an Apple II--which means its code will show up anywhere from 
+$C100 to $C700 (it always shows up on a page boundary).  By virtue of this, it 
+also means that the I/O address for the card will also show up in the 
+corresponding $C090 to $C0F0 address range (it always shows up on a 16-byte 
+boundary).  And so, because of this, you have to write your slot code in such a 
+way that it will work regardless of which slot it's installed in, which means 
+the code must be relocatable--which ultimately means you can't use any JMP 
+instructions to addresses in your driver, and you can't use absolute addressing 
+to refer to stuff in the slot address space.
+
+So, using the above code, a clever coder can figure out what slot their code is 
+executing in and they can then use that knowledge to figure out which is the 
+proper I/O range to use for the card.  All this being necessary in order to 
+make a seamless experience for the end user of the card.
+
+
+The Next Part, In Which 32K Is Still Larger Than 256
+----------------------------------------------------
+
+So, in looking at the code that comes after the Code Which Looks Like It 
+Belongs In Slot Memory (which makes the wonderful acronym CWLLIBISM), I noticed 
+that it seemed to be organized in 1K chunks.  And further persual of said 
+chunks made it seem very likely that they resided in the $CC00 to $CFFF memory 
+space.  However, the "extra" memory space given to cards to use starts 1K 
+earlier--at $C800.  What could this mean?
+
+Well, in looking at the schematic for the card, one not only finds the 32K ROM 
+chip, but also an 8K static RAM.  Which means that it's very likely that the 
+address space from $C800 to $CBFF is mapped to that 8K static RAM.  But 8K is 
+larger than 1K; how does that work?
+
+As it turns out, it's bank switched, but I didn't know it at the time--we'll 
+get to that eventually.  In the meantime, with further perusal of the code (the 
+code gets perused quite a bit), it seems very likely that the 1K address range 
+from $C800 to $CBFF is said RAM as that range is written to by the 1K code 
+chunks quite frequently.
+
+Finding that the code in the firmware is divvied up into 1K chunks would seem 
+to imply that it's bank switched into the $CC00 to $CFFF range.  And in looking 
+at the CWLLIBISM, we see the following:
+
+005C: A9 0B     LDA  #$0B     ; Get 11 in the accumulator
+005E: AE 08 C8  LDX  $C808    ; Get offset to proper I/O space in X
+0061: 5A        PHY           ; Save Y on the stack for later
+0062: A8        TAY           ; Copy the accumulator to Y
+0063: 29 1F     AND  #$1F     ; Strip off the upper three bits
+0065: 9D 6E C0  STA  $C06E,X  ; & write to card I/O location $E
+
+which implies it heavily.  Taking the number put into the accumulator and then 
+masking out the lower 5 bits creates a range that goes from 0 to 31, which is 
+32 distinct values, which corresponds to 32 1K chunks of code.
+
+The above code, which is part of the initialization of the card, heavily 
+implies that it's selecting a 1K chunk of code from bank 11 (counting from 
+zero, naturally) to put into the $CC00 to $CFFF address range.  And so we get 
+to(*) look there for a start.
+
+(*) While changing 'have to' to 'get to' can make life awesome in many ways, 
+this is far from a universal truth.  'Getting to' have one's arm amputated is 
+never, ever awesome
+
+
+The Next Part, In Which We Sadly Bid Adeiu To CWLLIBISM
+-------------------------------------------------------
+
+But before we do that, in order to understand what's going on in those wicked 
+little 1K chunks of code, we should first take a closer look at CWLLIBISM.  So 
+let's jump in:
+
+0000: A2 20     LDX  #$20     ; The bytes after the LDX # identify this card as
+0002: A2 00     LDX  #$00     ; being capable of SmartPort calls, and the $82 at
+0004: A2 03     LDX  #$03     ; $FB further identifies it as a SCSI card ($2)
+0006: A2 00     LDX  #$00     ; that supports extended calls ($8).
+
+The way that I was able to find out that this seemingly useless bit of code was 
+a way of identifying SmartPort capable cards was in the serendipitous find of 
+the "Technical Manual for the Apple SCSI Card"(*), which, while helpful in some 
+ways, was almost completely useless in trying to figure out the what the card 
+I/O addresses did.
+
+(*) No relation to the Apple High Speed SCSI Card
+
+0008: 2C 58 FF  BIT  $FF58    ; Check byte in ROM (usually, an RTS lives here)
+000B: 70 05     BVS  $0012    ; Bit 6 set?  >> $12 (which means, this branch
+                              ; will be taken...)
+
+This little tidbit checks a ROM location that usually carries an RTS (at least 
+it does in the Apple IIe), which is $60.  Which means that the following BVS 
+will always be taken and skip over the following:
+
+000D: 38        SEC           ; ProDOS entry point
+000E: B0 01     BCS  $0011    ; Branch over the following CLC
+0010: 18        CLC           ; SmartPort DISPATCH
+0011: B8        CLV           ; Signal we're doing normal I/O, not init code
+
+So this clever little bit here, according to the "Technical Manual for the 
+Apple SCSI Card", sets some flags so that later on in the firmware, it can 
+discern whether it's being called from ProDOS (in which the carry flag will be 
+set) or if it's a SmartPort call (in which the carry flag will be clear).  
+Either way, the overflow flag is cleared to let the firmware know that this is 
+a request to talk to the drive, and not initialization.  Initialization skips 
+over this code and ends up here:
+
+0012: D8        CLD           ; Clear the decimal flag, to prevent bad math
+0013: 08        PHP           ; Save the carry & overflow flags for later
+0014: 78        SEI           ; Turn IRQs off
+0015: AD FF CF  LDA  $CFFF    ; Turn INTC8ROM off (puts card in $C800-CFFF)
+0018: 8D 00 CC  STA  $CC00    ; ???
+
+This bit of code is a bit of housekeeping; making sure the decimal flag isn't 
+set so that ADC & SBC both work as expected, saving the flags register so that 
+the firmware code later can determine whether it's an initialization call or a 
+regular I/O call, making sure that IRQs don't happen while in the firmware 
+code, and turning on the "extra" addresses in the $C800 to $CFFF range.
+
+The store to $CC00 is mysterious, as it's a ROM location and stores to ROM 
+locations are usually void and of null effect.  This likely means that it's 
+some kind of soft-switch that controls something in card, but exactly what 
+would require a few things that I don't have, namely: the contents of the two 
+PALs on the card (which sit between the address lines of the slot and the rest 
+of the card), and a description of what the ports on the Sandwich II do (the 
+chip that sits between the Apple IIe proper and the NCR 53C80).  So, moving 
+right along:
+
+001B: A9 60     LDA  #$60     ; See where we're executing from
+001D: 8D F8 07  STA  $07F8
+0020: 20 F8 07  JSR  $07F8
+0023: BA        TSX
+0024: BD 00 01  LDA  $0100,X  ; Get the address we just pushed on the stack
+0027: 8D F8 07  STA  $07F8    ; Save it
+
+We've seen this already, this is the code that determines which slot it's 
+sitting in.  Say, for example, that it's sitting in slot 7; the byte that it 
+will retrieve from the stack will be $C7 (for the sake of completeness, the lo 
+byte will be $22--as to why, this is left as an exercise for the reader).  In 
+order to turn that into something that it can use to hit the proper slot I/O 
+addresses, it does the following:
+
+002A: 29 0F     AND  #$0F     ; Get the lo nybble
+002C: 0A        ASL  A        ; Multiply it x16
+002D: 0A        ASL  A
+002E: 0A        ASL  A
+002F: 0A        ASL  A
+0030: 18        CLC
+0031: 69 20     ADC  #$20     ; Add $20 to it for some reason
+0033: AA        TAX           ; & stick in the X register
+
+The important part of the $C7 hi byte of the address we found through 
+cleverness and trickery is the slot number, which will always fall in the lower 
+4 bits.  And, in order to be useful to find the correct slot I/O address range, 
+that slot number needs to be multiplied by 16, as each of the slot I/O address 
+ranges cover exactly sixteen bytes.  Note that masking off the bottom 4 bits, 
+as is done with the AND #$0F instruction, is unnecessary as the four ASL A 
+instructions after it will necessarily shift the top four bits out of the 
+picture.
+
+The one thing that stands out as not typical of this kind of device driver code 
+is the adding of $20 to the index.  Typically, writers of this kind of I/O code 
+will use $C080 to $C08F (plus the contents of the X register to reach the 
+correct slot I/O range) as the base address for slot I/O, but, for some reason, 
+the writers of this card's firmware chose to use $C060 to $C06F, thus 
+necessitating the addition of $20 to the value in the X register to reach the 
+correct range for slot I/O.
+
+0034: A9 00     LDA  #$00     ;
+0036: 9D 6E C0  STA  $C06E,X  ; Select bank #0 (register $E, lower 5 bits)
+0039: A9 0F     LDA  #$0F
+003B: 9D 6F C0  STA  $C06F,X  ; Store a $F in register $F
+003E: 8E 08 C8  STX  $C808    ; Put slot # at $C808 (banked RAM in $C800-CBFF)
+0041: 9C 09 C8  STZ  $C809    ; Put zero at $C809
+0044: 9C F2 C8  STZ  $C8F2    ; & $C8F2
+
+One thing I forgot to mention is that the Apple High Speed SCSI card is only 
+usable by enhanced Apple IIe and IIgs machines, and that's because it relies on 
+instructions only found in the 65C02 like STZ and PHY; a regular 6502 will not 
+even remotely do the same things that those instructions do on the 65C02--so 
+they're right out.
+
+At any rate, the above code does some writing to the slot I/O address range and 
+sets up some values in the card's static RAM, including saving the contents of 
+the X register for later.
+
+0047: A2 22     LDX  #$22     ; Transfer 35 bytes from ZP ($40) to $C82D
+0049: B5 40     LDA  $40,X
+004B: 9D 2D C8  STA  $C82D,X
+004E: CA        DEX
+004F: 10 F8     BPL  $0049
+
+This bit of code transfers 35 bytes in page zero RAM to the card's static RAM, 
+presumably to restore them later.
+
+0051: AD F8 07  LDA  $07F8    ; Get original $Cx byte again
+0054: 8D 01 C8  STA  $C801    ; Put it in $C801
+0057: A9 61     LDA  #$61     ;
+0059: 8D 00 C8  STA  $C800    ; Put $61 in $C800 (= $Cx61)
+005C: A9 0B     LDA  #$0B
+005E: AE 08 C8  LDX  $C808    ; Get X from $C808
+
+This little bit of code sets up for the code that comes below; it sets up 
+locations $C800-1 as a location for an indirect jump that seems to happen a lot 
+in the 1K chunks that come later.  The address it sets up as the jump target is 
+the code that comes next:
+
+0061: 5A        PHY           ; Save Y (follow on bank, passed in by caller)
+0062: A8        TAY           ; Save A register
+0063: 29 1F     AND  #$1F     ; Mask off the lower 5 bits
+0065: 9D 6E C0  STA  $C06E,X  ; First time, select bank 11:0 (I/O register $E)
+0068: 98        TYA           ; Restore the A register
+0069: 29 E0     AND  #$E0     ; Mask off the upper 3 bits
+006B: 4A        LSR  A        ; & shift them down
+006C: 4A        LSR  A
+006D: 4A        LSR  A
+006E: 4A        LSR  A
+006F: A8        TAY           ; Use as an index into a table (Y x 2)
+
+What this does is save the Y register on the stack, then separates the 
+accumulator into a upper 3-bit part and a lower 5-bit part.  The lower 5 bits 
+go into I/O slot register $E, which presumably selects which 1K chunk of code 
+will appear in the $CC00 to $CFFF address range while the upper 3 bits are used 
+as an index into a table that appears near the end of each 1K chunk:
+
+0070: B9 F0 CF  LDA  $CFF0,Y  ; Get address of current 1K bank
+0073: 85 54     STA  $54      ; & stuff it into $54/55
+0075: B9 F1 CF  LDA  $CFF1,Y
+0078: 85 55     STA  $55
+
+So it uses the Y register as index into the current selected bank's $CFF0 
+address range and stuffs them into $54 and $55, so that it can jump to the 
+address at some point.
+
+007A: AD F8 07  LDA  $07F8    ; Get original $Cx byte again
+007D: A8        TAY           ; Put it in Y
+007E: 48        PHA           ; Put it to the stack
+007F: A9 86     LDA  #$86
+0081: 48        PHA           ; Push $86: return address is now $Cx87
+
+What this does is set up the stack for what I'm going to name (for lack of a 
+better term, or any at all to be honest) an "RTS call".  This takes advantage 
+of how the CPU uses the stack to return execution to the instruction after a 
+JSR instruction: when the CPU encounters a JSR opcode, it pushes the the 
+location of the program counter, plus two, onto the stack before loading the 
+program counter with the address that comes after the JSR.  When an RTS opcode 
+is then encountered, it restores the program counter from the stack and adds 
+one to it before resuming execution.
+
+The upshot of this is that you can transfer execution of a program from one 
+place to the next, without using JMP, JSR or branch instructions by simulating 
+this behavior--which also turns out to be a necessity when you're writing 
+relocatable code.  So what the above code does is set up the stack so that it 
+will jump to location $Cx87 when it encounters an RTS.
+
+0082: 5A        PHY           ; Push $Cx
+0083: A9 8B     LDA  #$8B     ; Push $8B: return address is now $Cx8C
+0085: 48        PHA
+
+Similarly, this code sets up the stack so it will jump to $Cx8C when it 
+encounters an RTS as well.  So it will go there first, then to $Cx87 second 
+when the routine first called via RTS call, er, uh, returns.
+
+0086: 60        RTS           ; First time, will "return" to $Cx8C
+
+Thus, this first RTS transfers control to the JMP ($0054) down below, which was 
+set up above as an address somewhere in a 1K code chunk.  Since the code that 
+goes into the 1K code chunk is a JMP instruction, once that code returns, it 
+will then find the address that was pushed on the stack earlier, and execute 
+the following code:
+
+0087: 68        PLA           ; After the $CCxx block is done, it comes here
+0088: 9D 6E C0  STA  $C06E,X  ; Restore last block (one passed in Y reg)
+008B: 60        RTS           ; & return to calling code in that block
+
+This code pops the Y register that was saved way back up at location $Cx61 and 
+uses it to set the I/O register at $E, which, presumably, is the bank switch 
+I/O address for the card.  This will turn out to be of vital importance later, 
+but we'll leave it for now.  The RTS, finally, returns from initialization and 
+back from whence it came.
+
+008C: 6C 54 00  JMP  ($0054)  ; Jump to the $CCxx block code
+
+This indirect JMP instruction, called up above via RTS call, kicks things off.
+
+008F-00FA: 00                 ; $6B worth of zeroes
+00FB: 82 00 00 BF 0D          ; ID/offset bytes
+
+So these bytes that look like a bit of detritus actually do serve a useful 
+function in ProDOS.  The $0D at the very end serves as an offset from the 
+beginning of the code to the ProDOS entry point, which in this case works out 
+to $Cx0D.  It also serves as the entry point for SmartPort calls (by adding 3 
+to it), which works out to $Cx10.
+
+Further, the "Technical Manual for the Apple SCSI Card" says the following 
+about the byte at $FB: "An additional byte, at $CnFB, should contain $82, 
+indicating that the device is the SCSI card ($2) and that it supports extended 
+calls ($8)."  This just happens to be one of a small handful of those 
+aforementioned tiny bits of useful information that I was able to glean from 
+that source.
+
+And so, at last, we come to the realization that this is definitely the slot 
+ROM code, and thus CWLLIBISM becomes CWSISM (Code Which Sits In Slot Memory).
+
+
+And Now For Something Not Quite So Completely Different
+-------------------------------------------------------
+
+And with that digression into CWSISM, we turn our attention back to the 1K 
+chunk of initialization code that sits in bank 11.  In looking at the table 
+that we discovered sits at $CFF0, we find the following in the 11th (counting 
+from zero) 1K chunk:
+
+CFF0: 00 CC
+CFF2: 91 CE
+CFF4: 9A CD
+CFF6: 00 00 00 00 00 00 00 00 00 00
+
+This tells us that there are only three valid addresses in the table (as the 
+zeroes will take you nowhere), and that further, they are $CC00, $CE91 and 
+$CD9A.  And since the CWSISM set up the $Cx61 dispatch call with $0B (at 
+$Cx5C), it will pick the zeroeth address in that list, namely, $CC00.  So, 
+looking at the code that lies there, what we see looks promising:
+
+CC00: 68        PLA          ; Discard the 2nd return path (bank switch back)
+CC01: 68        PLA
+CC02: 68        PLA          ; Discard the follow on bank #, as there is none
+
+Since this is initialization code, we can discard the RTS call from the stack 
+since we aren't calling this code from another bank.  Which also means that we 
+can discard that parameter which tells the RTS call what bank to select before 
+returning.
+
+CC03: 86 5E     STX  $5E     ; Save slot # (+$20) in $5E
+CC05: 9C 93 C8  STZ  $C893   ; Zero out $C893 & $5D
+CC08: 64 5D     STZ  $5D
+CC0A: 20 C1 CC  JSR  $CCC1   ; Test for GS hardware + DMA switch
+
+This is basically housekeeping, and the routine called at $CCC1 tests if the 
+card is running on an Apple IIgs and sets bit 6 of zero page location $5D if it 
+detects that.  It also checks the physical DMA on/off switch on the card as 
+well; if it's set, it sets bit 5 of $5D.  The following bit of code checks $5D 
+to see if bit 6 is clear and skips the instructions at $CC11 to $CC19 if 
+so--and since I'm emulating an Enhanced Apple IIe, it *will* skip those 
+instructions:
+
+CC0D: 24 5D     BIT  $5D     ; Check if bit 6 of $5D is set (means it's a GS)
+CC0F: 50 0B     BVC  $CC1C   ; Skip over if not set (it's not a IIgs)
+CC11: AD 36 C0  LDA  $C036   ; IIgs Speed Reg.
+CC14: 8D 96 C8  STA  $C896   ; Save it for later...
+CC17: 09 80     ORA  #$80    ; Set speed to 2.8 MHz
+CC19: 8D 36 C0  STA  $C036   ; & modify
+
+Luckily there exists a very good techinical reference manual for the Apple 
+IIgs; unluckily, it's a bit hard to track down.  But once you do, the 
+information in it is quite good.  The above bit of code shows that the card 
+firmware shifts the IIgs into high gear while running on the card.  However, we 
+don't really care about that bit of code; which is why we spent so much time 
+explaining what it does.
+
+CC1C: 68        PLA          ; Get flags from slot init
+
+Way back in CWSISM, at slot location $Cx13, there was an innocuous looking PHP 
+instuction; here is where we finally take a look at the contents of it.
+
+CC1D: A8        TAY          ; Save them in Y
+CC1E: 29 04     AND  #$04    ; Check if I flag is set
+CC20: F0 05     BEQ  $CC27   ; Skip if I is not set
+CC22: A9 80     LDA  #$80    ; Else, signal I flag is set ($80 -> $C893)
+CC24: 8D 93 C8  STA  $C893
+
+Here we look at the interrupt disable bit in the processor flags that we saved 
+earlier; if it's not set we skip on over to the next bit of code below.  
+Otherwise, the code sets $80 into memory location $C983 to signal that 
+initialization code was called with the I flag set.
+
+CC27: 98        TYA          ; Restore flags from Y
+CC28: 09 04     ORA  #$04    ; Set I flag
+CC2A: 48        PHA          ; Push them to the stack
+CC2B: 28        PLP          ; & restore flags for real
+
+Since we need to get the values of the overflow and carry flags back, which 
+were set way back in CWSISM at addresses $Cx0D through $Cx11, we have to 
+retrieve them from the Y register, then push them onto the stack and then use a 
+PLP to get them back into the flags register proper.  Along the way, we set the 
+interrupt disable flag at $CC28 (the ORA #$04 instruction).
+
+And in looking at code as we're doing here, it's hard not to look at it with a 
+critical eye and notice that the coder could have saved a byte by deleting the 
+ORA #$04 (which takes two bytes) and putting an SEI after the PLP (which takes 
+one byte).  And, since we don't have any source code to look at, we may never 
+know what the intention was; though it's quite likely that this was just a 
+simple oversight.
+
+CC2C: 50 09     BVC  $CC37   ; If SmartPort call, skip over
+
+Here we see that if the card firmware was called via the SmartPort vector at 
+$Cx10, the overflow flag would be clear and we would skip over the following.  
+But, since the flag was definitely set, we know that we will execute what 
+follows:
+
+CC2E: BA        TSX          ; Slot init & regular ProDOS dispatch get here
+CC2F: 8E 07 C8  STX  $C807   ; Save stack pointer in $C807
+CC32: A9 0F     LDA  #$0F
+CC34: 4C 5F CF  JMP  $CF5F   ; Jump to bank 15:0 for rest of init
+
+This saves the stack pointer and sets up to jump to a new bank, which means we 
+won't be coming back here.  Onward:
+
+CF5F: A6 5E     LDX  $5E     ; Restore slot # (+$20) in X
+CF61: A0 0B     LDY  #$0B    ; Y gets loaded with bank to return to on RTS
+CF63: 6C 00 C8  JMP  ($C800) ; & go!
+
+There are variants of this piece of code throughout every 1K bank of firmware 
+code.  And since we took a good long look at CWSISM, we know that CWSISM set up 
+location $C800 and $C801 to point to the card slot I/O location of $Cx61, and 
+suddenly it becomes clear what that bit of code does.
+
+Since the firmware code bounces around a lot in different banks (as we will 
+discover shortly), it needs a mechanism to get back to the place that called it 
+in the first place.  The problem is this: once a new 1K bank of code is 
+switched into the $CC00 to $CFFF address space, there's no way for the 65C02 to 
+get back to the caller with a simple RTS; any code that attempted to do so 
+would end up executing the wrong code as the 65C02 knows nothing about bank 
+switching and has no built-in mechanism to handle such things.
+
+And so, by virtue of this, the code needs a way to do this manually.  Which is 
+why the $Cx61 code in CWSISM saves the bank number on stack, and then sets up a 
+pair of RTS calls which first, sets the correct bank and calls the correct 
+function number in that bank and second, sets the bank to the bank that made 
+the call in the first place before executing a final RTS which then goes back 
+to the correct address.
+
+And since we saw up above that it passed $0F into the calling routine (well, 
+actually, it jumped there), we know that it's going to call function #0 in bank 
+15.  As it turns out, the function table for bank 15 looks like this:
+
+CFF0: 00 CC
+CFF2: 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+which means bank 15 only contains one function, and it starts at $CC00.
+
+
+The Next Part, In Which We Peruse Bank 15
+-----------------------------------------
+
+The story so far: we started in slot ROM, set up a bunch of variables, then 
+bounced to bank 11, and just now bounced to bank 15.
+
+CC00: A9 40     LDA  #$40
+CC02: 8D 09 C8  STA  $C809   ; Put $40 into $C809
+CC05: 8D 32 BF  STA  $BF32   ; & $BF32(!)
+CC08: 9C 0A C8  STZ  $C80A   ; Zero out $C80A
+
+So far this is all normal housekeeping boilerplate, though putting the value 
+$40 into RAM at address $BF32 makes me raise an eyebrow (to this day, I still 
+have no idea what that's supposed to do).  So then we come to the heart of the 
+matter:
+
+CC0B: A9 03     LDA  #$03
+CC0D: 20 AF CF  JSR  $CFAF   ; Call bank 3:0 (enumerate all connected drives)
+
+Here is the first proper JSR into bank switched code, and in taking a cursory 
+glance at the code there, well...  It's a bit of a Gordian knot.  So we'll 
+ignore the stones in the field for now, and keep on plowing ahead:
+
+CC10: AE 08 C8  LDX  $C808   ; Restore slot # (+$20) to X
+CC13: A5 4F     LDA  $4F
+CC15: F0 03     BEQ  $CC1A   ; Skip over if call was successful ($4F == 0)
+CC17: 4C F0 CC  JMP  $CCF0   ; Else, do a LDA #2B, JMP $CFAF to bank 11:1
+
+So here the code retrieves the slot I/O offset in X from the location set way 
+back in CWSISM, then checks what looks like some kind of error condition.  If 
+it fails, it skips on over to function 1 in bank 11; otherwise, it keeps going 
+here:
+
+CC1A: 24 5D     BIT  $5D     ; Are we running on a IIgs?
+CC1C: 70 05     BVS  $CC23   ; If so, skip over & keep going
+
+Since we're not running on a IIgs, this branch is not taken and thus it can be 
+safely ignored.  Continuing on:
+
+CC1E: A9 4B     LDA  #$4B    ; Else, jump to bank 11:2 (normal success path)
+CC20: 4C AF CF  JMP  $CFAF
+;
+CFAF: A6 5E     LDX  $5E     ; Restore slot (+$20) in X
+CFB1: A0 0F     LDY  #$0F    ; Make sure we come back here...
+CFB3: 6C 00 C8  JMP  ($C800) ; & go!!
+
+So what this means is that if the function call to bank 3:0 succeeded, the code 
+will then bounce to function 2 in bank 11.  And, as we saw above, function 2 
+starts at $CD9A in bank 11.
+
+
+The Next Part, In Which Be Bounce Back To Bank 11 And Find Something Familiar
+-----------------------------------------------------------------------------
+
+So far, this little expedition is proving to be circuituitous, but not 
+impenetrable.  And it makes sense that we would come back to bank 11, as that's 
+where the initialization code sent us in the first place.  And so, pressing on, 
+we find:
+
+CD9A: 86 5E     STX  $5E     ; Save X in $5E
+CD9C: A9 01     LDA  #$01    ; Put 1 in $43, $44
+CD9E: 85 43     STA  $43
+CDA0: 85 44     STA  $44
+CDA2: 64 46     STZ  $46     ; Zero out $46, $47, $48, $49
+CDA4: 64 47     STZ  $47
+CDA6: 64 48     STZ  $48
+CDA8: 64 49     STZ  $49
+CDAA: A9 08     LDA  #$08    ; Put $08 in $41
+CDAC: 85 41     STA  $41
+CDAE: 64 40     STZ  $40     ; Zero out $40, $42
+CDB0: 64 42     STZ  $42
+
+This is again more housekeeping boilerplate, initializing a bunch of zero page 
+locations.  Then we find this:
+
+CDB2: A9 09     LDA  #$09
+CDB4: 20 5F CF  JSR  $CF5F   ; Call bank 9:0 (directly)
+
+So this calls function 0 in bank 9, which lives at $CC00.  And looking through 
+that code, well, let's just put that aside for now as it's long and involved 
+and will require a fair amount of study.  Continuing:
+
+CDB7: A5 4F     LDA  $4F
+CDB9: D0 0C     BNE  $CDC7   ; Fail if $4F is non-zero
+
+This looks at the error flag we saw up above in bank 15, and jumps to function 
+1 in this bank if the error flag is non-zero.
+
+CDBB: AD 01 08  LDA  $0801   ; Get byte @ $801 (!)
+CDBE: F0 07     BEQ  $CDC7   ; Fail if it's zero
+
+Now here is something interesting!  Why this is interesting is because when 
+booting from a floppy disk, the disk driver typically loads at least one sector 
+(256 bytes of data) into location $800.  So we can deduce that the above call 
+into function 0 in bank 9 is loading something similar from the hard drive into 
+memory at a similar address.  With this bit of knowledge, we can see up above 
+where it puts address $800 into zero page locations $40 and $41 that those 
+locations must be a loading address.
+
+CDC0: AD 00 08  LDA  $0800   ; Get byte @ $800 (!)
+CDC3: C9 01     CMP  #$01
+CDC5: F0 03     BEQ  $CDCA   ; Keep going if it's equal to 1
+CDC7: 4C 91 CE  JMP  $CE91   ; Else, jump to function 1 (failure point)
+
+Again, this interesting because with floppy disks, the first byte of the first 
+sector loaded into memory at $800 contains the number of sectors that the 
+floppy driver should load into memory; this looks eerily similar--only in this 
+case, it will jump to the failure path if it sees it wanting more than one 
+block.  Assuming all is well, we then have this:
+
+CDCA: 8D 09 C8  STA  $C809   ; Put a 1 into $C809
+CDCD: AD F8 07  LDA  $07F8   ; Get $7F8
+CDD0: 0A        ASL  A       ; x16
+CDD1: 0A        ASL  A
+CDD2: 0A        ASL  A
+CDD3: 0A        ASL  A
+CDD4: AA        TAX          ; Store it in X
+CDD5: A9 00     LDA  #$00    ; Stuff 0 in $C035 (GS location?)
+CDD7: 8D 35 C0  STA  $C035
+CDDA: 8D 01 CC  STA  $CC01   ; What does this do?
+CDDD: 4C 01 08  JMP  $0801   ; Run the code from block 0
+
+And here we see it hand off execution to data that it pulled from the hard 
+drive by jumping to $801, and thus we see that this must be the end of the hard 
+drive boot logic.  As far as the firmware is concerned, its initialization job 
+of bootstrapping the hard drive is concluded.
+
+However, we still really don't know anything that tells us what the slot I/O 
+addresses do (aside from location $E) and we still have no idea how the card 
+talks to the hard drive.  At least we have a pretty good idea of where to look.
+
+
+What Are All These Eels, And What Are They Doing In My Hovercraft
+-----------------------------------------------------------------
+
+So at last we get to take a look at function 0 in bank 3.  And, much like a 
+hovercraft full of eels, it's a twisty mass of slippery, squirming code.  And, 
+looking at it more closely, it does a bunch of things which don't make much 
+sense until you understand other code, which bounces around to lots of other 
+banks.  And a lot of it is opaque unless you somewhat understand what the ports 
+on the NCR 53C80 do and how the SCSI protocol works.
+
+So while we have an excellent start on understanding, for the most part, the 
+broad outlines of how the card works, we are still stuck with a profound lack 
+of critical knowledge on how the thing talks to the the hard drive and, 
+conversely, how the hard drive talks to the card.  And without that knowledge, 
+we perish.
+
+
+The Next Part, In Which We Are Not Ready To Perish
+--------------------------------------------------
+
+Fortunately, the NCR 5380 and, by extension, the 53C80 is well documented and 
+said documentation is readily available, and so I availed myself of it.  I took 
+another look at the schematic for the card and noticed that the 53C80 had three 
+address lines on it, which implied that it had eight ports for controlling it.  
+Unfortunately, there's an error on the schematic in which they have the address 
+lines hooked up in reverse, and this caused me no small amount of consternation.
+
+It seemed obvious that those eight ports were hooked up to the slot I/O 
+addresses, and also seemed very plausible, after having looked at and analyzed 
+a lot of code heretofore unmentioned, that it was connected to the lower half 
+of that address space.  So, in order to confirm my suspicions, I started 
+writing the hard drive emulator.
+
+This started out, simply, as a bunch of statements that output human readable 
+words to a log file whenever the slot I/O addresses were accessed by the card 
+firmware; I used the firmware's access to the slot I/O to tell me what it said 
+and what it was listening for.  Well, that, and some code to properly handle 
+the bank selection of the ROM space as well.  In this way, I was able to 
+enlarge my understanding of what the card expected to see as well as what the 
+ports that weren't connected to the 53C80 (which were likely connected to the 
+Sandwich II) might be up to.
+
+So in fits and starts, I used the code that writes to the Mode Register of the 
+53C80 to get the code to successfully... do something.  It was at that point I 
+could see that it was getting through the initialization phase of the card's 
+firmware as Apple2 would be able to boot a floppy image inserted into a drive 
+in slot 6 at that point.  But in tracing the reads and writes to the slot I/O 
+address space in the log I could see that it was getting through the card's 
+firmware in a failure mode.  It was progress, of a sort.  Even failure tells 
+you something.
+
+And what it told me was that I needed to dig into the SCSI specification to 
+figure out how the protocol worked.  Looking back I can see that I was getting 
+through to the MESSAGE phase and, because of the way I was responding to that 
+message, that the firmware would then send an ABORT message, but that's all 
+pretty much meaningless as I haven't explained anything about the SCSI protocol 
+and how it works.
+
+And here, while there is a lot of information about the latter day iterations 
+of the SCSI protocol, there wasn't much pertaining to the kind of SCSI that the 
+Apple High Speed SCSI card spoke, which in its case, has been retroactively 
+labeled SCSI-1.
+
+And when looking at the SCSI protocol, the first thing that hits you is that 
+it's a very well designed, robust protocol and it's nothing short of a minor 
+miracle that it survived and still survives to this day.  However, the 
+documentation on how it *really* works is a bit lacking.  Yes, you can discover 
+that there are nine phases, and the first three are fairly easy to understand; 
+it's what comes after that where things get murky.
+
+
+Talk SCSI To Me
+---------------
+
+So here is a crash course in the SCSI-1 protocol.  The SCSI bus is engineered 
+such that it allows for eight devices to connect to said bus; devices connected 
+to the bus can have Initiator and/or Target roles.  Devices can talk to each 
+other by passing messages over this bus, however only one pair of devices can 
+use the bus at any one time.  In order to prevent deadlock from happening when 
+more than one device attempts to take control of the bus, there is an enforced 
+hierarchy of devices wherein they all have a unique ID; a device that contends 
+for use of the bus at the same time as another device wins this contention if 
+and only if its device ID is higher than the other device's ID (1 in this case 
+being the highest, and 128 being the lowest).  The bus is an 8-bit parallel 
+data bus that is controlled by a variety of signals (and these are typically 
+called "lines").
+
+In contending for and utilizing the bus, there are nine phases that all SCSI 
+devices must understand and negotiate.  They are as follows:
+
+ -  Bus Free
+ -  Arbitration
+ -  Selection
+ -  Message In
+ -  Message Out
+ -  Data In
+ -  Data Out
+ -  Command
+ -  Status
+
+In the Bus Free phase, as one might expect, no devices are using the bus.  This 
+is the ground state of the SCSI protocol, the phase from whence all 
+communication starts and where it all ends.  Any device that wishes to talk to 
+another device on the bus must start here.
+
+Once a device sees that the bus is free, it can enter the Arbitration phase as 
+an Initiator; it does so by first setting the bit that corresponds to its 
+device ID on the data bus.  If another device tries to do this at the same 
+time, the device with the lower ID will remove its bit from the data bus and 
+try again when it detects that the bus is free again.  When the Initiator has 
+waited a certain amount of time with no other contention, it then asserts the 
+SEL line and goes into the Selection phase.
+
+In the Selection phase, the Initiator sets the bit that corresponds to the 
+device ID it wants to talk to (the Target) on the data bus.  Every other device 
+on the bus, by virtue of the asserted SEL line, knows it's in the Selection 
+phase and can see the device ID bits being asserted on the data bus; if none of 
+the bits match its own ID, it will stay silent.  If the Target device doesn't 
+respond in a timely manner, the device that tried "calling" it drops the bits 
+it asserted on the data bus and drops the SEL line.  Otherwise, if the Target 
+device sees its ID on the data bus, it responds by asserting the BSY (BuSY) 
+line.
+
+The device that started all of this (the Initiator) then drops the SEL line and 
+the Initiator and Target devices then enter the next phase.  What phase that is 
+took some teasing out of lots of different papers, datasheets and manuals--as 
+well as much trial and error in the emulation code.  And what I found was this: 
+once the devices are in the Selection phase, they typically(*) dance through 
+the following set of phases, in order, before being done with their 
+transaction: Message Out(**), Command, Data In/Out, Status, Message In.
+
+(*) One exception to this is the TEST UNIT READY command, which will skip the 
+Data In/Out phase
+
+(**) Note that the qualifiers "In" and "Out" come strictly from the perspective 
+of the Initiator
+
+Once the devices have successfully negotiated the Message In phase at the end 
+of their phase dance, the Target device drops the BSY line and the bus is then 
+free again for another transaction.
+
+One thing I forgot to mention is that each phase transition, once the devices 
+are in the Selection phase, is punctuated by a REQ/ACK handshake.  Typically, 
+the Target asserts and drops the REQ line while the Initiator asserts and drops 
+the ACK line.  Basically, when the Target is ready to move to a different 
+phase, it will assert the REQ line; the Initiator will see this and then assert 
+the ACK line.  Once the Target sees the ACK line asserted, it will drop the REQ 
+line; the Initiator, seeing this, will then drop the ACK line.  And thus hands 
+are shaken, and all are in agreement as to where they are and what they are 
+doing.
+
+One interesting consequence of this kind of handshaking is that it means that 
+every phase past Arbitration is driven by the Target device.
+
+
+By Your Command
+---------------
+
+And so having deciphered the proper steps in the post-Selection phase dance, we 
+come as last to the heart of the matter: the Command phase.  Commands come in a 
+few different flavors: the six byte, the ten byte and the twelve byte.  The 
+flavor is given by the top three bits of first byte while the command itself is 
+given by the bottom five bits.  Treating those top three bits as a number from 
+zero to seven, the flavors fall into the following groups:
+
+six byte: 0
+ten byte: 1, 2
+twelve byte: 5
+
+Yes, 3, 4, 6 and 7 are all missing, and, for the purposes of this crash course, 
+can be safely ignored(*).
+
+(*) For the terminally curious, 3 and 4 are (were?) "reserved", and 6 and 7 are 
+for "vendor specific" commands
+
+Having now discerned their form, the question arises: just what do these 
+commands do?  Basically, they tell the Target what the Initiator wants from it.
+For example, let's say that the Initiator wants to know if a device on the bus 
+is ready to receive commands.  It would send out, during the Command phase, a 
+TEST UNIT READY command which has the following form:
+
+00 00 00 00 00 00
+
+Assuming the device receiving this command actually is ready to receive 
+commands, it would then send back a status message (in the Message In phase 
+following the Status phase) saying "Good" (which, in this case, is coded as 
+$00).
+
+Other commands follow basically the same form; only instead of going directly 
+to the Status phase, as the TEST UNIT READY command does, it will go into 
+either the Data In or Data Out phase before going to the Status 
+phase--depending on what the command does.  For example, a READ command will go 
+to the Data In phase, because the Initiator is requesting data from the Target; 
+likewise, a WRITE command will go to the Data Out phase because the Initiator 
+wants to send data to the Target.
+
+
+Back To Our Regularly Scheduled Analysis
+----------------------------------------
+
+So, before we diverged into a crash course of the SCSI-1 protocol, we were 
+looking at where I had been able to have the card's firmware return back to the 
+Apple IIe's Autostart program, but in a failure mode.  Which, while ultimately 
+unsatisfying, *was* a step in the right direction.
+
+So I could see that with my hard-coded responses to the firmware's inquiries, I 
+was getting an IDENTIFY message ($80) followed by an ABORT message ($06).  It 
+was a this point I could also see that I was going to have to start writing the 
+actual hard drive device emulator code as well, as trying to keep track of all 
+the phase changes in the slot I/O register code was turning into an 
+impenetrable mess and wasn't going to be fruitful in the long run.
+
+This also necessitated a closer look at the code for function 0 in bank 3.  I 
+took copious notes on where the code went and what it did, and eventually found 
+that almost everything, at some point, seemed to end up calling function 0 in 
+bank 16.
+
+
+All Roads Lead To Bank 16:0
+---------------------------
+
+The one thing I was trying to figure out from this code was: what was the 
+failure mode that would get you out cleanly?  Because in order for the code 
+that called here to work properly, it would have to have some kind of clean 
+failure mode to indicate that there was no drive present at this device ID; 
+also in my first attempts to get the firmware code to successfully run (for 
+some value of "successfully" > 0), it would hang up somewhere in this code.  
+And that meant, since I didn't understand the SCSI chip, that I would have to 
+understand the SCSI chip and how it worked to have any hope of untangling the 
+tangled mass of code here.
+
+So before we take a quick look at that, let's take a look at the top level code 
+that lives at function 0, bank 16.  At first glance, it doesn't look all that 
+bad:
+
+CC00: 8D 00 CD  STA  $CD00   ; Write to $CD00 (what does it do?)
+CC03: 20 D0 CD  JSR  $CDD0   ; Clear DMA bit (1) from reg. $2, init some stuff
+CC06: 20 CE CE  JSR  $CECE   ; Check if reg. $4 has 0, 2 (/SEL) or 4 (/I/O)
+CC09: B0 16     BCS  $CC21   ; If failure, skip over
+
+This is pretty straightforward stuff; the routine at $CECE will set the carry 
+flag if slot I/O register $4 is not exactly one of: 0, 2, or 4.  If the carry 
+is set, it bypasses the following sections of code:
+
+CC0B: 20 42 CF  JSR  $CF42   ; Check if bit 7 in $C893 is set (success == yes)
+CC0E: 20 24 CC  JSR  $CC24   ; Do Arbitration phase
+CC11: B0 03     BCS  $CC16   ; If Arbitration timed out, jump over Selection
+
+It wasn't obvious when I first encountered this code, but, once I delved into 
+the SCSI protocol I was able to figure out that the code at $CC24 was 
+negotiating the Arbitration phase.
+
+CC13: 20 7A CC  JSR  $CC7A   ; Do Selection phase
+
+Likewise, it was not obvious that the code at $CC7A was negotiating the 
+Selection phase--but I was able to figure out that the code could cleanly exit 
+this bank (in a failure mode, naturally) if the BSY line was not asserted.
+
+CC16: 20 58 CF  JSR  $CF58   ; Check if bit 7 in $C893 is set (success = yes)
+CC19: B0 06     BCS  $CC21   ; Skip over if it failed
+
+Since the address at $C893 got loaded with $80 way back in function 0 in bank 
+11, the carry flag will be clear and we will execute the following:
+
+CC1B: 20 E4 CC  JSR  $CCE4   ; Do SCSI communication with target
+CC1E: 20 A0 CD  JSR  $CDA0   ; Do nothing if $C88F is nonzero, else check on
+                             ; $C8EC
+
+The code at $CCE4 was quite mystifying for some time, even after I had educated 
+myself on the intricacies of the SCSI protocol and the ins and outs of the NCR 
+53C80's ports.  I wasn't able to make sense of this until I was able to 
+understand the phases after Selection and how they were expected to be 
+negotiated.
+
+CC21: 4C 18 CE  JMP  $CE18   ; Do some post cleanup before returning
+
+The code at $CE18 basically does some error checking and cleanup before 
+returning back to whence it came; it's fairly easy to digest.  But before we 
+dig into subroutines of bank 16:0, we need to take a short digression into how 
+the ports of the 53C80 work.
+
+
+A Somewhat Brief Digression Into The 53C80's Ports
+--------------------------------------------------
+
+And so, having avoided looking into the 53C80 and how it works up until this 
+point, we find we can no longer avoid it and thus, finally bite the bullet.  
+The 53C80 has eight ports (also called registers) with which the Apple IIe's 
+CPU can communicate.  They are:
+
+$0 - Data on the SCSI bus
+$1 - Initiator Command
+$2 - Mode
+$3 - Target Command
+$4 - Current SCSI Bus Status (R), Select Enable (W)
+$5 - Bus and Status (R), Start DMA Send (W)
+$6 - Input Data (R), Start DMA Target Receive (W)
+$7 - Reset Parity/Interrupt (R), Start DMA Initiator Receive (W)
+
+Note too that there is a one-to-one correspondence with the port numbers as 
+they appear on the 53C80 and their location in the slot I/O address range.  
+What follows is an explanation of what the registers do:
+
+Register $0 is pretty much what it says it is; data on the SCSI bus will appear 
+here barring this caveat: it only works when bit 0 of register $1 (ASSERT DATA 
+BUS) is set.  Which bring us to...
+
+Register $1 is used to monitor and assert signals on the SCSI bus.  The bits 
+are:
+
+7    6              5             4    3    2    1    0
+RST  AIP/TEST MODE  LA/DIFF ENBL  ACK  BSY  SEL  ATN  DATA BUS
+
+RST (ReSeT) sets the RST signal on the SCSI bus and resets the internal state 
+of the 53C80; it stays in the reset state until this bit is cleared.  AIP/TEST 
+MODE (Arbitration In Progress) is a bit that is split between two functions: 
+when read, it signals whether or not the Arbitration phase is in progress; when 
+a one is written to it, it disables all output from the chip (zero restores 
+output).  LA/DIFF ENABL (Lost Arbitration) is another split signal: when read, 
+it signals whether or not Arbitration was lost; writing has no effect.  ACK 
+(ACKnowledge) sets or clears the ACK line, BSY (BuSY), SEL (SELect), ATN 
+(ATteNtion) and DATA BUS all do the same.
+
+The important thing to note here is that by setting the ATN line on the SCSI 
+bus, the initiator signals to the Target that it wants to send a message and 
+so, at the appropriate time, the Target will then assert the MSG and C/D lines 
+in response.
+
+Register $2 controls various modes of the 53C80, as well as whether or not 
+certain interrupts will be triggered.  The bits are:
+
+7      6       5         4          3           2        1     0
+BLOCK  TARGET  ENABLE    ENABLE     ENABLE EOP  MONITOR  DMA   ARBITRATE
+MODE   MODE    PARITY    PARITY     INTERRUPT   BUSY     MODE
+DMA            CHECKING  INTERRUPT
+
+The only two of real interest are bits 1 (DMA MODE) and 0 (ARBITRATE); the 
+former sets the chip into DMA mode, readying it for a DMA transfer while the 
+latter tells the chip to start the Arbitration phase.
+
+Register $3 is used mainly if the chip is operating in Target mode, as all the 
+lines controlled by it are typically only controllable by the Target device.  
+The only exception is when the Initiator is sending data to the Target; in that 
+case, bits 0, 1 and 2 must match the lines being asserted by the Target.  The 
+bits are (where X means unused):
+
+7               6  5  4  3    2    1    0
+LAST BYTE SENT  X  X  X  REQ  MSG  C/D  I/O
+
+Register $4 is another split register.  When read, it returns the state of the 
+following lines on the SCSI bus:
+
+7    6    5    4    3    2    1    0
+RST  BSY  REQ  MSG  C/D  I/O  SEL  DBP
+
+When written to, it enables an interrupt to occur if the device ID written to 
+the SCSI bus is present, BSY is clear and SEL is set.
+
+The important thing about this register is that it allows monitoring of the 
+MSG, C/D and I/O lines of the SCSI bus.  These three bits are what the Target 
+uses to signal moves from phase to phase; without these three bits it would be 
+impossible, as an initiator, to figure out what to do once in the Selection 
+phase.
+
+And with three bits, you would expect there to be eight phases controlled here, 
+but only six are controlled from these signals--having MSG set to 1 while C/D 
+is set to 0 is an illegal combination, and that knocks two of the combinations 
+right out of contention.  Each legal combination corresponds to a phase, and 
+this is, as it turns out, vital information:
+
+Data Out:  MSG = 0, C/D = 0, I/O = 0 (0)
+Data In: MSG = 0, C/D = 0, I/O = 1 (1)
+Command: MSG = 0, C/D = 1, I/O = 0 (2)
+Status: MSG = 0, C/D = 1, I/O = 1 (3)
+Message Out: MSG = 1, C/D = 1, I/O = 0 (6)
+Message In: MSG = 1, C/D = 1, I/O = 1 (7)
+
+Note that there's nothing magical about the order of these three lines; they 
+could be in any order whatsoever and they would still work the same way.  The 
+only reason that they are presented this way is one, this is how they are laid 
+out in the NCR 53C80 chip (in this register in particular) and two, this is 
+order that they are used in the firmware.
+
+Register $5 is--you guessed it--another split register.  When read, it returns 
+some internal state registers as well as a couple more SCSI bus lines:
+
+7       6        5        4       3      2      1    0
+END OF  DMA      PARITY   IRQ     PHASE  BUSY   ATN  ACK
+DMA     REQUEST  ERROR    ACTIVE  MATCH  ERROR
+
+When written to, it initiates a DMA send transfer from memory to the SCSI bus.
+
+Register $6, another split register, when read, holds data coming from the SCSI 
+bus during a DMA transfer.  When written to, it initiates a DMA receive 
+transfer from the SCSI bus (the Target) to memory.
+
+And finally, register $7 is yet another split register, that when read, resets 
+the internal PARITY ERROR, IRQ ACTIVE and BUSY ERROR bits in register $5; when 
+written to in initiates a DMA receive transfer from the SCSI bus (the 
+Initiator) to memory.
+
+
+Back To Bank 16
+---------------
+
+So, with that info-dump out of the way, let's return back to the first 
+subroutine of the initial code of bank 16:0.  We start with the routine at 
+$CC24:
+
+CC24: 9E 63 C0  STZ  $C063,X ; Zero reg $3 (Target Command)
+CC27: 20 2F CF  JSR  $CF2F   ; Toggle bit 7 of reg. $E (ON-off-ON)
+CC2A: AD DA C8  LDA  $C8DA   ; Get SCSI ID of initiator device
+CC2D: 9D 60 C0  STA  $C060,X ; & put it in reg. $0 (Output Data)
+;
+CC30: 9E 62 C0  STZ  $C062,X ; Zero out reg. $2 (Mode)
+CC33: A9 01     LDA  #$01
+CC35: 9D 62 C0  STA  $C062,X ; Set bit 0 (ARBITRATE) of reg. $2
+
+This code zeroes out the Target Command register, then toggles bit 7 of 
+register $E on, then off, then back on.  It then puts the SCSI ID of the 
+initiator device into the SCSI Data Bus register, then clears and sets the 
+ARBITRATE bit of the Mode register.  This is the start of the Arbitrate phase.
+
+CC38: BD 6C C0  LDA  $C06C,X ; Get reg. $C
+CC3B: 89 10     BIT  #$10    ; Check bit 4
+CC3D: D0 05     BNE  $CC44   ; Skip over this if it's set
+CC3F: 20 0C CF  JSR  $CF0C   ; Toggle bit 7 of register $E ON-off-ON
+                             ; # of times before C is set is in $C817/8
+CC42: B0 2E     BCS  $CC72   ; Signal failure is C is set
+
+There is a lot of this code and variants thereof sprinkled liberally throughout 
+the firmware code.  I'm still not sure what bit 4 of register $C is a signal 
+for, but it seems clear that it indicates some kind of error condition because 
+whenever it's not set, it toggles bit 7 of register $E and will eventually, 
+when this has happened enough times, signal an error and exit.
+
+CC44: 3C 61 C0  BIT  $C061,X ; Check bit 6 (AIP) of reg. $1
+CC47: 50 E7     BVC  $CC30   ; Try again if it's not set
+
+This little bit of code checks the AIP (Arbitration In Progress) bit, and loops 
+back to try again if it's not set.
+
+CC49: EA        NOP          ; Do a small delay
+CC4A: EA        NOP
+CC4B: A9 20     LDA  #$20
+CC4D: 3D 61 C0  AND  $C061,X ; Check if bit 5 (LA) of reg. $1 is set
+CC50: D0 DE     BNE  $CC30   ; Try again if it's set
+
+After checking to see if the AIP bit is set, it then waits a short amount of 
+time before checking to see if the LA (Lost Arbitration) bit is set; if it's 
+set, it loops back to try again.
+
+CC52: BD 60 C0  LDA  $C060,X ; Get reg. $0
+CC55: 4D DA C8  EOR  $C8DA   ; EOR it with what we put there to begin with
+CC58: F0 05     BEQ  $CC5F   ; If it's the same, bypass (we won arbitration)
+CC5A: CD DA C8  CMP  $C8DA   ; Otherwise, see if the EORed value is >= orig
+CC5D: B0 D1     BCS  $CC30   ; Try again if so
+
+Here we look at the data on the SCSI bus and see if there were any other 
+devices attempting to arbitrate at the same time.  If there were, and their 
+SCSI ID was higher than ours, then loop back and try again; otherwise, we won 
+arbitration and continue on:
+
+CC5F: A9 20     LDA  #$20
+CC61: 3D 61 C0  AND  $C061,X ; Check if bit 5 (LA) of reg. $1 is set
+CC64: D0 CA     BNE  $CC30   ; Try again if so
+
+We check the LA bit one more time to ensure it's not set; if it is, then loop 
+back and try again.
+
+CC66: A9 06     LDA  #$06    ; Set bits 1-2 (ASSERT /ATN, /SEL) of reg. $1
+CC68: 1D 61 C0  ORA  $C061,X
+CC6B: 29 9F     AND  #$9F    ; And clear bits 5-6 (TEST MODE, DIFF ENBL) of $1
+CC6D: 9D 61 C0  STA  $C061,X
+CC70: 18        CLC          ; Signal success
+CC71: 60        RTS          ; & return
+
+Now that we've won the Arbitration phase, we assert the ATN and SEL lines and 
+make sure that the TEST MODE and DIFF ENBL lines are dropped.  By setting the 
+ATN line, we signal to the Target that we want to go to the Message Out phase 
+after the Selection phase is done.  Once that's done, we signal success and 
+return.
+
+CC72: A9 80     LDA  #$80
+CC74: 8D 8F C8  STA  $C88F
+CC77: 4C 91 CD  JMP  $CD91   ; Signal failure
+
+This bit is called if the code that checks register $C fails; this is the only 
+failure path for the Arbitration phase code.
+
+
+A Fine SELECTion Of Devices
+---------------------------
+
+Now that the Initiator (us) has won the Arbitration phase, it's time to see if 
+the device we want to talk to exists, and is ready and able to talk.
+
+CC7A: 9E 64 C0  STZ  $C064,X ; Zero out reg. $4 (Select Enable)
+CC7D: AD DA C8  LDA  $C8DA   ; Host ID
+CC80: 0D DB C8  ORA  $C8DB   ; Target ID
+CC83: 9D 60 C0  STA  $C060,X ; Store $C8DA & DB (ORed) into reg. $0 (Data Bus)
+CC86: A9 41     LDA  #$41    ; Set bits 0 (DATA BUS) & 6 (TEST MODE) in reg. $1
+CC88: 1D 61 C0  ORA  $C061,X ; Then clear bits 5-6 (DIFF ENBL, TEST MODE) in $1
+CC8B: 29 9F     AND  #$9F
+CC8D: 9D 61 C0  STA  $C061,X
+
+The code here clears the Select Enable register to ensure no IRQs are generated 
+during the Select phase, then puts both the Initiator's SCSI ID and the 
+Target's SCSI ID into the 53C80's data register.  It then does something that 
+doesn't seem to make any sense, as it sets the DATA BUS ENABLE and TEST MODE 
+bits.  The former puts the 53C80's data register onto the SCSI data bus, while 
+the latter disables all outputs of the 53C80.  Maybe this was necessary because 
+of the Sandwich II chip and the way it was hooked up to the slot I/O bus and 
+the 53C80, but there's no way to know for sure without access to actual 
+hardware.
+
+After this, it disables the TEST MODE bit, which then enables the outputs of 
+the 53C80, and thus the Target's SCSI ID is then visible to all the devices 
+connected to the SCSI bus.
+
+CC90: A9 FE     LDA  #$FE    ; Clear bit 0 (ARBITRATE) in reg. $2
+CC92: 3D 62 C0  AND  $C062,X
+CC95: 9D 62 C0  STA  $C062,X
+CC98: A9 02     LDA  #$02    ; Set bit 1 (DMA MODE) in reg. $2
+CC9A: 1D 61 C0  ORA  $C061,X
+CC9D: 9D 61 C0  STA  $C061,X
+CCA0: AD DC C8  LDA  $C8DC   ; Get $C8DC, set hi bit, save in $C821
+CCA3: 09 80     ORA  #$80
+CCA5: 8D 21 C8  STA  $C821
+CCA8: A9 F7     LDA  #$F7    ; Clear bit 3 (ASSERT /BSY) in reg. $1
+CCAA: 3D 61 C0  AND  $C061,X
+CCAD: 9D 61 C0  STA  $C061,X
+
+This is all pretty straightforward stuff.  It clears the ARBITRATE bit, sets 
+the DMA MODE bit, and clears BSY (if it was set before; more likely than not, 
+it will have been cleared already).  It also sets bit 7 of $C8DC and saves it 
+in $C821, but it's not clear just why yet.
+
+CCB0: 20 51 CD  JSR  $CD51   ; Wait for bit 6 (/BSY) of reg. $4 to be set
+CCB3: 90 03     BCC  $CCB8   ; Skip over JSR if success
+CCB5: 20 75 CD  JSR  $CD75   ; Shorter wait for bit 6 in reg. $4 to be set
+
+This bit of code waits for the Target to assert the BSY line; if it fails after 
+the first attempt, it will try again with a shorter wait time.
+
+CCB8: A9 FB     LDA  #$FB    ; Clear bit 2 (ASSERT /SEL) in reg. $1
+CCBA: 3D 61 C0  AND  $C061,X
+CCBD: 9D 61 C0  STA  $C061,X
+CCC0: 90 10     BCC  $CCD2   ; Skip over if the JSR was successful
+
+This code drops the SEL line, and depending on whether or not the Target 
+asserted the BSY line, will either drop through to the failure path or skip 
+over to the success path.
+
+CCC2: A9 FE     LDA  #$FE    ; Clear bit 0 (DATA BUS) in reg. $1
+CCC4: 3D 61 C0  AND  $C061,X
+CCC7: 9D 61 C0  STA  $C061,X
+CCCA: A9 81     LDA  #$81    ; Put $81 in $C88F
+CCCC: 8D 8F C8  STA  $C88F
+CCCF: 4C 91 CD  JMP  $CD91   ; Signal failure
+
+This is the only failure path in the Selection phase code, but, unlike the 
+Arbitration phase code, this code path will *not* lock up waiting for signals.  
+It will wait only so long for the Target to assert the BSY line before giving 
+up and signalling failure.  It will also bail out of this bank completely, so 
+it will not try any further communication--for now.
+
+CCD2: A9 9D     LDA  #$9D    ; Clear bits 1, 5-6 (TEST, DIFF E., DMA) in $1
+CCD4: 3D 61 C0  AND  $C061,X
+CCD7: 9D 61 C0  STA  $C061,X
+CCDA: A9 FE     LDA  #$FE    ; Then clear bit 0 (DATA BUS) in $1
+CCDC: 3D 61 C0  AND  $C061,X
+CCDF: 9D 61 C0  STA  $C061,X
+CCE2: 18        CLC          ; Signal success
+CCE3: 60        RTS          ; & return
+
+Otherwise, the code clears TEST MODE, DIFF ENBL and DMA MODE before clearing 
+DATA BUS, signalling success and returning.
+
+
+The Next Part, In Which We Find Ourselves In A Maze Of Twisty Code
+------------------------------------------------------------------
+
+Now that we've successfully navigated the Selection phase, it's time to talk 
+SCSI.  For the sake of brevity, we will refer to this code as The Code That 
+Comes After Selection, or TCTCAS for short.  This bit of code calls a bunch of 
+other code which in turns calls even more code; keeping it all straight was 
+quite the challenge.
+
+CCE4: BD 6C C0  LDA  $C06C,X ; Get $C
+CCE7: 89 10     BIT  #$10    ; Is bit 4 set?
+CCE9: D0 05     BNE  $CCF0   ; Skip ahead if so
+CCEB: 20 0C CF  JSR  $CF0C   ; Else, toggle bit 7 of $E (ON-off-ON) w/countdown
+CCEE: B0 40     BCS  $CD30   ; Exit if countdown hit zero
+
+Here again we see the boilerplate checking of bit 4 of register $C.
+
+CCF0: BD 64 C0  LDA  $C064,X ; Get reg. $4
+CCF3: 29 42     AND  #$42    ; Are bits 1 (/SEL) & 6 (/BSY) clear?
+CCF5: F0 3A     BEQ  $CD31   ; If so, we're done (jump down, signal error)
+
+Here we're checking the BSY and SEL lines; if both have been dropped after the 
+last phase, we jump down to $CD31 and do some final checking before exiting.
+
+CCF7: C9 40     CMP  #$40    ; Is only bit 6 (/BSY) set?
+CCF9: D0 E9     BNE  $CCE4   ; Loop back if not...
+
+The second check looks to see if only BSY is set; if not it loops back to the 
+start of this subroutine, otherwise it continues on:
+
+CCFB: BD 62 C0  LDA  $C062,X ; Clear bit 1 (DMA MODE) of reg. $2
+CCFE: A8        TAY
+CCFF: 29 FD     AND  #$FD
+CD01: 9D 62 C0  STA  $C062,X
+CD04: 98        TYA          ; Then restore its previous state
+CD05: 1D 62 C0  ORA  $C062,X
+CD08: 9D 62 C0  STA  $C062,X
+
+This little bit of code toggles DMA MODE line off then on if it was set to 
+begin with, otherwise it does nothing.  Well, it doesn't *do* nothing, but the 
+effect is null and void.
+
+CD0B: BD 64 C0  LDA  $C064,X ; Is bit 5 (/REQ) of reg. $4 clear?
+CD0E: A8        TAY
+CD0F: 29 20     AND  #$20
+CD11: F0 D1     BEQ  $CCE4   ; Loop back if so...
+
+This checks to see if the REQ line has been asserted by the target yet, and if 
+not, loop back to the beginning of the subroutine.
+
+CD13: AD 1F C8  LDA  $C81F   ; Save $C81F in $C820 (last 3-bit pattern we saw)
+CD16: 8D 20 C8  STA  $C820
+
+Here we save the last phase that was seen in $C820.
+
+CD19: 98        TYA          ; Restore reg. $4 from Y
+CD1A: 29 1C     AND  #$1C    ; Keep only bits 2-4 (/I/O, /C/D, /MSG)
+CD1C: 8D 1F C8  STA  $C81F   ; & save in $C81F
+
+Earlier we saved the contents of register $4 (which holds the MSG, C/D and I/O 
+bits) in the Y register, now we retrieve them and mask off the MSG, C/D and I/O 
+bits and save them for later.  By virtue of this, every time we get here the 
+previous value that was in $C81F must be different than the last value we saw 
+here.
+
+As to why: when I first encountered this code, I approached it the way I 
+usually approach unknown code: by feeding it zeroes.  However, when I did that, 
+these lines of code caused a failure mode later on.  And so I had to dig a 
+little deeper into all things SCSI and 53C80 to figure out why--we'll see why 
+that caused a failure later on.
+
+CD1F: 4A        LSR  A
+CD20: 8D 2B C8  STA  $C82B   ; & put /2 in $C82B
+
+Here we shift it right one bit and stuff it into $C82B; this is also a clever 
+way of making it into an index for a jump table.
+
+CD23: A8        TAY          ; & use as index into jump table
+CD24: 4A        LSR  A       ; & /2 again
+CD25: 9D 63 C0  STA  $C063,X ; Write it to reg. $3 (Target Command)
+
+Here we put it into the Y register and then shift it to the right one more time 
+to set the bits in the Target Command register properly.  The Initiator needs 
+to set this register properly at each phase change, otherwise the 53C80 will 
+signal a phase match error.
+
+CD28: 20 48 CD  JSR  $CD48   ; Use Y as idx to jump table and go there
+
+So here the code uses the three phase bits (MSG, C/D and I/O) as an index into 
+a jump table to handle the six phases after the Selection phase (Data Out, Data 
+In, Command, Status, Message Out, Message In).  We'll have more to say about 
+this shortly.
+
+CD2B: 2C 06 C8  BIT  $C806   ; Is bit 7 of $C806 clear?
+CD2E: 10 B4     BPL  $CCE4   ; Loop back if so...
+CD30: 60        RTS
+
+This simply checks bit 7 of $C806, which only gets set under very specific 
+circumstances; those being that MSG, C/D and I/O are all asserted (Message In 
+phase), and that the value returned from the Target is a "Good" message, and 
+that the prior phase was either Message In, Message Out, or Status.
+
+CD31: AD 8F C8  LDA  $C88F   ; Get $C88F
+CD34: D0 08     BNE  $CD3E   ; If $C88F is != 0, just return
+CD36: A9 82     LDA  #$82    ; Stuff $82 into $C88F
+CD38: 8D 8F C8  STA  $C88F
+CD3B: 4C 91 CD  JMP  $CD91   ; Signal failure (?) & return
+CD3E: 80 F0     BRA  $CD30
+
+This is the code path taken if the BSY and SEL lines are dropped.  It signals 
+that something went wrong before returning.
+
+
+The Next Part, In Which Things Start To Make Sense
+--------------------------------------------------
+
+So TCTCAS is, as it turns out, where the Target drives the Initiator; which in 
+this case is the hard drive driving the card.  As I mentioned up above, when I 
+first started poking around at this code, I was feeding it zeroes at first as a 
+place to start seeing if I could get it to do something meaningful.  However, 
+when you try that, you run into the following bit of code which says, "No, 
+fuggetaboutit."
+
+CEE5: AD 1F C8  LDA  $C81F   ; Get the current MSG, C/D, I/O values
+CEE8: CD 20 C8  CMP  $C820   ; Compare it to the previous values
+CEEB: D0 05     BNE  $CEF2   ; If they're different, skip over
+CEED: A9 27     LDA  #$27    ; (This is ignored by the jump target)
+CEEF: 4C 6C CE  JMP  $CE6C   ; Else, do a soft, then a hard reset of the card
+CEF2: ...
+
+And so, after looking over the SCSI documentation for the umpteenth time, I 
+realized that what it was saying is that you can't do a Data Out phase directly 
+after the Selection phase; it has to be Something Else. And this is because 
+$C81F gets initialized with zero (which corresponds to the Data Out 
+phase)--which means starting with zero Won't Work.
+
+As luck would have it, however, we know that in the Selection phase, it 
+asserted the ATN line, which in turn tells the Target to assert the MSG and C/D 
+lines (but not I/O).  Which means that we *know* that the Target will first go 
+to the Message Out phase, every time.
+
+And so, by writing the hard drive emulator to properly respond to the MSG, C/D 
+and I/O lines I got it to handshake the Message Out phase properly.  But I 
+could see that after that, it wasn't exiting; it was running through another 
+round of seeing what was in MSG, C/D and I/O and running the appropriate 
+handler.
+
+Now I was a bit stuck here, as there was *no* documentation on how a Target 
+device, such as a hard drive, would drive the handshaking for the Initiator 
+device.  And it wasn't clear what phase the firmware was expecting to come 
+next, so guessing wasn't likely to yield positive results.
+
+So, by the serendipitous luck of the Search Engine gods, I stumbled upon a page 
+which looked like a scan of a book mixed with some bespoke images made by 
+someone whose primary language was not English.  One of the images, which had 
+misaligned text set next to it, was, however, suggestive.  It showed a sequence 
+of phases that went from Bus Free to Arbitration to Selection to Message Out to 
+Command to Data In to Status to Message In to Bus Free.  This was the first 
+time I had seen anything like this; in all of the SCSI literature that I had 
+surveyed, there was nothing beyond the vaguest hints that there was a typical 
+order to the phases.  Sure, they would say that one *could* go from one phase 
+to another, and how the handshaking worked, but there was *nothing* saying that 
+there was a definite order to the phases that should be observed.
+
+So, as I said, this image was highly suggestive.  Could this be the key to the 
+whole thing that I was missing?
+
+I had set things up in the hard drive emulation to go to the Message Out phase 
+after the Selection phase, and so I added code to go to the Command phase after 
+that.  I could see that the firmware was sending something in the Command phase 
+at this point, which was the following six bytes: 00 00 00 00 00 00.  And 
+looking that up in the SCSI literature showed that to be the TEST UNIT READY 
+command.  But the firmware was still looking for more.
+
+From what I saw in the logs, it didn't look like it was going for a Data In 
+phase next, so I set it up to go to the Status phase, and that got things going 
+a little bit further.  To me, this looked like it should be the end of the 
+dance, but the firmware was *still* looking for more.
+
+But even though a byte was sent from the Target to the Initiator during the 
+Status phase, it seemed that the Status reponse was actually sent in the 
+Message In phase.  Once I had coded this into the hard drive emulation, I could 
+see the TEST UNIT READY command going into TCTCAS and coming out of it in a 
+non-failure mode.
+
+The dance has steps, and they must be followed in order.
+
+
+Dancing In The Dark
+-------------------
+
+However, something is still not quite right; my assumption--that all the 
+firmware needed to do to see if there was a drive on the bus was to probe 
+through to the Selection phase and then, if anything responded, to see if it 
+successfully responded to the TEST UNIT READY command--turned out to be wrong.  
+How wrong?  Let's take a look back at the code in bank 3:0 which attempts to 
+enumerate all devices it can see on the SCSI bus:
+
+CC55: A0 07     LDY  #$07
+CC57: 8C 73 C8  STY  $C873   ; Save Y in $C873
+CC5A: 9C DC C8  STZ  $C8DC   ; Zero out $C8DC
+CC5D: B9 F4 CF  LDA  $CFF4,Y ; Get SCSI ID from table into A
+CC60: CD DA C8  CMP  $C8DA   ; Compare it to our SCSI ID (default is $01)
+CC63: F0 1F     BEQ  $CC84   ; Skip over if it's equal (don't query our SCSI ID)
+
+So here it's looping through all eight SCSI IDs, starting with the lowest 
+priority and working its way up to the highest (for reference, the table at 
+$CFF4 has the following values: $01, $02, $04, $08, $10, $20, $40, $80).  It 
+compares the SCSI ID from the table to the SCSI ID of the card, and skips over 
+the following code (down to $CC84) if it's the same.
+
+CC65: 8D DB C8  STA  $C8DB   ; Else, put SCSI ID to look at in $C8DB
+CC68: 64 4F     STZ  $4F     ; Zero out $4F (error flag)
+CC6A: 20 5F CF  JSR  $CF5F   ; Do TEST UNIT READY (calls bank 16:0)
+
+This is the code that I was now able to successfully navigate with my hard 
+drive emulation.  It emulated exactly one SCSI ID, and that one ID returned 
+here successfully (every other ID, obviously with nothing connected to the bus, 
+returned failure).  However, I could see from the log file that it was trying 
+to issue some more commands--which was puzzling, but told me that I needed to 
+dig even deeper into the code.
+
+CC6D: A5 4F     LDA  $4F     ; Get error code
+CC6F: D0 0F     BNE  $CC80   ; Skip over if error occurred
+
+This is fairly straightforward; it checks the error code returned from the call 
+we made to bank 16:0, and if it's anything but zero, skip over the following 
+code:
+
+CC71: EE 0D C8  INC  $C80D   ; Success means add one to $C80D (# of devices)
+CC74: 20 9F CC  JSR  $CC9F   ; & call Function 1 in this bank (INQUIRY + MORE)
+CC77: 90 0B     BCC  $CC84   ; Check next ID if C == 0
+
+So here we increment a counter, which we suppose to be a count of the number of 
+valid devices we have found on the SCSI bus.  And here, we come to the 
+realization that it isn't just hard drives that can talk to the Apple High 
+Speed SCSI card, it's also printers, scanners, tape drives and whatnot.  And 
+so, it makes perfect sense that TEST UNIT READY is only the first step in 
+discovering if a device is a hard drive or not because here, it calls function 
+1 of bank 3 (the bank we're currently in) which is what issues more commands to 
+figure out what the device it's talking to actually *is*.
+
+CC79: A9 99     LDA  #$99    ; Else, stuff $99 into $C887
+CC7B: 8D 87 C8  STA  $C887
+CC7E: 80 17     BRA  $CC97   ; & signal success
+
+So if the call to $CC9F (INQUIRY + MORE) returned with the carry flag set, it 
+stuffs a magic number into $C887, signals success and returns.
+
+CC80: C9 80     CMP  #$80    ; Was error $80?
+CC82: F0 16     BEQ  $CC9A   ; Signal NoDrive error if so
+
+This is where it lands if the TEST UNIT READY call returned a non-zero result 
+in the "error code" memory location. if it equals $80, it puts the ProDOS error 
+code for a "NoDrive" error into the error code and returns.
+
+CC84: AC 73 C8  LDY  $C873   ; Restore Y
+CC87: 88        DEY          ; Done looking at all IDs?
+CC88: 10 CD     BPL  $CC57   ; Go back if not.
+
+Here we decrement the counter and loop back if we haven't looked at all eight 
+(except for the card's) SCSI IDs.  Otherwise, we've finished, and fall through 
+to the following:
+
+CC8A: A9 77     LDA  #$77    ; Else, stuff $77 into $C80A & $C887
+CC8C: 8D 0A C8  STA  $C80A
+CC8F: 8D 87 C8  STA  $C887
+CC92: AD 0D C8  LDA  $C80D   ; Did we find any devices?
+CC95: F0 03     BEQ  $CC9A   ; Signal NoDrive if not
+CC97: 64 4F     STZ  $4F     ; Else, signal success
+CC99: 60        RTS          ; & return
+
+So here it stuffs the magic number $77 into $C887 and $C80A; it also checks the 
+"number of devices found" memory location, and signals a "NoDrive" error if the 
+count is equal to zero.
+
+CC9A: A9 28     LDA  #$28    ; Return $28 (NoDrive) in $4F
+CC9C: 85 4F     STA  $4F
+CC9E: 60        RTS
+
+This is the landing location for the various failure modes seen up above; it 
+simply puts the ProDOS "NoDrive" error into the error flag and returns.
+
+So now I get to figure out what the commands are in that call to 3:1 that are 
+causing the card to return in a failure mode.
+
+
+The Test Is Easy, When You Have The Answer Key
+----------------------------------------------
+
+At this point, even though I had the hard drive emulation doing a proper dance 
+through the TEST UNIT COMMAND, it was in a very crude state and couldn't really 
+do anything else.  And so I had to take a closer look at the seemingly 
+impenetrable code that set up a bunch of memory locations before calling bank 
+16:0 to see if I could make sense of it.
+
+Rather than go through every last one, I will go through part of the first such 
+piece of code, as it's instructive:
+
+CD0E: 20 A4 CF  JSR  $CFA4   ; Set $60/1 to $C923, $56/7 to $C92F
+CD11: 20 B9 CF  JSR  $CFB9   ; Put $C9C3 into $C92F/30, zero $C931
+CD14: A9 12     LDA  #$12    ; Put $12 into $C923
+CD16: 8D 23 C9  STA  $C923
+CD19: 9C 24 C9  STZ  $C924   ; Zero out $C924-6, $C928
+CD1C: 9C 25 C9  STZ  $C925
+CD1F: 9C 26 C9  STZ  $C926
+CD22: 9C 28 C9  STZ  $C928
+CD25: A9 1E     LDA  #$1E    ; Put $1E in $C927, $C933 (length of reply, 30)
+CD27: 8D 27 C9  STA  $C927
+CD2A: 8D 33 C9  STA  $C933
+
+So we can see right off the bat that it's setting up zero page locations $60 
+and $61 to point to memory at $C923, and that it sets up six bytes at that 
+location with the following:
+
+C923: 12 00 00 00 1E 00
+
+Reaching back to our crash course on SCSI commands, we can see by the first 
+byte, since the top three bits are all zero, that this must be a six-byte 
+command.  And after that, uh, well, we don't really know much of anything.  So 
+after digging around some more for something even remotely relevant, I found a 
+document dealing with SCSI-2 and SCSI-3 hard disk interfacing--which told me, 
+first of all, that $12 was the INQUIRY command, and second, that the fifth byte 
+in the command was the length of the message that the Initiator was expecting 
+back from the target in response to this command.  Progress!
+
+CD2D: 20 CB CF  JSR  $CFCB   ; Call bank 16:0 (Do INQUIRY command)
+CD30: A5 4F     LDA  $4F
+CD32: F0 05     BEQ  $CD39   ; Skip over if no error
+
+And this, as we now know, does the phase to phase dance from start to finish, 
+and checks the resulting error code to do any necessary error handling.  But 
+what of the response?  How do we know what to say from our emulated hard disk 
+back to the firmware?  The hard disk interface document had something that 
+looked plausible, if overlong (it seems that latter day SCSI drives are 
+expected to return 148 bytes instead of 30).  So I expected that I could adapt 
+that to suit the purposes of the emulation.
+
+It was obvious that I had to write code to handle more than just the TEST UNIT 
+READY command, and that it had to be able to send and receive data over the 
+SCSI bus, which it, in its current state, couldn't do.  Eventually I was able 
+to get that working and I could see that the firmware was successfully 
+negotiating the INQUIRY command *and* coming to the conclusion that it was 
+talking to a hard disk.  More progress!
+
+And, as it turns out, this first call in bank 3:1 is what determines what the 
+device we're talking to actually is, and it sets up appropriate memory 
+locations to signal that to other parts of the firmware.  This is another one 
+of those places where the "Technical Manual for the Apple SCSI Card" had a 
+useful tidbit, namely a small table that looked something like this:
+
+Code  Device Type
+------------------------------
+$03   Nonspecific SCSI
+$05   CD-ROM
+$06   Direct-access tape drive
+$07   Hard disk
+$08   Scanner
+$09   Printer
+
+These device codes are different from the device codes that the INQUIRY command 
+returns, and this bit of code also does the translation from one to the other.
+
+
+The Next Part, In Which More Progress Is Made
+---------------------------------------------
+
+And so, in using similar analysis in the other parts of the code called by bank 
+3:1, I was able to discern that after the INQUIRY command, it was calling the 
+MODE SENSE, MODE SELECT, READ CAPACITY and READ commands afterward.  And since 
+I didn't know exactly what these commands returned, I used the time honored 
+method of returning messages consisting of all zeroes.
+
+And, in fixing up the hard drive emulation to respond to these commands, I 
+could see the firmware was making it all the way through the bank 3:1 code 
+successfully, and not in a failure mode.  It didn't boot anything yet, as I 
+hadn't written the code to load a hard disk image much less dole it out over 
+the SCSI bus, but it was a good result and I could finally see the end of this 
+Herculean task coming into view.
+
+However, I could see from the log file that something still wasn't quite right.
+
+
+The Next Part, In Which Things Start Getting LUN-ey
+---------------------------------------------------
+
+The problem was one of too much success.  It wasn't going through the set of 
+INQUIRY, MODE SENSE, MODE SELECT, READ CAPACITY and READ commands just once, it 
+was doing it *eight* times.  And in looking for the culprit, I found the 
+following tidbit:
+
+CCE5: EE DC C8  INC  $C8DC   ; Increment a counter
+CCE8: AD DC C8  LDA  $C8DC
+CCEB: C9 08     CMP  #$08
+CCED: D0 B0     BNE  $CC9F   ; Loop back if we haven't checked 8 times yet
+
+It wasn't obvious on first examination, but I eventually figured out that 
+location $C8DC was being put into byte one of every command being sent over the 
+SCSI bus--as I could see the INQUIRY command was changing every time it was 
+called like so:
+
+12 00 00 00 1E 00
+12 20 00 00 1E 00
+12 40 00 00 1E 00
+12 60 00 00 1E 00
+12 80 00 00 1E 00
+12 A0 00 00 1E 00
+12 C0 00 00 1E 00
+12 E0 00 00 1E 00
+
+And so, after more digging into the hard disk interface document, I could see 
+that the field being modified was called the Logical Unit Number, or LUN for 
+short.  Further, hard disks conforming to the SCSI-2 and SCSI-3 had a 
+commandment, that being as follows:
+
+The LUN Shall Be Zero, And Zero Shall The LUN Be.  It Shall Be No Other Number 
+Save For Zero, For Any Other Number Shall Be An Abomination Before The Drive.
+
+Well, going by simple logic, it would appear that the SCSI-1 protocol was not 
+bound by such a rule, and so you could have eight Logical Units for each SCSI 
+device on the bus.  But this presents an interesting challenge.  We need to 
+tell the firmware to pound sand for all but one LUN.
+
+
+Failure Is An Option
+--------------------
+
+And so I found myself in the position of needing to have the hard drive 
+emulation fail in a meaningful way; which sounds like an oxymoron but really 
+isn't.  I needed to code the hard drive emulation to respond with a CHECK SENSE 
+message, which is how, I eventually discovered, that you signal an error 
+condition in the SCSI protocol.  When I did this, the firmware then sent a 
+REQUEST SENSE command, which I wasn't sure how to craft a response that would 
+signal failure for an invalid LUN.  Responding with all zeroes didn't signal 
+failure as I hoped it would, so it was back to the hard disk interface document 
+to find the missing information.
+
+There I found out that byte two of the response is a four-bit "Sense Key", and 
+that zero corresponds to "No Sense", which means the command was successful.  
+Which, as it turns out, is no way to signal failure.  The one that fit the bill 
+was five, which corresponds to "Illegal Request".
+
+And so it seems that 16 Sense Keys was not enough for the designers of the SCSI 
+protocol, so those Sense Keys correspond to broad categories.  To give even 
+more fine-grained responses to what went wrong, there are at least two more 
+eight-bit bytes called the "Additional Sense Code" and "Additional Sense Code 
+Qualifier", which, taken together, provide for 65,536 different combinations.  
+And, in the interface document, I found $08 $00 which corresponds to "Logical 
+Unit Communication Failure" which seemed like a reasonable message for this 
+failure mode.
+
+Coding up the meaningful failure path and running the emulation showed that 
+this mostly satisfied the firmware; it would almost get all the way to the 
+point where it attempted to read block zero from the hard drive in a 
+non-failure mode, but there was still a small problem.
+
+
+Every Problem Is Small, From A Certain Point Of View
+----------------------------------------------------
+
+There is a call in the bank 3:1 code that calls bank 4:0 to read a block from 
+the disk and do some analysis on what it finds.  The logs also showed that this 
+code was also doing a lot of writing to slot I/O register $F.  Much of it being 
+calls to the following brief routine:
+
+CFB4: AD 86 C8  LDA  $C886   ; Get the value in $C886
+CFB7: 4A        LSR  A       ; Shift the hi nybble to the lo nybble
+CFB8: 4A        LSR  A
+CFB9: 4A        LSR  A
+CFBA: 4A        LSR  A
+CFBB: 09 08     ORA  #$08    ; Set the high bit of the lo nybble
+CFBD: 9D 6F C0  STA  $C06F,X ; & store it in slot I/O register $F
+CFC0: 60        RTS
+
+This was some highly suggestive code, and what it suggested was that it was 
+using three bits of a value set up elsewhere which made for eight combinations.
+The only significant loose end, as far as the hardware was concerned, was the 
+8K static RAM; in all of the analysis I had done up to this point, it *seemed* 
+that only 1K of it was ever used.  But this code suggested otherwise.
+
+It was suggesting that slot I/O register $F was a bank select soft switch for 
+the 8K static RAM; once I coded it up as such, the firmware was then completely 
+satisfied and would get all the way to where it attempted to read block zero 
+from the hard drive in a non-failure mode.
+
+
+The End Is Nigh
+---------------
+
+And so, having studiously and painstakingly laid the foundation for the actual 
+purpose of the hard drive emulation--that being the transfer of data to and 
+from the thing--I came at last to the part where I had to actually write code 
+to have real data flowing to and from the emulated hard disk.  And this, as it 
+turns out, was the least interesting part of the whole thing; getting the 
+contents of files into memory and parsing them is a really trivial thing and 
+usually quite boring.
+
+So in writing this bit of code, I used 4am's "Pitch Dark" hard drive image, and 
+added the necessary code to serve up appropriate slices of it in response to 
+the firmware's READ command.  And, of course, after running the new emulation 
+it failed to load anything.
+
+It was then that I remembered that I sent back messages of all zeroes to 
+requests from commands, for the most part, with a few exceptions.  One of these 
+that was sure to cause problems without a proper response was the READ CAPACITY 
+command.  When the firmware inquired about the size of the hard drive, the 
+emulator would happily tell it that it had zero capacity--which meant that any 
+attempted reads by the firmware would be out of range.
+
+So I coded up a proper response for the size of the hard drive image I was 
+using and fired up the emulator and...  It still didn't work.  The logs told me 
+that it was sending a ten-byte command, and one I hadn't seen before, which was 
+basically the ten-byte variant of the READ command.  Once I had *that* coded up 
+properly, I fired up the emulator and after a few seconds, found myself in the 
+monitor.
+
+What?  Why?  How does this even--
+
+To quell the questions that were pooling up in my head I wrote some hooks into 
+the emulator to trigger a code trace at the appropriate time; that being where 
+the code transfered control to memory address $801, the ostensible location 
+where the firmware allegedly read from block zero and placed it in memory at 
+$800.  And I knew that it was getting to that point successfully because the 
+firmware doesn't get there unless everything is working on the SCSI bus as it 
+should, and the trace in the log file confirmed this.
+
+There are worse things than being dumped into the Apple II monitor; at least I 
+could poke around memory and disassemble things to try to figure out what was 
+going wrong.  And I could see that the block that was loaded into memory was 
+looking at the slot ROM for a certain value that caused it to take a branch 
+that landed it in a crash zone.  This made no sense whatsoever.
+
+Fortunately for me though, I have the ability to disassemble a snapshot of any 
+memory range that I desire--so I disassembled the entire block from $800 to 
+$9FF.  And what I saw there was still strange; near the end of the block it 
+just kind of ran out of instructions, like something was missing.  And looking 
+near the middle of the block, I saw something eerily similar to what I saw at 
+the end.
+
+Then I realized it wasn't similar, it was *identical*.  Looking through the 
+hard drive emulator code, I was not surprised to find this:
+
+static uint8_t * buf;
+static uint8_t bufPtr;
+
+Yes, I had made a rookie mistake of using too small of a value for my buffer 
+pointer; it was loading the correct block, but, because the buffer pointer was 
+only eight bits wide, it only copied the first 256 bytes out of the hard drive 
+image *twice*.
+
+As embarrassing as this was, it was also good news, as it meant that firmware 
+bootstrap code was working; it was reading real data from the hard drive 
+emulation and running correctly.  Which meant that once I fixed the size of my 
+buffer pointer, the emulated hard drive should boot up correctly.
+
+And once I coded up the fix and started up the emulator once more, after six or 
+so seconds, "Pitch Dark" came up on the screen and it was glorious...
+
+
+Sic Transit Gloria Mundi
+------------------------
+
+I was able to navigate forward and back through the various games on the hard 
+drive image; I could even view the artwork that came with each one.  And lo and 
+behold: the games worked!
+
+I was playing through a bit Wishbringer when I got to a point where I wanted to 
+save my game.  And, even though there was no WRITE command hooked up yet, I 
+tried it anyway and got a nice hard lockup on the emulator.  This would never 
+do--to have a hard disk that was read-only--so I coded up the WRITE command 
+handler.
+
+And upon booting up the hard drive, it looked like it was OK, only there were 
+problems; namely, while you could navigate through the various games, you could 
+not launch them.  As a matter of fact, the only game that *could* be launched 
+was Zork I, which was the first game to pop up on the menu.  So after looking 
+the code, I noticed that there was an asymmetry in the ports used for reading 
+and writing to the SCSI bus.  Which requires a brief digression into data 
+transference.
+
+
+To DMA, Or Not To DMA, That Is The Question
+-------------------------------------------
+
+As it turns out, I was finally able to figure out that the physical DMA on/off 
+switch on the card was wired to bit 6 of slot I/O register $C.  I further found 
+out that, since I was defaulting to zero for any unknown bit in the slot I/O 
+registers, that it was treating the DMA switch as if it were in the off 
+position.  However, even so, the firmware was still treating this as a DMA 
+transfer.
+
+And, looking at the 53C80 manual, I could see that it supported three distinct 
+kinds of bus I/O: Programmed I/O (or PIO for short), Direct Memory Access (or 
+DMA for short) and Pseudo DMA.  Of these three, PIO is the slowest, as it 
+relies 100% on handshaking on the SCSI bus for data transfer, while DMA is the 
+fastest, as all you need to do is set some registers and tell the 53C80 to go 
+and it handles the transfer all in the background without the need for any 
+intervention from the CPU whatsoever. But what the firmware was doing, in this 
+DMA switch in the off position mode, was Pseudo DMA.
+
+How it works for reading data from the SCSI bus is that the CPU monitors bit 6 
+(DMA REQ) in the slot I/O register $5, then reads the data that shows up in 
+slot I/O register $6 when the DMA REQ bit is asserted.  For this kind of 
+transfer to work, however, there must be some kind of address decoding that 
+will assert the DACK (Dma ACKnowledge) line once the data is read.  Because 
+this code works, we can logically deduce that the read to slot I/O register $6 
+is wired to produce this signal, even if we can't prove it conclusively through 
+the schematic of the card.
+
+Writing works in a similar manner by monitoring the DMA REQ line, but instead 
+of writing to slot I/O register $6 (which is a trigger for starting a DMA 
+transfer) it writes to slot I/O register $0.  And, as we inferred through logic 
+about the setting of the DACK line in the reading case, we can similarly infer 
+that the DACK line is being set in a similar manner in the writing case.
+
+The upshot is, even though Pseudo DMA transfers are still CPU intensive, they 
+are faster than PIO transfers.  And when it comes to relatively slow CPUs like 
+the 65C02, faster is better.
+
+
+And They All Lived Happily Ever After-ish
+-----------------------------------------
+
+So in looking at the code for the WRITE command, I could see that I had it 
+using register $6 for the data transfer, which, as we can see from the short 
+digression above, won't work.  Fixing this to look at the correct register ($0) 
+brought things into alignment, and a thorough test of "Pitch Dark" confirmed 
+that I had indeed solved the problem.
+
+So, in the final analysis, I was finally able to restore decency to Apple2 and 
+play "Pitch Dark" on it to boot.  But was it worth it?  In my opinion the 
+answer is an unequivocal "yes", and not just because it enables the use of hard 
+drive images in emulators.
+
+The reason this little exercise in digital archaeology was worth the effort 
+expended is that it underscores a problem that seems to have gone largely 
+underappreciated: the early microcomputers, in some respects, are very well 
+documented; however, in many others, they are not--and the knowledge of exactly 
+how they worked is in danger of disappearing.  The fact that the documentation 
+for the Apple High Speed SCSI card is of a consumer oriented nature with very 
+little technical content was of little use in figuring out how it really 
+worked, and shows a marked contrast to the early days of Apple where they 
+published very detailed information about their computers and how they worked, 
+including schematics and source code.
+
+All that is to say that unless those of us who still remember these artifacts 
+and have the ability to analyze them to tease out their inner workings actually 
+*do* so, these things *will* disappear, and they will pass out of human memory 
+forever.
+
+
+--------------
+v1.0: 6/3/2019
+v1.1: 1/10/2020
