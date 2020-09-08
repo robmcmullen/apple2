@@ -626,7 +626,7 @@ void InstallHardDrive(uint8_t slot)
 	hdData = ReadFile(fnBuf, &size);
 
 	if (hdData)
-		WriteLog("HD: Read Hard Drive image file, %u bytes ($%X)\n", size - 0x40, size - 0x40);
+		WriteLog("HD: Read Hard Drive image file '%s', %u bytes ($%X)\n", settings.hd[0], size - 0x40, size - 0x40);
 	else
 		WriteLog("HD: Could not read Hard Drive image file!\n");
 }

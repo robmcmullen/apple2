@@ -3,6 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include <stdint.h>
+#include "font10pt.h"
 
 enum ObjectType { OTNone = 0, OTCheckBox, OTLineEdit, OTDraggable, OTCount };
 
@@ -36,14 +37,26 @@ struct LineEdit {
 
 struct Draggable {
 	OBJECT_COMMON;
+	uint8_t * spot;
 	int32_t homex, homey;
 	bool dragging;
 	SDL_Texture * img;
 	SDL_Rect dest;
-	uint8_t spot;
 
-	Draggable(): type(OTDraggable), hovered(false), homex(0), homey(0), dragging(false), img(0), spot(0) { r.x = r.y = r.w = r.h = 0; }
-	Draggable(int32_t xx, int32_t yy, int32_t w, int32_t h, SDL_Texture * i = 0): type(OTDraggable), hovered(false), homex(xx), homey(yy), dragging(false), img(i), spot(0) { r.x = xx; r.y = yy; r.w = w; r.h = h; }
+	Draggable(): type(OTDraggable), hovered(false), spot(0), homex(0), homey(0), dragging(false), img(0) { r.x = r.y = r.w = r.h = 0; }
+	Draggable(int32_t xx, int32_t yy, int32_t w, int32_t h, uint8_t * s = 0, SDL_Texture * i = 0): type(OTDraggable), hovered(false), spot(s), homex(xx), homey(yy), dragging(false), img(i)
+	{
+		r.x = xx;
+		r.y = yy;
+		r.w = w;
+		r.h = h;
+
+		if ((s) && (*s != 0))
+		{
+			r.x = 120;
+			r.y = (7 + *(spot)) * FONT_HEIGHT;
+		}
+	}
 };
 
 #endif	// __ELEMENTS_H__

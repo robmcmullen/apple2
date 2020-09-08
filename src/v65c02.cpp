@@ -2287,6 +2287,7 @@ uint8_t btQueueInst[BACKTRACE_SIZE][4];
 //
 // Function to execute 65C02 for "cycles" cycles
 //
+//static bool first = true;
 void Execute65C02(V65C02REGS * context, uint32_t cycles)
 {
 	regs = context;
@@ -2296,6 +2297,29 @@ void Execute65C02(V65C02REGS * context, uint32_t cycles)
 
 	while (regs->clock < endCycles)
 	{
+// Hard disk debugging
+#if 0
+if (first && (regs->pc == 0x801))
+{
+	regs->WrMem(0x42, 1);
+	regs->WrMem(0x44, 0);
+	first = false;
+}
+else if (regs->pc == 0x869)
+{
+/*	regs->WrMem(0x42, 1);
+	first = false;//*/
+/*	static char disbuf[80];
+	uint16_t pc=0x801;
+	while (pc < 0xA00)
+	{
+		pc += Decode65C02(regs, disbuf, pc);
+		WriteLog("%s\n", disbuf);
+	}*/
+/*	dumpDis = true;
+	WriteLog("\n>>> $42-7: %02X %02X %02X %02X %02X %02X\n\n", regs->RdMem(0x42), regs->RdMem(0x43), regs->RdMem(0x44), regs->RdMem(0x45), regs->RdMem(0x46), regs->RdMem(0x47));//*/
+}
+#endif
 #if 0
 //Epoch
 if (regs->pc == 0x0518)

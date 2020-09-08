@@ -20,6 +20,8 @@ class DiskSelector
 		static void ReadManifest(FILE *, DiskSet *);
 		static bool CheckManifest(const char *, DiskSet *);
 		static bool HasLegalExtension(const char *);
+		static void FindHardDisks();
+		static void FindHardDisks(const char *);
 		static void DrawFilenames(SDL_Renderer *);
 		static void ShowWindow(int);
 		static void HideWindow(void);

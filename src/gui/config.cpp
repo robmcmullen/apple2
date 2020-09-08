@@ -118,7 +118,15 @@ static const char slotNum[7][(5 * 5) + 1] =
 };
 
 //static uint8_t card1[(96 * 11) + 1] = { 0 };
+/*
+0123456789ABCDEF
+----------------
+@ABCDEFGHIJKLMNO
+PQRSTUVWXYZ
 
+m zorched to D ($6D -> $44) [0110 1101 -> 0100 0100]
+
+*/
 
 void Config::Init(SDL_Renderer * renderer)
 {
@@ -158,7 +166,7 @@ void Config::Init(SDL_Renderer * renderer)
 	SDL_SetRenderTarget(renderer, cardTex[2]);
 	GUI::DrawString(renderer, 6, 0, "SCSI");
 
-	cardBay =  SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 123, 99);
+	cardBay = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 123, 99);
 	SDL_SetTextureBlendMode(cardBay, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderTarget(renderer, cardBay);
 	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
@@ -183,11 +191,11 @@ void Config::Init(SDL_Renderer * renderer)
 	objList.push_back(new CheckBox(1, 27, &cbnChecked, cbnText));
 
 	objList.push_back(new LineEdit(1, 6, le1, 48, le1Text));
-	objList.push_back(new Draggable(1 * FONT_WIDTH, 8 * FONT_HEIGHT, 96, 11, cardTex[0]));
-	objList.push_back(new Draggable(1 * FONT_WIDTH, 9 * FONT_HEIGHT, 96, 11, cardTex[0]));
-	objList.push_back(new Draggable(1 * FONT_WIDTH, 10 * FONT_HEIGHT, 96, 11, cardTex[1]));
-	objList.push_back(new Draggable(1 * FONT_WIDTH, 11 * FONT_HEIGHT, 96, 11, cardTex[1]));
-	objList.push_back(new Draggable(1 * FONT_WIDTH, 12 * FONT_HEIGHT, 96, 11, cardTex[2]));
+	objList.push_back(new Draggable(1 * FONT_WIDTH, 8 * FONT_HEIGHT, 96, 11, &settings.cardSlot[0], cardTex[0]));
+	objList.push_back(new Draggable(1 * FONT_WIDTH, 9 * FONT_HEIGHT, 96, 11, &settings.cardSlot[1], cardTex[0]));
+	objList.push_back(new Draggable(1 * FONT_WIDTH, 10 * FONT_HEIGHT, 96, 11, &settings.cardSlot[2], cardTex[1]));
+	objList.push_back(new Draggable(1 * FONT_WIDTH, 11 * FONT_HEIGHT, 96, 11, &settings.cardSlot[3], cardTex[1]));
+	objList.push_back(new Draggable(1 * FONT_WIDTH, 12 * FONT_HEIGHT, 96, 11, &settings.cardSlot[4], cardTex[2]));
 }
 
 
@@ -275,17 +283,19 @@ void Config::MouseUp(int32_t x, int32_t y, uint32_t buttons)
 			{
 				d->dragging = false;
 
-				if ((d->r.x > 120) && (d->r.x < 220) && (d->r.y > (8 * FONT_HEIGHT)) && (d->r.y < (15 * FONT_HEIGHT)))
+				if ((d->r.x > 120) && (d->r.x < 220)
+					&& (d->r.y > (8 * FONT_HEIGHT))
+					&& (d->r.y < (15 * FONT_HEIGHT)))
 				{
-					d->spot = ((d->r.y - (8 * FONT_HEIGHT)) / FONT_HEIGHT) + 1;
+					*(d->spot) = ((d->r.y - (8 * FONT_HEIGHT)) / FONT_HEIGHT) + 1;
 					d->r.x = 120;
-					d->r.y = (7 + d->spot) * FONT_HEIGHT;
+					d->r.y = (7 + *(d->spot)) * FONT_HEIGHT;
 				}
 				else
 				{
 					d->r.x = d->homex;
 					d->r.y = d->homey;
-					d->spot = 0;
+					*(d->spot) = 0;
 				}
 
 				refresh = true;

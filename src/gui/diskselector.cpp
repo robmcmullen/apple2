@@ -115,6 +115,7 @@ SDL_Texture * scrollLeftIcon = NULL;
 SDL_Texture * scrollRightIcon = NULL;
 bool DiskSelector::showWindow = false;
 std::vector<FileStruct> fsList;
+std::vector<FileStruct> hdList;
 
 
 void DiskSelector::Init(SDL_Renderer * renderer)
@@ -139,6 +140,7 @@ void DiskSelector::Init(SDL_Renderer * renderer)
 
 	SDL_UpdateTexture(window, NULL, windowPixels, DS_WIDTH * sizeof(Uint32));
 	FindDisks();
+	FindHardDisks();
 	DrawFilenames(renderer);
 }
 
@@ -156,8 +158,12 @@ void DiskSelector::FindDisks(void)
 	WriteLog("GUI (DiskSelector)::FindDisks(): # of columns is %i (%i files)\n", numColumns, fsList.size());
 }
 
+
 /*
-OK, so the way that you can determine if a file is a directory in a cross-platform way is to do an opendir() call on a discovered filename.  If it returns NULL, then it's a regular file and not a directory.  Though I think the Linux method is more elegant.  :-P
+OK, so the way that you can determine if a file is a directory in a cross-
+platform way is to do an opendir() call on a discovered filename.  If it
+returns NULL, then it's a regular file and not a directory.  Though I think the
+Linux method is more elegant.  :-P
 */
 //
 // Find all disks images within path (recursive call does depth first search)
@@ -353,6 +359,71 @@ bool DiskSelector::HasLegalExtension(const char * name)
 		return true;
 
 	return false;
+}
+
+
+//
+// Find all disks images top level call
+//
+void DiskSelector::FindHardDisks(void)
+{
+	hdList.clear();
+	FindHardDisks(settings.disksPath);
+	std::sort(hdList.begin(), hdList.end(), FileStruct());
+	WriteLog("GUI (DiskSelector)::FindHardDisks(): # of HDs is %i\n", hdList.size());
+}
+
+
+//
+// Find all hard disk images within path (recursive call does depth first search)
+//
+void DiskSelector::FindHardDisks(const char * path)
+{
+	DIR * dir = opendir(path);
+
+	if (!dir)
+	{
+		WriteLog("GUI (DiskSelector)::FindHardDisks: Could not open directory \"%s\%!\n", path);
+		return;
+	}
+
+	dirent * ent;
+
+	while ((ent = readdir(dir)) != NULL)
+	{
+		char buf[0x10000];
+		sprintf(buf, "%s/%s", path, ent->d_name);
+
+		// Cross-platform way to test if it's a directory (test = NULL -> file)
+		DIR * test = opendir(buf);
+
+		if (test == NULL)
+		{
+			const char * ext = strrchr(ent->d_name, '.');
+
+			if ((ext != NULL) && (strcasecmp(ext, ".2mg") == 0))
+			{
+				FileStruct fs;
+				fs.image = ent->d_name;
+				fs.fullPath = buf;
+				hdList.push_back(fs);
+			}
+		}
+		else
+		{
+			// Make sure we close the thing, since it's a bona-fide dir!
+			closedir(test);
+
+			// Only recurse if the directory is not one of the special ones...
+			if ((strcmp(ent->d_name, "..") != 0)
+				&& (strcmp(ent->d_name, ".") != 0))
+			{
+				FindHardDisks(buf);
+			}
+		}
+	}
+
+	closedir(dir);
 }
 
 

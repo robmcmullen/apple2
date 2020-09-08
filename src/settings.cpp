@@ -68,7 +68,7 @@ void LoadSettings(void)
 
 //	strcpy(settings.BIOSPath, sdlemu_getval_string("BIOSROM", "./ROMs/apple2e-enhanced.rom"));
 	strcpy(settings.disksPath, GetValue("disks", "./disks/"));
-	strcpy(settings.hd[0], GetValue("harddrive1", "./disks/Pitch-Dark-20180731.2mg"));
+	strcpy(settings.hd[0], GetValue("harddrive1", ""));
 	strcpy(settings.hd[1], GetValue("harddrive2", ""));
 	strcpy(settings.hd[2], GetValue("harddrive3", ""));
 	strcpy(settings.hd[3], GetValue("harddrive4", ""));
@@ -76,6 +76,12 @@ void LoadSettings(void)
 	strcpy(settings.hd[5], GetValue("harddrive6", ""));
 	strcpy(settings.hd[6], GetValue("harddrive7", ""));
 	strcpy(settings.autoStatePath, GetValue("autoStateFilename", "./apple2auto.state"));
+
+	settings.cardSlot[0] = GetValue("card1", 6);	// Disk ][
+	settings.cardSlot[1] = GetValue("card2", 0);	// Disk ][
+	settings.cardSlot[2] = GetValue("card3", 4);	// Mockingboard
+	settings.cardSlot[3] = GetValue("card4", 0);	// Mockingboard
+	settings.cardSlot[4] = GetValue("card5", 0);	// AHSSCSI
 
 	CheckForTrailingSlash(settings.disksPath);
 }
@@ -107,6 +113,11 @@ void SaveSettings(void)
 	SetValue("harddrive5", settings.hd[4]);
 	SetValue("harddrive6", settings.hd[5]);
 	SetValue("harddrive7", settings.hd[6]);
+	SetValue("card1", settings.cardSlot[0]);
+	SetValue("card2", settings.cardSlot[1]);
+	SetValue("card3", settings.cardSlot[2]);
+	SetValue("card4", settings.cardSlot[3]);
+	SetValue("card5", settings.cardSlot[4]);
 
 	UpdateConfigFile();
 }
