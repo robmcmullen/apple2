@@ -79,6 +79,7 @@ void SoundInit(void)
 	if (device == 0)
 	{
 		WriteLog("Sound: Failed to initialize SDL sound.\n");
+		WriteLog("SDL sez: %s\n", SDL_GetError());
 		return;
 	}
 
