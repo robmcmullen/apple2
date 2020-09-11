@@ -362,7 +362,7 @@ void InstallSlotHandler(uint8_t slot, SlotData * slotData)
 	// Sanity check
 	if (slot > 7)
 	{
-		WriteLog("InstallSlotHanlder: Caller attempted to put device into slot #%u...\n", slot);
+		WriteLog("InstallSlotHandler: Caller attempted to put device into slot #%u...\n", slot);
 		return;
 	}
 

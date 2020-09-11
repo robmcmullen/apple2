@@ -85,7 +85,7 @@ static bool showFrameTicks = false;
 // We set up the colors this way so that they'll be endian safe
 // when we cast them to a uint32_t. Note that the format is RGBA.
 
-// "Master Color Values" palette
+// "Master Color Values" palette (ugly, Apple engineer hand-picked colors)
 
 static uint8_t colors[16 * 4] = {
 	0x00, 0x00, 0x00, 0xFF, 			// Black
@@ -125,6 +125,69 @@ static uint8_t altColors[16 * 4] = {
 	0xBA, 0xCB, 0x7D, 0xFF,
 	0x7D, 0xDB, 0xBA, 0xFF,
 	0xFB, 0xFB, 0xFB, 0xFF };
+
+// This color palette comes from xapple2 (looks a bit shit to me  :-)
+// I've included it to have yet another point of comparison to the execrable
+// "Master Color Values" palette.
+/*
+ * https://mrob.com/pub/xapple2/colors.html
+ * detailed research into accurate colors
+                 --chroma--
+ Color name      phase ampl luma   -R- -G- -B-
+ black    COLOR=0    0   0    0      0   0   0
+ gray     COLOR=5    0   0   50    156 156 156
+ grey     COLOR=10   0   0   50    156 156 156
+ white    COLOR=15   0   0  100    255 255 255
+ dk blue  COLOR=2    0  60   25     96  78 189
+ lt blue  COLOR=7    0  60   75    208 195 255
+ purple   COLOR=3   45 100   50    255  68 253
+ purple   HCOLOR=2  45 100   50    255  68 253
+ red      COLOR=1   90  60   25    227  30  96
+ pink     COLOR=11  90  60   75    255 160 208
+ orange   COLOR=9  135 100   50    255 106  60
+ orange   HCOLOR=5 135 100   50    255 106  60
+ brown    COLOR=8  180  60   25     96 114   3
+ yellow   COLOR=13 180  60   75    208 221 141
+ lt green COLOR=12 225 100   50     20 245  60
+ green    HCOLOR=1 225 100   50     20 245  60
+ dk green COLOR=4  270  60   25      0 163  96
+ aqua     COLOR=14 270  60   75    114 255 208
+ med blue COLOR=6  315 100   50     20 207 253
+ blue     HCOLOR=6 315 100   50     20 207 253
+ NTSC Hsync          0   0  -40      0   0   0
+ NTSC black          0   0    7.5   41  41  41
+ NTSC Gray75         0   0   77    212 212 212
+ YIQ +Q             33 100   50    255  81 255
+ NTSC magenta       61  82   36    255  40 181
+ NTSC red          104  88   28    255  28  76
+ YIQ +I            123 100   50    255  89  82
+ NTSC yellow       167  62   69    221 198 121
+ Color burst       180  40   0       0   4   0
+ YIQ -Q            213 100   50     51 232  41
+ NTSC green        241  82   48     12 234  97
+ NTSC cyan         284  88   56     10 245 198
+ YIQ -I            303 100   50      0 224 231
+ NTSC blue         347  62   15     38  65 155
+*/
+
+static uint8_t robColors[16 * 4] = {
+	0x00, 0x00, 0x00, 0xFF, // Black
+	0xE3, 0x1E, 0x60, 0xFF, // Deep Red (Magenta) 227  30  96
+	0x60, 0x4E, 0xBD, 0xFF, // Dark Blue 96  78 189
+	0xFF, 0x44, 0xFD, 0xFF, // Purple (Violet) 255  68 253
+	0x00, 0xA3, 0x60, 0xFF, // Dark Green 0 163  96
+	0x9C, 0x9C, 0x9C, 0xFF, // Dark Gray (Gray 1) 156 156 156
+	0x14, 0xCF, 0xFD, 0xFF, // Medium Blue (Blue)  20 207 253
+	0xD0, 0xC3, 0xFF, 0xFF, // Light Blue (Cyan) 208 195 255
+	0x60, 0x72, 0x03, 0xFF, // Brown 96 114   3
+	0xFF, 0x6A, 0x3C, 0xFF, // Orange 255 106  60
+	0xD4, 0xD4, 0xD4, 0xFF, // Light Gray (Gray 2) 212 212 212
+	0xFF, 0xA0, 0xD0, 0xFF, // Pink 255 160 208
+	0x14, 0xF5, 0x3C, 0xFF, // Light Green (Green) 20 245  60
+	0xD0, 0xDD, 0x8D, 0xFF, // Yellow 208 221 141
+	0x72, 0xFF, 0xD0, 0xFF, // Aquamarine (Aqua) 114 255 208
+	0xFF, 0xFF, 0xFF, 0xFF  // White
+};
 
 // Lo-res starting line addresses
 
@@ -300,7 +363,12 @@ void TogglePalette(void)
 	if (palette == (uint32_t *)colors)
 	{
 		palette = (uint32_t *)altColors;
-		SpawnMessage("Color TV palette");
+		SpawnMessage("ApplePC Color TV palette");
+	}
+	else if (palette == (uint32_t *)altColors)
+	{
+		palette = (uint32_t *)robColors;
+		SpawnMessage("Rob's Color TV palette");
 	}
 	else
 	{
@@ -629,31 +697,6 @@ fb fb fb -> 15 [1111] -> 15		WHITE
 */
 	uint8_t mirrorNybble[16] = { 0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15 };
 
-//This is the old "perfect monitor" rendering code...
-/*	if (screenType != ST_COLOR_TV) // Not correct, but for now...
-//if (1)
-	{
-		for(uint16_t y=0; y<toLine; y++)
-		{
-			for(uint16_t x=0; x<40; x++)
-			{
-				uint8_t scrByte = ram[lineAddrLoRes[y] + (displayPage2 ? 0x0400 : 0x0000) + x];
-				uint32_t pixel = palette[scrByte & 0x0F];
-
-				for(int cy=0; cy<4; cy++)
-					for(int cx=0; cx<14; cx++)
-						scrBuffer[((x * 14) + cx) + (((y * 8) + cy) * VIRTUAL_SCREEN_WIDTH)] = pixel;
-
-				pixel = palette[scrByte >> 4];
-
-				for(int cy=4; cy<8; cy++)
-					for(int cx=0; cx<14; cx++)
-						scrBuffer[(x * 14) + (y * VIRTUAL_SCREEN_WIDTH * 8) + cx + (cy * VIRTUAL_SCREEN_WIDTH)] = pixel;
-			}
-		}
-	}
-	else//*/
-
 	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
 
 	for(uint16_t y=0; y<toLine; y++)
@@ -936,8 +979,6 @@ FB FB FB -> 15 [1111] -> 15		WHITE
 
 static void RenderHiRes(uint16_t toLine/*= 192*/)
 {
-//printf("RenderHiRes to line %u\n", toLine);
-// NOTE: Not endian safe. !!! FIX !!! [DONE]
 #if 0
 	uint32_t pixelOn = (screenType == ST_WHITE_MONO ? 0xFFFFFFFF : 0xFF61FF61);
 #else
@@ -964,12 +1005,6 @@ static void RenderHiRes(uint16_t toLine/*= 192*/)
 			previousLoPixel = (screenByte << 2) & 0x0100;
 
 			pixels = previous3bits | (pixels << 14) | pixels2;
-
-//testing (this shows on the screen, so it's OK)
-//if (x == 0)
-//{
-//	pixels = 0x7FFFFFFF;
-//}
 
 			// We now have 28 pixels (expanded from 14) in word: mask is $0F FF FF FF
 			// 0ppp 1111 1111 1111 1111 1111 1111 1111
@@ -1154,16 +1189,6 @@ bool InitVideo(void)
 		return false;
 	}
 
-#if 0
-	int retVal = SDL_CreateWindowAndRenderer(VIRTUAL_SCREEN_WIDTH * 2, VIRTUAL_SCREEN_HEIGHT * 2, 0, &sdlWindow, &sdlRenderer);
-//	int retVal = SDL_CreateWindowAndRenderer(VIRTUAL_SCREEN_WIDTH * 1, VIRTUAL_SCREEN_HEIGHT * 1, 0, &sdlWindow, &sdlRenderer);
-
-	if (retVal != 0)
-	{
-		WriteLog("Video: Could not create window and/or renderer: %s\n", SDL_GetError());
-		return false;
-	}
-#else
 	sdlWindow = SDL_CreateWindow("Apple2", settings.winX, settings.winY, VIRTUAL_SCREEN_WIDTH * 2, VIRTUAL_SCREEN_HEIGHT * 2, 0);
 
 	if (sdlWindow == NULL)
@@ -1179,7 +1204,6 @@ bool InitVideo(void)
 		WriteLog("Video: Could not create renderer: %s\n", SDL_GetError());
 		return false;
 	}
-#endif
 
 	// Make sure what we put there is what we get:
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");

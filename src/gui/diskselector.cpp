@@ -401,7 +401,9 @@ void DiskSelector::FindHardDisks(const char * path)
 		{
 			const char * ext = strrchr(ent->d_name, '.');
 
-			if ((ext != NULL) && (strcasecmp(ext, ".2mg") == 0))
+			if ((ext != NULL)
+				&& ((strcasecmp(ext, ".2mg") == 0)
+					|| (strcasecmp(ext, ".hdv") == 0)))
 			{
 				FileStruct fs;
 				fs.image = ent->d_name;

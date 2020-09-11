@@ -222,7 +222,7 @@ static void RunDevice(void)
 				SetNextState(DVM_DATA_IN);
 				bytesToSend = cmd[4] * 512; // amount is set in blocks
 				uint32_t lba = ((cmd[1] & 0x1F) << 16) | (cmd[2] << 8) | cmd[3];
-				buf = (hdData != NULL ? &hdData[(lba * 512) + 0x40] : NULL);
+				buf = (hdData != NULL ? &hdData[lba * 512] : NULL);
 				bufPtr = 0;
 			}
 			// Handle "Inquire" command
@@ -280,7 +280,7 @@ static void RunDevice(void)
 				SetNextState(DVM_DATA_IN);
 				bytesToSend = ((cmd[7] << 8) | cmd[8]) * 512; // amount is set in blocks
 				uint32_t lba = (cmd[2] << 24) | (cmd[3] << 16) | (cmd[4] << 8) | cmd[5];
-				buf = (hdData != NULL ? &hdData[(lba * 512) + 0x40] : NULL);
+				buf = (hdData != NULL ? &hdData[lba * 512] : NULL);
 				bufPtr = 0;
 			}
 			// Handle "Write" (10) command
@@ -291,7 +291,7 @@ static void RunDevice(void)
 				SetNextState(DVM_DATA_OUT);
 				bytesToSend = ((cmd[7] << 8) | cmd[8]) * 512; // amount is set in blocks
 				uint32_t lba = (cmd[2] << 24) | (cmd[3] << 16) | (cmd[4] << 8) | cmd[5];
-				buf = (hdData != NULL ? &hdData[(lba * 512) + 0x40] : NULL);
+				buf = (hdData != NULL ? &hdData[lba * 512] : NULL);
 				bufPtr = 0;
 			}
 			else
@@ -621,13 +621,31 @@ void InstallHardDrive(uint8_t slot)
 	char fnBuf[MAX_PATH + 1];
 
 	// If this fails to read the file, the pointer is set to NULL
-	uint32_t size = 0;
+	uint32_t size = 0, skip = (uint32_t)-1;
 	sprintf(fnBuf, "%s%s", settings.disksPath, settings.hd[0]);
-	hdData = ReadFile(fnBuf, &size);
+
+	// Check to see which type of HD image we have...
+	char * ext = strrchr(settings.hd[0], '.');
+
+	if (ext != NULL)
+	{
+		if (strcasecmp(ext, ".2mg") == 0)
+			skip = 0x40;
+		else if (strcasecmp(ext, ".hdv") == 0)
+			skip = 0;
+	}
+
+	if (skip == (uint32_t)-1)
+	{
+		hdData = NULL;
+		WriteLog("HD: Unknown HD image file: %s\n", settings.hd[0]);
+		return;
+	}
+
+	hdData = ReadFile(fnBuf, &size, skip);
 
 	if (hdData)
-		WriteLog("HD: Read Hard Drive image file '%s', %u bytes ($%X)\n", settings.hd[0], size - 0x40, size - 0x40);
+		WriteLog("HD: Read Hard Drive image file '%s', %u bytes ($%X)\n", settings.hd[0], size, size);
 	else
 		WriteLog("HD: Could not read Hard Drive image file!\n");
 }
-

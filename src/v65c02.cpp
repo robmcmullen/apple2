@@ -2301,9 +2301,11 @@ void Execute65C02(V65C02REGS * context, uint32_t cycles)
 #if 0
 if (first && (regs->pc == 0x801))
 {
-	regs->WrMem(0x42, 1);
-	regs->WrMem(0x44, 0);
+//	regs->WrMem(0x42, 1); // v3.0 does this now...
+	regs->WrMem(0x44, 0); // who writes non-zero to here??? (AHSSC does)
 	first = false;
+//	dumpDis = true;
+//WriteLog("V65C02: Executing $801...\n");
 }
 else if (regs->pc == 0x869)
 {

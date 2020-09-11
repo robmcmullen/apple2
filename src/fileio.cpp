@@ -33,7 +33,7 @@ uint8_t standardTMAP[160] = {
 //
 // sizePtr is optional
 //
-uint8_t * ReadFile(const char * filename, uint32_t * sizePtr/*= NULL*/)
+uint8_t * ReadFile(const char * filename, uint32_t * sizePtr/*= NULL*/, uint32_t skip/*= 0*/)
 {
 	FILE * fp = fopen(filename, "rb");
 
@@ -43,6 +43,12 @@ uint8_t * ReadFile(const char * filename, uint32_t * sizePtr/*= NULL*/)
 	fseek(fp, 0, SEEK_END);
 	uint32_t size = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
+
+	if (skip > 0)
+	{
+		fseek(fp, skip, SEEK_CUR);
+		size -= skip;
+	}
 
 	uint8_t * buffer = (uint8_t *)malloc(size);
 	fread(buffer, 1, size, fp);
